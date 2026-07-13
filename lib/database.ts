@@ -120,7 +120,7 @@ const mockPlayers: Player[] = [
 
 // Helper function to check if we should use mock data
 const shouldUseMockData = () => {
-  return !process.env.NEW_NEXT_PUBLIC_SUPABASE_URL && !process.env.SUPABASE_URL
+  return !process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEW_NEXT_PUBLIC_SUPABASE_URL && !process.env.SUPABASE_URL
 }
 
 // Championships
