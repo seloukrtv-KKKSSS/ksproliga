@@ -150,8 +150,8 @@ export async function getActiveChampionship(): Promise<Championship | null> {
   }
 
   try {
-    const { data, error } = await supabase.from("championships").select("*").eq("is_active", true).single()
-    if (error && error.code !== "PGRST116") throw error
+    const { data, error } = await supabase.from("championships").select("*").eq("is_active", true).maybeSingle()
+    if (error) throw error
     return data
   } catch (error) {
     console.warn("Database error, using mock data:", error)
