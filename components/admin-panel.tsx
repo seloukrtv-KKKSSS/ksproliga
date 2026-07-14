@@ -20,6 +20,7 @@ import {
   Trophy,
   AlertTriangle,
   Crosshair,
+  Star,
 } from "lucide-react"
 import {
   getChampionships,
