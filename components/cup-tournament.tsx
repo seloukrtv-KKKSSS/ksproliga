@@ -65,172 +65,109 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
   }
 
   if (loading) {
-    return <div className="text-center py-8 text-emerald-200">Завантаження кубкового турніру...</div>
+    return (
+      <div className="text-center py-12">
+        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-xs text-slate-500">Завантаження кубкового турніру...</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      {CUP_STAGES.map((stage) => (
-        <Card
-          key={stage}
-          className="bg-white/5 backdrop-blur-2xl border-2 border-emerald-400/30 shadow-2xl shadow-emerald-600/30 overflow-hidden rounded-3xl"
-        >
-          <CardHeader className="bg-gradient-to-r from-emerald-600/30 via-green-600/30 to-emerald-600/30 border-b-2 border-emerald-400/30 p-4 sm:p-6">
-            <CardTitle className="flex flex-col sm:flex-row items-center gap-3 text-white text-lg">
-              <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-400/50 border-2 border-white/30">
-                <Trophy className="h-5 w-5 text-white" />
-              </div>
-              <div className="text-center sm:text-left">{stage}</div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            {matches[stage]?.length === 0 ? (
-              <div className="text-center py-8 text-emerald-200">
-                <Trophy className="h-16 w-16 mx-auto mb-4 text-emerald-400 opacity-50" />
-                <div className="font-bold">Немає матчів на цій стадії</div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {matches[stage]?.map((match, index) => (
-                  <div
-                    key={index}
-                    className="bg-white/5 backdrop-blur-sm p-3 sm:p-6 rounded-3xl border-2 border-white/10 hover:bg-white/10 hover:border-emerald-400/30 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-emerald-500/20"
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                      <div className="text-sm text-emerald-200 flex flex-wrap items-center gap-2 sm:gap-4 font-semibold">
-                        <span className="text-white font-bold">{match.date}</span>
-                        {match.match_time && (
-                          <span className="flex items-center gap-2 bg-emerald-600/30 px-3 py-1 rounded-xl backdrop-blur-sm border border-emerald-400/30">
-                            <Clock className="h-3 w-3" />
-                            {match.match_time}
-                          </span>
-                        )}
-                        {match.is_technical_defeat && (
-                          <span className="flex items-center gap-2 bg-red-600/30 px-3 py-1 rounded-xl backdrop-blur-sm border border-red-400/30">
-                            <AlertTriangle className="h-3 w-3" />
-                            Технічна поразка
-                          </span>
-                        )}
-                      </div>
-                      <Badge
-                        variant={match.is_finished ? "default" : "secondary"}
-                        className={match.is_finished ? "bg-green-600 text-white" : "bg-yellow-600 text-white"}
-                      >
-                        {match.is_finished ? "Завершено" : "Заплановано"}
-                      </Badge>
-                    </div>
+      {CUP_STAGES.map((stage) => {
+        const stageMatches = matches[stage] || []
+        if (stageMatches.length === 0) return null
 
-                    {/* Mobile Match Layout */}
-                    <div className="sm:hidden space-y-4">
-                      <div className="bg-gradient-to-r from-emerald-600/20 via-green-600/20 to-emerald-600/20 p-4 rounded-2xl border border-emerald-400/30">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="w-10 h-10 bg-gradient-to-br from-white via-gray-100 to-white rounded-full shadow-lg border-2 border-emerald-400/30 flex items-center justify-center">
-                              <img
-                                src={getTeamLogo(match.home_team) || "/placeholder.svg"}
-                                alt={`${match.home_team} logo`}
-                                className="w-8 h-8 object-contain rounded-full"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-white text-base truncate">{match.home_team}</div>
-                              <div className="text-xs text-emerald-200 font-semibold">Господарі</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-center mb-3">
-                          {match.is_finished ? (
-                            <div className="bg-gradient-to-r from-white via-gray-100 to-white px-4 py-3 rounded-2xl shadow-lg border-2 border-emerald-400/50">
-                              <span className="text-slate-800 font-black text-xl">
-                                {formatMatchResult(match)}
-                                {formatPenaltyResult(match)}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="bg-gradient-to-r from-slate-700 via-emerald-700 to-slate-700 px-6 py-2 rounded-2xl shadow-lg border-2 border-emerald-400/50">
-                              <span className="text-white font-black text-lg">VS</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1 justify-end">
-                            <div className="flex-1 min-w-0 text-right">
-                              <div className="font-black text-white text-base truncate">{match.away_team}</div>
-                              <div className="text-xs text-emerald-200 font-semibold">Гості</div>
-                            </div>
-                            <div className="w-10 h-10 bg-gradient-to-br from-white via-gray-100 to-white rounded-full shadow-lg border-2 border-emerald-400/30 flex items-center justify-center">
-                              <img
-                                src={getTeamLogo(match.away_team) || "/placeholder.svg"}
-                                alt={`${match.away_team} logo`}
-                                className="w-8 h-8 object-contain rounded-full"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop Match Layout */}
-                    <div className="hidden sm:grid grid-cols-3 items-center gap-4">
-                      {/* Home Team */}
-                      <div className="flex items-center justify-end">
+        return (
+          <div key={stage} className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
+              {stage}
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {stageMatches.map((match, index) => (
+                <Card key={index} className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-3 flex-1">
+                        {/* Home Team */}
                         <div className="flex items-center gap-3">
-                          <span className="font-black text-white drop-shadow-lg tracking-wide text-sm sm:text-base text-right">
+                          <img
+                            src={getTeamLogo(match.home_team)}
+                            alt="Home Team"
+                            className="w-5 h-5 object-contain"
+                          />
+                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.home_score < match.away_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
                             {match.home_team}
                           </span>
-                          <div className="relative flex-shrink-0">
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-white via-gray-100 to-white rounded-full shadow-lg border-2 border-emerald-400/30 flex items-center justify-center">
-                              <img
-                                src={getTeamLogo(match.home_team) || "/placeholder.svg"}
-                                alt={`${match.home_team} logo`}
-                                className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-full"
-                              />
-                            </div>
-                          </div>
                         </div>
-                      </div>
-
-                      {/* Score/VS */}
-                      <div className="flex justify-center">
-                        {match.is_finished ? (
-                          <div className="bg-gradient-to-r from-white via-gray-100 to-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl sm:rounded-3xl shadow-2xl border-4 border-emerald-400/50 transform hover:scale-105 transition-all duration-300">
-                            <span className="text-slate-800 font-black text-lg sm:text-xl tracking-wider">
-                              {formatMatchResult(match)}
-                              {formatPenaltyResult(match)}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="bg-gradient-to-r from-slate-700 via-emerald-700 to-slate-700 px-6 py-3 sm:px-8 sm:py-4 rounded-3xl shadow-2xl shadow-slate-700/50 transform hover:scale-105 transition-all duration-300 border-2 border-emerald-400/50">
-                            <span className="text-white font-black text-lg sm:text-xl tracking-wider">VS</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Away Team */}
-                      <div className="flex items-center justify-start">
+                        {/* Away Team */}
                         <div className="flex items-center gap-3">
-                          <div className="relative flex-shrink-0">
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-white via-gray-100 to-white rounded-full shadow-lg border-2 border-emerald-400/30 flex items-center justify-center">
-                              <img
-                                src={getTeamLogo(match.away_team) || "/placeholder.svg"}
-                                alt={`${match.away_team} logo`}
-                                className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-full"
-                              />
-                            </div>
-                          </div>
-                          <span className="font-black text-white drop-shadow-lg tracking-wide text-sm sm:text-base">
+                          <img
+                            src={getTeamLogo(match.away_team)}
+                            alt="Away Team"
+                            className="w-5 h-5 object-contain"
+                          />
+                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.away_score < match.home_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
                             {match.away_team}
                           </span>
                         </div>
                       </div>
+
+                      {/* Score or VS */}
+                      <div className="text-right pl-4 flex-shrink-0 flex flex-col justify-center items-end">
+                        {match.is_finished ? (
+                          <div className="text-base font-bold text-slate-900">
+                            {formatMatchResult(match)}
+                            <span className="text-xs text-slate-500 block font-normal">
+                              {formatPenaltyResult(match)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-xs font-bold text-slate-400 border border-slate-200 px-2.5 py-1 rounded bg-slate-50">
+                            VS
+                          </div>
+                        )}
+                        <div className="text-[9px] text-slate-400 mt-1">
+                          {new Date(match.date).toLocaleDateString("uk-UA")}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+
+                    {/* Status & Info badges */}
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+                      <div className="flex items-center gap-2">
+                        {match.match_time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-slate-400" />
+                            {match.match_time}
+                          </span>
+                        )}
+                        {match.is_technical_defeat && (
+                          <span className="flex items-center gap-1 text-red-600 font-medium">
+                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                            Тех. поразка
+                          </span>
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 rounded ${
+                          match.is_finished
+                            ? "bg-slate-50 border-slate-200 text-slate-700"
+                            : "bg-blue-50 border-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {match.is_finished ? "Завершено" : "Заплановано"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

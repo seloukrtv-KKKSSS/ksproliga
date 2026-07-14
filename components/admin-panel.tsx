@@ -41,8 +41,15 @@ import {
   getMatchGoals,
   addMatchGoal,
   deleteMatchGoal,
+  getMatchVoting,
+  getVotingCandidates,
+  createOrUpdateVoting,
+  setVotingActiveState,
+  addVotingCandidate,
+  deleteVotingCandidate,
+  updateVotingCandidate,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchVoting, VotingCandidate } from "@/lib/supabase"
 
 interface AdminPanelProps {
   onLogout: () => void
@@ -103,6 +110,22 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
     minute: "",
     goal_type: "regular" as "regular" | "penalty" | "own_goal",
   })
+
+  // Lion of the Match state
+  const [selectedMatchForVoting, setSelectedMatchForVoting] = useState<Match | null>(null)
+  const [matchVoting, setMatchVoting] = useState<MatchVoting | null>(null)
+  const [votingCandidates, setVotingCandidates] = useState<VotingCandidate[]>([])
+  const [candidateForm, setCandidateForm] = useState({
+    player_name: "",
+    team_name: "",
+  })
+  const [votingTimeForm, setVotingTimeForm] = useState({
+    start_time: "",
+    end_time: "",
+  })
+  const [editingCandidateId, setEditingCandidateId] = useState<number | null>(null)
+  const [editingCandidateName, setEditingCandidateName] = useState("")
+
 
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
 
@@ -352,6 +375,146 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
     }
   }
 
+  // Lion of the Match handlers
+  const loadMatchVoting = async (matchId: number) => {
+    try {
+      const [votingData, candidatesData] = await Promise.all([
+        getMatchVoting(matchId),
+        getVotingCandidates(matchId),
+      ])
+      setMatchVoting(votingData)
+      setVotingCandidates(candidatesData)
+
+      if (votingData) {
+        const formatForInput = (isoString: string | null) => {
+          if (!isoString) return ""
+          const date = new Date(isoString)
+          const pad = (num: number) => num.toString().padStart(2, "0")
+          return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+        }
+
+        setVotingTimeForm({
+          start_time: formatForInput(votingData.start_time),
+          end_time: formatForInput(votingData.end_time),
+        })
+      } else {
+        setVotingTimeForm({
+          start_time: "",
+          end_time: "",
+        })
+      }
+    } catch (error) {
+      console.error("Error loading match voting info:", error)
+    }
+  }
+
+  const handleVotingTimeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedMatchForVoting) return
+
+    setLoading(true)
+    try {
+      const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
+      const endTime = votingTimeForm.end_time ? new Date(votingTimeForm.end_time).toISOString() : null
+
+      const updated = await createOrUpdateVoting(
+        selectedMatchForVoting.id,
+        startTime,
+        endTime
+      )
+      setMatchVoting(updated)
+      alert("Параметри голосування успішно збережено!")
+    } catch (error) {
+      console.error("Error saving voting configuration:", error)
+      alert("Помилка збереження голосування: " + error.message)
+    }
+    setLoading(false)
+  }
+
+  const handleToggleVotingActiveState = async () => {
+    if (!selectedMatchForVoting) return
+
+    setLoading(true)
+    try {
+      const nextState = !matchVoting?.is_active
+      if (!matchVoting) {
+        const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
+        const endTime = votingTimeForm.end_time ? new Date(votingTimeForm.end_time).toISOString() : null
+        await createOrUpdateVoting(selectedMatchForVoting.id, startTime, endTime)
+      }
+
+      const updated = await setVotingActiveState(selectedMatchForVoting.id, nextState)
+      setMatchVoting(updated)
+    } catch (error) {
+      console.error("Error toggling voting state:", error)
+      alert("Помилка активації/деактивації голосування: " + error.message)
+    }
+    setLoading(false)
+  }
+
+  const handleAddCandidateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedMatchForVoting) return
+
+    setLoading(true)
+    try {
+      if (!matchVoting) {
+        const defaultVoting = await createOrUpdateVoting(selectedMatchForVoting.id, null, null)
+        setMatchVoting(defaultVoting)
+      }
+
+      const newCandidate = await addVotingCandidate(
+        selectedMatchForVoting.id,
+        candidateForm.player_name,
+        candidateForm.team_name
+      )
+
+      setVotingCandidates([...votingCandidates, newCandidate])
+      setCandidateForm({
+        ...candidateForm,
+        player_name: "",
+      })
+    } catch (error) {
+      console.error("Error adding candidate:", error)
+      alert("Помилка додавання гравця: " + error.message)
+    }
+    setLoading(false)
+  }
+
+  const handleDeleteCandidate = async (candidateId: number) => {
+    if (confirm("Ви впевнені, що хочете видалити цього гравця зі списку голосування?")) {
+      try {
+        await deleteVotingCandidate(candidateId)
+        setVotingCandidates(votingCandidates.filter((c) => c.id !== candidateId))
+      } catch (error) {
+        console.error("Error deleting candidate:", error)
+      }
+    }
+  }
+
+  const handleStartEditCandidate = (candidate: VotingCandidate) => {
+    setEditingCandidateId(candidate.id)
+    setEditingCandidateName(candidate.player_name)
+  }
+
+  const handleSaveEditCandidate = async () => {
+    if (!editingCandidateId) return
+
+    setLoading(true)
+    try {
+      const updated = await updateVotingCandidate(editingCandidateId, editingCandidateName)
+      setVotingCandidates(
+        votingCandidates.map((c) => (c.id === editingCandidateId ? updated : c))
+      )
+      setEditingCandidateId(null)
+      setEditingCandidateName("")
+    } catch (error) {
+      console.error("Error editing candidate:", error)
+      alert("Помилка редагування гравця: " + error.message)
+    }
+    setLoading(false)
+  }
+
   // Player handlers
   const handlePlayerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -433,49 +596,48 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       </div>
 
       <Tabs defaultValue="championships" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 p-1 sm:p-2 rounded-2xl shadow-2xl shadow-blue-600/20 gap-1">
+        <TabsList className="flex w-full justify-start gap-6 border-b border-slate-200 bg-transparent h-auto p-0 rounded-none mb-6">
           <TabsTrigger
             value="championships"
-            className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:via-slate-700 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/50 data-[state=active]:border-2 data-[state=active]:border-blue-400/50 text-blue-200 hover:text-white transition-all duration-300 font-bold flex flex-col sm:flex-row items-center gap-1 sm:gap-2"
+            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5"
           >
-            <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Чемпіонати</span>
+            <Settings className="h-4 w-4" />
+            <span>Чемпіонати</span>
           </TabsTrigger>
           <TabsTrigger
             value="teams"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-slate-700 data-[state=active]:via-cyan-700 data-[state=active]:to-slate-700 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-slate-500/50 data-[state=active]:border-2 data-[state=active]:border-cyan-400/50 text-blue-200 hover:text-white transition-all duration-300 font-bold flex flex-col sm:flex-row items-center gap-1 sm:gap-2 disabled:opacity-50"
+            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Команди</span>
+            <Users className="h-4 w-4" />
+            <span>Команди</span>
           </TabsTrigger>
           <TabsTrigger
             value="matches"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:via-emerald-700 data-[state=active]:to-green-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-green-500/50 data-[state=active]:border-2 data-[state=active]:border-green-400/50 text-blue-200 hover:text-white transition-all duration-300 font-bold flex flex-col sm:flex-row items-center gap-1 sm:gap-2 disabled:opacity-50"
+            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
-            <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Матчі</span>
+            <Calendar className="h-4 w-4" />
+            <span>Матчі</span>
           </TabsTrigger>
           <TabsTrigger
             value="players"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-600 data-[state=active]:via-amber-600 data-[state=active]:to-yellow-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-yellow-500/50 data-[state=active]:border-2 data-[state=active]:border-yellow-400/50 text-blue-200 hover:text-white transition-all duration-300 font-bold flex flex-col sm:flex-row items-center gap-1 sm:gap-2 disabled:opacity-50"
+            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
-            <Target className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Гравці</span>
+            <Target className="h-4 w-4" />
+            <span>Гравці</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* Championships Tab */}
         <TabsContent value="championships" className="space-y-4">
           <form
             onSubmit={handleChampionshipSubmit}
-            className="space-y-4 p-4 sm:p-6 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-3xl shadow-2xl shadow-blue-600/30"
+            className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <Label htmlFor="championship-name" className="text-white font-bold text-sm">
+                <Label htmlFor="championship-name" className="text-slate-700 font-semibold text-xs">
                   Назва чемпіонату
                 </Label>
                 <Input
@@ -483,11 +645,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                   value={championshipForm.name}
                   onChange={(e) => setChampionshipForm({ ...championshipForm, name: e.target.value })}
                   required
-                  className="bg-white/10 border-2 border-blue-400/30 text-white placeholder:text-blue-200 rounded-xl h-10 sm:h-12"
+                  className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="championship-season" className="text-white font-bold text-sm">
+                <Label htmlFor="championship-season" className="text-slate-700 font-semibold text-xs">
                   Сезон
                 </Label>
                 <Input
@@ -495,11 +657,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                   value={championshipForm.season}
                   onChange={(e) => setChampionshipForm({ ...championshipForm, season: e.target.value })}
                   required
-                  className="bg-white/10 border-2 border-blue-400/30 text-white placeholder:text-blue-200 rounded-xl h-10 sm:h-12"
+                  className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="tournament-type" className="text-white font-bold text-sm">
+                <Label htmlFor="tournament-type" className="text-slate-700 font-semibold text-xs">
                   Тип турніру
                 </Label>
                 <Select
@@ -508,14 +670,14 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                     setChampionshipForm({ ...championshipForm, tournament_type: value as "league" | "cup" })
                   }
                 >
-                  <SelectTrigger className="bg-white/10 border-2 border-blue-400/30 text-white rounded-xl h-10 sm:h-12">
+                  <SelectTrigger className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1">
                     <SelectValue placeholder="Оберіть тип" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900/95 backdrop-blur-md border-blue-400/30">
-                    <SelectItem value="league" className="text-white hover:bg-slate-800/30">
+                  <SelectContent className="bg-white border-slate-200">
+                    <SelectItem value="league" className="text-slate-900 hover:bg-slate-50">
                       Ліга
                     </SelectItem>
-                    <SelectItem value="cup" className="text-white hover:bg-slate-800/30">
+                    <SelectItem value="cup" className="text-slate-900 hover:bg-slate-50">
                       Кубок
                     </SelectItem>
                   </SelectContent>
@@ -527,9 +689,9 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                   id="is-active"
                   checked={championshipForm.is_active}
                   onChange={(e) => setChampionshipForm({ ...championshipForm, is_active: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 bg-white/10 border-blue-400/30 rounded"
+                  className="w-4 h-4 text-slate-900 bg-slate-50 border-slate-200 rounded"
                 />
-                <Label htmlFor="is-active" className="text-white font-bold text-sm">
+                <Label htmlFor="is-active" className="text-slate-700 font-semibold text-xs">
                   Активний
                 </Label>
               </div>
@@ -538,7 +700,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-gradient-to-r from-blue-600 via-slate-700 to-blue-600 hover:from-blue-700 hover:via-slate-800 hover:to-blue-700 text-white font-bold shadow-lg shadow-blue-600/50 rounded-xl border-2 border-blue-400/30 h-12"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10 transition-colors px-6"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 {editingChampionship ? "Оновити" : "Додати"} чемпіонат
@@ -551,7 +713,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                     setEditingChampionship(null)
                     setChampionshipForm({ name: "", season: "", is_active: false, tournament_type: "league" })
                   }}
-                  className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 rounded-xl h-12"
+                  className="bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200 rounded-lg h-10 px-4"
                 >
                   Скасувати
                 </Button>
@@ -561,18 +723,18 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
 
           <div className="space-y-3">
             {championships.length === 0 ? (
-              <div className="text-center py-8 sm:py-12 text-blue-200 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-3xl">
+              <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
                 Немає створених чемпіонатів. Створіть перший чемпіонат вище.
               </div>
             ) : (
               championships.map((championship) => (
                 <div
                   key={championship.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-2xl shadow-lg hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
                 >
                   <div className="flex-1">
-                    <div className="font-bold text-white text-lg">{championship.name}</div>
-                    <div className="text-sm text-blue-200 font-semibold">
+                    <div className="font-bold text-slate-900 text-base">{championship.name}</div>
+                    <div className="text-xs text-slate-500 font-medium mt-1">
                       Сезон: {championship.season} | {championship.is_active ? "Активний" : "Неактивний"} |{" "}
                       {championship.tournament_type === "league" ? "Ліга" : "Кубок"}
                     </div>
@@ -590,7 +752,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                           tournament_type: championship.tournament_type,
                         })
                       }}
-                      className="bg-blue-600/20 border-blue-400/30 text-white hover:bg-blue-600/30 rounded-xl flex-1 sm:flex-none"
+                      className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -598,7 +760,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteChampionship(championship.id)}
-                      className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 rounded-xl flex-1 sm:flex-none"
+                      className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg flex-1 sm:flex-none"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -609,30 +771,29 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
           </div>
         </TabsContent>
 
-        {/* Teams Tab */}
         <TabsContent value="teams" className="space-y-4">
           {!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-blue-200 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-3xl">
+            <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
               Спочатку створіть чемпіонат
             </div>
           ) : (
             <>
-              <div className="bg-slate-700/20 p-4 rounded-2xl mb-4 border-2 border-cyan-400/30 backdrop-blur-sm">
-                <div className="text-sm text-white font-bold">
+              <div className="bg-slate-100 p-4 rounded-xl mb-4 border border-slate-200 text-slate-900 text-xs sm:text-sm">
+                <div>
                   <strong>Поточний чемпіонат:</strong> {championships.find((c) => c.id === currentChampionshipId)?.name}{" "}
                   ({championships.find((c) => c.id === currentChampionshipId)?.season})
                 </div>
-                <div className="text-xs text-cyan-200 mt-1 font-semibold">
+                <div className="text-slate-500 mt-1">
                   Команди будуть додані до цього чемпіонату
                 </div>
               </div>
               <form
                 onSubmit={handleTeamSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white/5 backdrop-blur-2xl border-2 border-cyan-400/30 rounded-3xl shadow-2xl shadow-cyan-600/30"
+                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="team-name" className="text-white font-bold text-sm">
+                    <Label htmlFor="team-name" className="text-slate-700 font-semibold text-xs">
                       Назва команди
                     </Label>
                     <Input
@@ -640,11 +801,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       value={teamForm.name}
                       onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
                       required
-                      className="bg-white/10 border-2 border-cyan-400/30 text-white placeholder:text-cyan-200 rounded-xl h-10 sm:h-12"
+                      className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="team-logo" className="text-white font-bold text-sm">
+                    <Label htmlFor="team-logo" className="text-slate-700 font-semibold text-xs">
                       URL логотипу
                     </Label>
                     <Input
@@ -652,7 +813,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       value={teamForm.logo}
                       onChange={(e) => setTeamForm({ ...teamForm, logo: e.target.value })}
                       placeholder="https://example.com/logo.png"
-                      className="bg-white/10 border-2 border-cyan-400/30 text-white placeholder:text-cyan-200 rounded-xl h-10 sm:h-12"
+                      className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
                 </div>
@@ -660,7 +821,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="bg-gradient-to-r from-slate-700 via-cyan-700 to-slate-700 hover:from-slate-800 hover:via-cyan-800 hover:to-slate-800 text-white font-bold shadow-lg shadow-slate-700/50 rounded-xl border-2 border-cyan-400/30 h-12"
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10 transition-colors px-6"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     {editingTeam ? "Оновити" : "Додати"} команду
@@ -673,7 +834,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         setEditingTeam(null)
                         setTeamForm({ name: "", logo: "" })
                       }}
-                      className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 rounded-xl h-12"
+                      className="bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200 rounded-lg h-10 px-4"
                     >
                       Скасувати
                     </Button>
@@ -683,22 +844,22 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
 
               <div className="space-y-3">
                 {teams.length === 0 ? (
-                  <div className="text-center py-8 text-cyan-200 bg-white/5 backdrop-blur-2xl border-2 border-cyan-400/30 rounded-3xl">
+                  <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
                     Немає команд. Додайте першу команду вище.
                   </div>
                 ) : (
                   teams.map((team) => (
                     <div
                       key={team.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white/5 backdrop-blur-2xl border-2 border-cyan-400/30 rounded-2xl shadow-lg hover:shadow-xl hover:shadow-cyan-500/20 transition-all duration-300"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
                     >
                       <div className="flex items-center gap-4 flex-1">
                         <img
                           src={team.logo || "/placeholder.svg?height=32&width=32"}
                           alt={team.name}
-                          className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 border-cyan-400/30 object-cover"
+                          className="h-10 w-10 rounded-full border border-slate-200 object-cover"
                         />
-                        <span className="font-bold text-white text-lg">{team.name}</span>
+                        <span className="font-bold text-slate-900 text-base">{team.name}</span>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
                         <Button
@@ -708,7 +869,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                             setEditingTeam(team)
                             setTeamForm({ name: team.name, logo: team.logo || "" })
                           }}
-                          className="bg-cyan-600/20 border-cyan-400/30 text-white hover:bg-cyan-600/30 rounded-xl flex-1 sm:flex-none"
+                          className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -716,7 +877,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDeleteTeam(team.id)}
-                          className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 rounded-xl flex-1 sm:flex-none"
+                          className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg flex-1 sm:flex-none"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -729,32 +890,31 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
           )}
         </TabsContent>
 
-        {/* Matches Tab */}
         <TabsContent value="matches" className="space-y-4">
           {!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-blue-200 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-3xl">
+            <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
               Спочатку створіть чемпіонат
             </div>
           ) : teams.length < 2 ? (
-            <div className="text-center py-8 sm:py-12 text-green-200 bg-white/5 backdrop-blur-2xl border-2 border-green-400/30 rounded-3xl">
+            <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
               Додайте принаймні 2 команди для створення матчів
             </div>
           ) : (
             <>
-              <div className="bg-green-600/20 p-4 rounded-2xl mb-4 border-2 border-green-400/30 backdrop-blur-sm">
-                <div className="text-sm text-white font-bold">
+              <div className="bg-slate-100 p-4 rounded-xl mb-4 border border-slate-200 text-slate-900 text-xs sm:text-sm">
+                <div>
                   <strong>Поточний чемпіонат:</strong> {championships.find((c) => c.id === currentChampionshipId)?.name}{" "}
                   ({championships.find((c) => c.id === currentChampionshipId)?.season})
                 </div>
-                <div className="text-xs text-green-200 mt-1 font-semibold">Матчі будуть додані до цього чемпіонату</div>
+                <div className="text-slate-500 mt-1">Матчі будуть додані до цього чемпіонату</div>
               </div>
               <form
                 onSubmit={handleMatchSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white/5 backdrop-blur-2xl border-2 border-green-400/30 rounded-3xl shadow-2xl shadow-green-600/30"
+                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="match-round" className="text-white font-bold text-sm">
+                    <Label htmlFor="match-round" className="text-slate-700 font-semibold text-xs">
                       {currentChampionship?.tournament_type === "cup" ? "Стадія" : "Тур"}
                     </Label>
                     {currentChampionship?.tournament_type === "cup" ? (
@@ -762,28 +922,15 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         value={matchForm.cup_stage}
                         onValueChange={(value) => setMatchForm({ ...matchForm, cup_stage: value })}
                       >
-                        <SelectTrigger className="bg-white/10 border-2 border-green-400/30 text-white rounded-xl h-10 sm:h-12">
+                        <SelectTrigger className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1">
                           <SelectValue placeholder="Оберіть стадію" />
                         </SelectTrigger>
-                        <SelectContent className="bg-green-900/95 backdrop-blur-md border-green-400/30">
-                          <SelectItem value="1/32 фіналу" className="text-white hover:bg-green-600/30">
-                            1/32 фіналу
-                          </SelectItem>
-                          <SelectItem value="1/16 фіналу" className="text-white hover:bg-green-600/30">
-                            1/16 фіналу
-                          </SelectItem>
-                          <SelectItem value="1/8 фіналу" className="text-white hover:bg-green-600/30">
-                            1/8 фіналу
-                          </SelectItem>
-                          <SelectItem value="1/4 фіналу" className="text-white hover:bg-green-600/30">
-                            1/4 фіналу
-                          </SelectItem>
-                          <SelectItem value="1/2 фіналу" className="text-white hover:bg-green-600/30">
-                            1/2 фіналу
-                          </SelectItem>
-                          <SelectItem value="Фінал" className="text-white hover:bg-green-600/30">
-                            Фінал
-                          </SelectItem>
+                        <SelectContent className="bg-white border-slate-200">
+                          {CUP_STAGES.map((stage) => (
+                            <SelectItem key={stage} value={stage} className="text-slate-900 hover:bg-slate-50">
+                              {stage}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     ) : (
@@ -793,12 +940,12 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         min="1"
                         value={matchForm.round || ""}
                         onChange={(e) => setMatchForm({ ...matchForm, round: Number(e.target.value) || 1 })}
-                        className="bg-white/10 border-2 border-green-400/30 text-white placeholder:text-green-200 rounded-xl h-10 sm:h-12"
+                        className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                       />
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="match-date" className="text-white font-bold text-sm">
+                    <Label htmlFor="match-date" className="text-slate-700 font-semibold text-xs">
                       Дата
                     </Label>
                     <Input
@@ -807,11 +954,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       value={matchForm.date}
                       onChange={(e) => setMatchForm({ ...matchForm, date: e.target.value })}
                       required
-                      className="bg-white/10 border-2 border-green-400/30 text-white placeholder:text-green-200 rounded-xl h-10 sm:h-12"
+                      className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="match-time" className="text-white font-bold text-sm">
+                    <Label htmlFor="match-time" className="text-slate-700 font-semibold text-xs">
                       Час матчу
                     </Label>
                     <Input
@@ -819,25 +966,25 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       type="time"
                       value={matchForm.match_time}
                       onChange={(e) => setMatchForm({ ...matchForm, match_time: e.target.value })}
-                      className="bg-white/10 border-2 border-green-400/30 text-white placeholder:text-green-200 rounded-xl h-10 sm:h-12"
+                      className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="home-team" className="text-white font-bold text-sm">
+                    <Label htmlFor="home-team" className="text-slate-700 font-semibold text-xs">
                       Господарі
                     </Label>
                     <Select
                       value={matchForm.home_team}
                       onValueChange={(value) => setMatchForm({ ...matchForm, home_team: value })}
                     >
-                      <SelectTrigger className="bg-white/10 border-2 border-green-400/30 text-white rounded-xl h-10 sm:h-12">
+                      <SelectTrigger className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1">
                         <SelectValue placeholder="Оберіть команду" />
                       </SelectTrigger>
-                      <SelectContent className="bg-green-900/95 backdrop-blur-md border-green-400/30">
+                      <SelectContent className="bg-white border-slate-200">
                         {teams.map((team) => (
-                          <SelectItem key={team.id} value={team.name} className="text-white hover:bg-green-600/30">
+                          <SelectItem key={team.id} value={team.name} className="text-slate-900 hover:bg-slate-50">
                             {team.name}
                           </SelectItem>
                         ))}
@@ -845,21 +992,21 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="away-team" className="text-white font-bold text-sm">
+                    <Label htmlFor="away-team" className="text-slate-700 font-semibold text-xs">
                       Гості
                     </Label>
                     <Select
                       value={matchForm.away_team}
                       onValueChange={(value) => setMatchForm({ ...matchForm, away_team: value })}
                     >
-                      <SelectTrigger className="bg-white/10 border-2 border-green-400/30 text-white rounded-xl h-10 sm:h-12">
+                      <SelectTrigger className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1">
                         <SelectValue placeholder="Оберіть команду" />
                       </SelectTrigger>
-                      <SelectContent className="bg-green-900/95 backdrop-blur-md border-green-400/30">
+                      <SelectContent className="bg-white border-slate-200">
                         {teams
                           .filter((team) => team.name !== matchForm.home_team)
                           .map((team) => (
-                            <SelectItem key={team.id} value={team.name} className="text-white hover:bg-green-600/30">
+                            <SelectItem key={team.id} value={team.name} className="text-slate-900 hover:bg-slate-50">
                               {team.name}
                             </SelectItem>
                           ))}
@@ -869,43 +1016,43 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 </div>
 
                 {/* Technical Defeat Section */}
-                <div className="bg-red-600/20 p-4 rounded-2xl border-2 border-red-400/30">
-                  <div className="flex items-center space-x-2 mb-4">
+                <div className="bg-red-50 p-4 rounded-xl border border-red-200 text-slate-900">
+                  <div className="flex items-center space-x-2 mb-3">
                     <input
                       type="checkbox"
                       id="is-technical-defeat"
                       checked={matchForm.is_technical_defeat}
                       onChange={(e) => setMatchForm({ ...matchForm, is_technical_defeat: e.target.checked })}
-                      className="w-4 h-4 text-red-600 bg-white/10 border-red-400/30 rounded"
+                      className="w-4 h-4 text-red-600 bg-slate-50 border-red-300 rounded"
                     />
                     <Label
                       htmlFor="is-technical-defeat"
-                      className="text-white font-bold text-sm flex items-center gap-2"
+                      className="text-red-900 font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                     >
-                      <AlertTriangle className="h-4 w-4 text-red-400" />
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
                       Технічна поразка
                     </Label>
                   </div>
                   {matchForm.is_technical_defeat && (
                     <div>
-                      <Label htmlFor="technical-winner" className="text-white font-bold text-sm">
+                      <Label htmlFor="technical-winner" className="text-red-950 font-semibold text-[11px]">
                         Переможець (технічна перемога)
                       </Label>
                       <Select
                         value={matchForm.technical_winner}
                         onValueChange={(value) => setMatchForm({ ...matchForm, technical_winner: value })}
                       >
-                        <SelectTrigger className="bg-white/10 border-2 border-red-400/30 text-white rounded-xl h-10 sm:h-12">
+                        <SelectTrigger className="bg-white border-red-200 text-slate-900 rounded-lg h-10 mt-1">
                           <SelectValue placeholder="Оберіть переможця" />
                         </SelectTrigger>
-                        <SelectContent className="bg-red-900/95 backdrop-blur-md border-red-400/30">
+                        <SelectContent className="bg-white border-red-200">
                           {matchForm.home_team && (
-                            <SelectItem value={matchForm.home_team} className="text-white hover:bg-red-600/30">
+                            <SelectItem value={matchForm.home_team} className="text-slate-900 hover:bg-red-50">
                               {matchForm.home_team}
                             </SelectItem>
                           )}
                           {matchForm.away_team && (
-                            <SelectItem value={matchForm.away_team} className="text-white hover:bg-red-600/30">
+                            <SelectItem value={matchForm.away_team} className="text-slate-900 hover:bg-red-50">
                               {matchForm.away_team}
                             </SelectItem>
                           )}
@@ -918,7 +1065,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 {!matchForm.is_technical_defeat && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="home-score" className="text-white font-bold text-sm">
+                      <Label htmlFor="home-score" className="text-slate-700 font-semibold text-xs">
                         Голи господарів
                       </Label>
                       <Input
@@ -927,11 +1074,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         min="0"
                         value={matchForm.home_score}
                         onChange={(e) => setMatchForm({ ...matchForm, home_score: e.target.value })}
-                        className="bg-white/10 border-2 border-green-400/30 text-white placeholder:text-green-200 rounded-xl h-10 sm:h-12"
+                        className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="away-score" className="text-white font-bold text-sm">
+                      <Label htmlFor="away-score" className="text-slate-700 font-semibold text-xs">
                         Голи гостей
                       </Label>
                       <Input
@@ -940,7 +1087,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         min="0"
                         value={matchForm.away_score}
                         onChange={(e) => setMatchForm({ ...matchForm, away_score: e.target.value })}
-                        className="bg-white/10 border-2 border-green-400/30 text-white placeholder:text-green-200 rounded-xl h-10 sm:h-12"
+                        className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                       />
                     </div>
                     <div className="flex items-center space-x-2 pt-6">
@@ -949,41 +1096,41 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         id="is-finished"
                         checked={matchForm.is_finished}
                         onChange={(e) => setMatchForm({ ...matchForm, is_finished: e.target.checked })}
-                        className="w-4 h-4 text-green-600 bg-white/10 border-green-400/30 rounded"
+                        className="w-4 h-4 text-slate-900 bg-slate-50 border-slate-200 rounded"
                       />
-                      <Label htmlFor="is-finished" className="text-white font-bold text-sm">
+                      <Label htmlFor="is-finished" className="text-slate-700 font-semibold text-xs cursor-pointer">
                         Завершено
                       </Label>
                     </div>
                   </div>
                 )}
 
-                {/* Penalty Shootout Section - Only for Cup matches and only when finished after penalties */}
+                {/* Penalty Shootout Section */}
                 {currentChampionship?.tournament_type === "cup" &&
                   matchForm.is_finished &&
                   !matchForm.is_technical_defeat && (
-                    <div className="bg-yellow-600/20 p-4 rounded-2xl border-2 border-yellow-400/30">
-                      <div className="flex items-center space-x-2 mb-4">
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-slate-900">
+                      <div className="flex items-center space-x-2 mb-3">
                         <input
                           type="checkbox"
                           id="finished-after-penalties"
                           checked={matchForm.finished_after_penalties}
                           onChange={(e) => setMatchForm({ ...matchForm, finished_after_penalties: e.target.checked })}
-                          className="w-4 h-4 text-yellow-600 bg-white/10 border-yellow-400/30 rounded"
+                          className="w-4 h-4 text-amber-700 bg-slate-50 border-amber-300 rounded"
                         />
                         <Label
                           htmlFor="finished-after-penalties"
-                          className="text-white font-bold text-sm flex items-center gap-2"
+                          className="text-amber-950 font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Crosshair className="h-4 w-4 text-yellow-400" />
+                          <Crosshair className="h-4 w-4 text-amber-600" />
                           Матч закінчився після серії пенальті
                         </Label>
                       </div>
 
                       {matchForm.finished_after_penalties && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
                           <div>
-                            <Label htmlFor="penalty-home" className="text-white font-bold text-sm">
+                            <Label htmlFor="penalty-home" className="text-amber-900 font-semibold text-xs">
                               Пенальті господарів
                             </Label>
                             <Input
@@ -992,11 +1139,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                               min="0"
                               value={matchForm.penalty_home}
                               onChange={(e) => setMatchForm({ ...matchForm, penalty_home: e.target.value })}
-                              className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10 sm:h-12"
+                              className="bg-white border-amber-200 text-slate-900 rounded-lg h-10 mt-1"
                             />
                           </div>
                           <div>
-                            <Label htmlFor="penalty-away" className="text-white font-bold text-sm">
+                            <Label htmlFor="penalty-away" className="text-amber-900 font-semibold text-xs">
                               Пенальті гостей
                             </Label>
                             <Input
@@ -1005,28 +1152,28 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                               min="0"
                               value={matchForm.penalty_away}
                               onChange={(e) => setMatchForm({ ...matchForm, penalty_away: e.target.value })}
-                              className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10 sm:h-12"
+                              className="bg-white border-amber-200 text-slate-900 rounded-lg h-10 mt-1"
                             />
                           </div>
                           <div>
-                            <Label htmlFor="penalty-winner" className="text-white font-bold text-sm">
+                            <Label htmlFor="penalty-winner" className="text-amber-900 font-semibold text-xs">
                               Переможець по пенальті
                             </Label>
                             <Select
                               value={matchForm.penalty_winner}
                               onValueChange={(value) => setMatchForm({ ...matchForm, penalty_winner: value })}
                             >
-                              <SelectTrigger className="bg-white/10 border-2 border-yellow-400/30 text-white rounded-xl h-10 sm:h-12">
+                              <SelectTrigger className="bg-white border-amber-200 text-slate-900 rounded-lg h-10 mt-1">
                                 <SelectValue placeholder="Оберіть переможця" />
                               </SelectTrigger>
-                              <SelectContent className="bg-yellow-900/95 backdrop-blur-md border-yellow-400/30">
+                              <SelectContent className="bg-white border-amber-200">
                                 {matchForm.home_team && (
-                                  <SelectItem value={matchForm.home_team} className="text-white hover:bg-yellow-600/30">
+                                  <SelectItem value={matchForm.home_team} className="text-slate-900 hover:bg-amber-50">
                                     {matchForm.home_team}
                                   </SelectItem>
                                 )}
                                 {matchForm.away_team && (
-                                  <SelectItem value={matchForm.away_team} className="text-white hover:bg-yellow-600/30">
+                                  <SelectItem value={matchForm.away_team} className="text-slate-900 hover:bg-amber-50">
                                     {matchForm.away_team}
                                   </SelectItem>
                                 )}
@@ -1042,7 +1189,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                   <Button
                     type="submit"
                     disabled={loading || !matchForm.home_team || !matchForm.away_team}
-                    className="bg-gradient-to-r from-green-600 via-emerald-700 to-green-600 hover:from-green-700 hover:via-emerald-800 hover:to-green-700 text-white font-bold shadow-lg shadow-green-600/50 rounded-xl border-2 border-green-400/30 h-12"
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10 transition-colors px-6"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     {editingMatch ? "Оновити" : "Додати"} матч
@@ -1071,7 +1218,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                           finished_after_penalties: false,
                         })
                       }}
-                      className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 rounded-xl h-12"
+                  className="bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200 rounded-lg h-10 px-4"
                     >
                       Скасувати
                     </Button>
@@ -1079,130 +1226,395 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 </div>
               </form>
 
-              <div className="space-y-3">
-                {matches.length === 0 ? (
-                  <div className="text-center py-8 text-green-200 bg-white/5 backdrop-blur-2xl border-2 border-green-400/30 rounded-3xl">
-                    Немає матчів. Додайте перший матч вище.
+          <div className="space-y-3">
+            {matches.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
+                Немає матчів. Додайте перший матч вище.
+              </div>
+            ) : (
+              matches.map((match) => (
+                <div
+                  key={match.id}
+                  className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div className="flex-1">
+                      <div className="font-bold text-slate-900 text-base mb-1.5">
+                        {currentChampionship?.tournament_type === "cup" && match.cup_stage
+                          ? `${match.cup_stage}: ${match.home_team} - ${match.away_team}`
+                          : `Тур ${match.round}: ${match.home_team} - ${match.away_team}`}
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-4">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                          {match.date}
+                        </span>
+                        {match.match_time && (
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-slate-400" />
+                            {match.match_time}
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            match.is_finished
+                              ? match.is_technical_defeat
+                                ? "bg-red-50 text-red-700 border border-red-150"
+                                : "bg-emerald-50 text-emerald-700 border border-emerald-150"
+                              : "bg-blue-50 text-blue-700 border border-blue-150"
+                          }`}
+                        >
+                          {match.is_finished
+                            ? match.is_technical_defeat
+                              ? `Технічна поразка: ${match.technical_winner === match.home_team ? "+:-" : "-:+"}`
+                              : `${match.home_score} - ${match.away_score}${match.penalty_home !== null && match.penalty_away !== null ? ` (${match.penalty_home}-${match.penalty_away} пен.)` : ""}`
+                            : "Не зіграно"}
+                        </span>
+                        {match.is_technical_defeat && (
+                          <span className="flex items-center gap-1 text-red-700 font-medium">
+                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                            Технічна поразка
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                      {match.is_finished && !match.is_technical_defeat && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedMatchForGoals(match)
+                            setSelectedMatchForVoting(null)
+                            setGoalForm({
+                              player_name: "",
+                              team_name: match.home_team,
+                              minute: "",
+                              goal_type: "regular",
+                            })
+                            loadMatchGoals(match.id)
+                          }}
+                          className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
+                        >
+                          <Trophy className="h-4 w-4 mr-1.5 text-slate-400" />
+                          Голи
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedMatchForVoting(match)
+                          setSelectedMatchForGoals(null)
+                          setCandidateForm({
+                            player_name: "",
+                            team_name: match.home_team,
+                          })
+                          loadMatchVoting(match.id)
+                        }}
+                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
+                      >
+                        <Star className="h-4 w-4 mr-1.5 text-slate-400" />
+                        Лев матчу
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingMatch(match)
+                          setMatchForm({
+                            round: match.round,
+                            date: match.date,
+                            home_team: match.home_team,
+                            away_team: match.away_team,
+                            home_score: match.home_score?.toString() || "",
+                            away_score: match.away_score?.toString() || "",
+                            is_finished: match.is_finished,
+                            match_time: match.match_time || "",
+                            cup_stage: match.cup_stage || "",
+                            is_technical_defeat: match.is_technical_defeat || false,
+                            technical_winner: match.technical_winner || "",
+                            penalty_home: match.penalty_home?.toString() || "",
+                            penalty_away: match.penalty_away?.toString() || "",
+                            penalty_winner: match.penalty_winner || "",
+                            finished_after_penalties: match.penalty_home !== null && match.penalty_away !== null,
+                          })
+                        }}
+                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
+                      >
+                        <Edit className="h-4 w-4 text-slate-400" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteMatch(match.id)}
+                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg flex-1 sm:flex-none"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                ) : (
-                  matches.map((match) => (
-                    <div
-                      key={match.id}
-                      className="p-4 bg-white/5 backdrop-blur-2xl border-2 border-green-400/30 rounded-2xl shadow-lg hover:shadow-xl hover:shadow-green-500/20 transition-all duration-300"
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                        <div className="flex-1">
-                          <div className="font-bold text-white text-lg mb-2">
-                            {currentChampionship?.tournament_type === "cup" && match.cup_stage
-                              ? `${match.cup_stage}: ${match.home_team} - ${match.away_team}`
-                              : `Тур ${match.round}: ${match.home_team} - ${match.away_team}`}
+
+                  {/* Lion of the Match Voting Management */}
+                  {selectedMatchForVoting?.id === match.id && (
+                    <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-900 space-y-6">
+                      <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                        Голосування: Лев матчу · {match.home_team} vs {match.away_team}
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4 border-b border-slate-200">
+                        {/* Time Config */}
+                        <form onSubmit={handleVotingTimeSubmit} className="space-y-3">
+                          <h5 className="font-semibold text-xs text-slate-700">Час проведення</h5>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="vote-start-time" className="text-slate-600 text-xs">Початок</Label>
+                              <Input
+                                id="vote-start-time"
+                                type="datetime-local"
+                                value={votingTimeForm.start_time}
+                                onChange={(e) => setVotingTimeForm({ ...votingTimeForm, start_time: e.target.value })}
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="vote-end-time" className="text-slate-600 text-xs">Завершення</Label>
+                              <Input
+                                id="vote-end-time"
+                                type="datetime-local"
+                                value={votingTimeForm.end_time}
+                                onChange={(e) => setVotingTimeForm({ ...votingTimeForm, end_time: e.target.value })}
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
                           </div>
-                          <div className="text-sm text-green-200 font-semibold flex flex-wrap items-center gap-4">
-                            <span className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              {match.date}
-                            </span>
-                            {match.match_time && (
-                              <span className="flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                {match.match_time}
+                          <div className="flex gap-2">
+                            <Button
+                              type="submit"
+                              disabled={loading}
+                              size="sm"
+                              className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
+                            >
+                              Зберегти час
+                            </Button>
+                          </div>
+                        </form>
+
+                        {/* Status Toggle */}
+                        <div className="flex flex-col justify-between space-y-3">
+                          <div>
+                            <h5 className="font-semibold text-xs text-slate-700">Статус голосування</h5>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Голосування наразі:{" "}
+                              <span className={`font-bold ${matchVoting?.is_active ? "text-emerald-600" : "text-red-500"}`}>
+                                {matchVoting?.is_active ? "ВІДКРИТЕ" : "ЗАКРИТЕ"}
                               </span>
-                            )}
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                match.is_finished
-                                  ? match.is_technical_defeat
-                                    ? "bg-red-600/30 text-red-200"
-                                    : "bg-green-600/30 text-green-200"
-                                  : "bg-yellow-600/30 text-yellow-200"
+                            </p>
+                          </div>
+                          <div>
+                            <Button
+                              type="button"
+                              onClick={handleToggleVotingActiveState}
+                              disabled={loading}
+                              size="sm"
+                              className={`text-white text-xs h-8 px-4 rounded-lg font-medium ${
+                                matchVoting?.is_active
+                                  ? "bg-red-600 hover:bg-red-700"
+                                  : "bg-emerald-600 hover:bg-emerald-700"
                               }`}
                             >
-                              {match.is_finished
-                                ? match.is_technical_defeat
-                                  ? `Технічна поразка: ${match.technical_winner === match.home_team ? "+:-" : "-:+"}`
-                                  : `${match.home_score} - ${match.away_score}${match.penalty_home !== null && match.penalty_away !== null ? ` (${match.penalty_home}-${match.penalty_away} пен.)` : ""}`
-                                : "Не зіграно"}
-                            </span>
-                            {match.is_technical_defeat && (
-                              <span className="flex items-center gap-2 bg-red-600/30 px-3 py-1 rounded-full text-xs font-bold text-red-200">
-                                <AlertTriangle className="h-3 w-3" />
-                                Технічна поразка
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                          {match.is_finished && !match.is_technical_defeat && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => {
-                                setSelectedMatchForGoals(match)
-                                setGoalForm({
-                                  player_name: "",
-                                  team_name: match.home_team,
-                                  minute: "",
-                                  goal_type: "regular",
-                                })
-                                loadMatchGoals(match.id)
-                              }}
-                              className="bg-yellow-600/20 border-yellow-400/30 text-white hover:bg-yellow-600/30 rounded-xl flex-1 sm:flex-none"
-                            >
-                              <Trophy className="h-4 w-4 mr-1" />
-                              Голи
+                              {matchVoting?.is_active ? "Закрити голосування" : "Відкрити голосування"}
                             </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingMatch(match)
-                              setMatchForm({
-                                round: match.round,
-                                date: match.date,
-                                home_team: match.home_team,
-                                away_team: match.away_team,
-                                home_score: match.home_score?.toString() || "",
-                                away_score: match.away_score?.toString() || "",
-                                is_finished: match.is_finished,
-                                match_time: match.match_time || "",
-                                cup_stage: match.cup_stage || "",
-                                is_technical_defeat: match.is_technical_defeat || false,
-                                technical_winner: match.technical_winner || "",
-                                penalty_home: match.penalty_home?.toString() || "",
-                                penalty_away: match.penalty_away?.toString() || "",
-                                penalty_winner: match.penalty_winner || "",
-                                finished_after_penalties: match.penalty_home !== null && match.penalty_away !== null,
-                              })
-                            }}
-                            className="bg-green-600/20 border-green-400/30 text-white hover:bg-green-600/30 rounded-xl flex-1 sm:flex-none"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteMatch(match.id)}
-                            className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 rounded-xl flex-1 sm:flex-none"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Match Goals Management */}
-                      {selectedMatchForGoals?.id === match.id && (
-                        <div className="mt-6 p-4 bg-yellow-600/10 rounded-2xl border-2 border-yellow-400/30">
-                          <h4 className="font-bold text-white mb-4 flex items-center gap-3">
-                            <Trophy className="h-5 w-5 text-yellow-400" />
-                            Автори голів: {match.home_team} {match.home_score} - {match.away_score} {match.away_team}
-                          </h4>
+                      {/* Add Candidate Form */}
+                      <form onSubmit={handleAddCandidateSubmit} className="space-y-3 pb-4 border-b border-slate-200">
+                        <h5 className="font-semibold text-xs text-slate-700">Додати кандидата</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="candidate-player-name" className="text-slate-600 text-xs">Ім'я гравця</Label>
+                            <Input
+                              id="candidate-player-name"
+                              value={candidateForm.player_name}
+                              onChange={(e) => setCandidateForm({ ...candidateForm, player_name: e.target.value })}
+                              required
+                              placeholder="Введіть ім'я гравця"
+                              className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="candidate-team-name" className="text-slate-600 text-xs">Команда</Label>
+                            <Select
+                              value={candidateForm.team_name}
+                              onValueChange={(value) => setCandidateForm({ ...candidateForm, team_name: value })}
+                            >
+                              <SelectTrigger className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-slate-200">
+                                <SelectItem value={match.home_team} className="text-slate-900">
+                                  {match.home_team} (Господарі)
+                                </SelectItem>
+                                <SelectItem value={match.away_team} className="text-slate-900">
+                                  {match.away_team} (Гості)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <Button
+                          type="submit"
+                          disabled={loading}
+                          size="sm"
+                          className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Додати гравця
+                        </Button>
+                      </form>
+
+                      {/* Candidates Lists */}
+                      <div className="space-y-4">
+                        <h5 className="font-semibold text-xs text-slate-700">Список кандидатів</h5>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Home Candidates */}
+                          <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
+                              {match.home_team}
+                            </h6>
+                            {votingCandidates.filter(c => c.team_name === match.home_team).length === 0 ? (
+                              <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {votingCandidates.filter(c => c.team_name === match.home_team).map((candidate) => (
+                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                    {editingCandidateId === candidate.id ? (
+                                      <div className="flex items-center gap-1.5 w-full">
+                                        <Input
+                                          value={editingCandidateName}
+                                          onChange={(e) => setEditingCandidateName(e.target.value)}
+                                          className="border-slate-300 text-slate-900 rounded h-7 text-xs px-2 py-0.5 flex-1"
+                                        />
+                                        <Button size="sm" onClick={handleSaveEditCandidate} className="bg-slate-900 text-white text-[10px] h-7 px-2">Зберегти</Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingCandidateId(null)} className="h-7 px-2 text-[10px]">Скасувати</Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleStartEditCandidate(candidate)}
+                                            className="h-6 w-6 p-0 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            type="button"
+                                          >
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleDeleteCandidate(candidate.id)}
+                                            className="h-6 w-6 p-0 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100"
+                                            type="button"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Away Candidates */}
+                          <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
+                              {match.away_team}
+                            </h6>
+                            {votingCandidates.filter(c => c.team_name === match.away_team).length === 0 ? (
+                              <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {votingCandidates.filter(c => c.team_name === match.away_team).map((candidate) => (
+                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                    {editingCandidateId === candidate.id ? (
+                                      <div className="flex items-center gap-1.5 w-full">
+                                        <Input
+                                          value={editingCandidateName}
+                                          onChange={(e) => setEditingCandidateName(e.target.value)}
+                                          className="border-slate-300 text-slate-900 rounded h-7 text-xs px-2 py-0.5 flex-1"
+                                        />
+                                        <Button size="sm" onClick={handleSaveEditCandidate} className="bg-slate-900 text-white text-[10px] h-7 px-2">Зберегти</Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingCandidateId(null)} className="h-7 px-2 text-[10px]">Скасувати</Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleStartEditCandidate(candidate)}
+                                            className="h-6 w-6 p-0 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            type="button"
+                                          >
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleDeleteCandidate(candidate.id)}
+                                            className="h-6 w-6 p-0 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100"
+                                            type="button"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setSelectedMatchForVoting(null)}
+                          className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-9 text-xs"
+                        >
+                          Закрити панель голосування
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Match Goals Management */}
+                  {selectedMatchForGoals?.id === match.id && (
+                    <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-900">
+                      <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-slate-500" />
+                        Автори голів: {match.home_team} {match.home_score} - {match.away_score} {match.away_team}
+                      </h4>
 
                           {/* Add Goal Form */}
                           <form onSubmit={handleAddMatchGoal} className="space-y-4 mb-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
-                                <Label htmlFor="goal-player-name" className="text-white font-bold text-sm">
+                                <Label htmlFor="goal-player-name" className="text-slate-700 font-medium text-sm">
                                   Ім'я гравця
                                 </Label>
                                 <Input
@@ -1210,25 +1622,25 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                   value={goalForm.player_name}
                                   onChange={(e) => setGoalForm({ ...goalForm, player_name: e.target.value })}
                                   required
-                                  className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10"
+                                  className="border border-slate-200 text-slate-900 rounded-lg h-10"
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="goal-team-name" className="text-white font-bold text-sm">
+                                <Label htmlFor="goal-team-name" className="text-slate-700 font-medium text-sm">
                                   Команда
                                 </Label>
                                 <Select
                                   value={goalForm.team_name}
                                   onValueChange={(value) => setGoalForm({ ...goalForm, team_name: value })}
                                 >
-                                  <SelectTrigger className="bg-white/10 border-2 border-yellow-400/30 text-white rounded-xl h-10">
+                                  <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
                                     <SelectValue />
                                   </SelectTrigger>
-                                  <SelectContent className="bg-yellow-900/95 backdrop-blur-md border-yellow-400/30">
-                                    <SelectItem value={match.home_team} className="text-white hover:bg-yellow-600/30">
+                                  <SelectContent className="bg-white border-slate-200">
+                                    <SelectItem value={match.home_team} className="text-slate-900">
                                       {match.home_team}
                                     </SelectItem>
-                                    <SelectItem value={match.away_team} className="text-white hover:bg-yellow-600/30">
+                                    <SelectItem value={match.away_team} className="text-slate-900">
                                       {match.away_team}
                                     </SelectItem>
                                   </SelectContent>
@@ -1237,7 +1649,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
-                                <Label htmlFor="goal-minute" className="text-white font-bold text-sm">
+                                <Label htmlFor="goal-minute" className="text-slate-700 font-medium text-sm">
                                   Хвилина
                                 </Label>
                                 <Input
@@ -1247,11 +1659,11 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                   max="120"
                                   value={goalForm.minute}
                                   onChange={(e) => setGoalForm({ ...goalForm, minute: e.target.value })}
-                                  className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10"
+                                  className="border border-slate-200 text-slate-900 rounded-lg h-10"
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="goal-type" className="text-white font-bold text-sm">
+                                <Label htmlFor="goal-type" className="text-slate-700 font-medium text-sm">
                                   Тип голу
                                 </Label>
                                 <Select
@@ -1260,28 +1672,28 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                     setGoalForm({ ...goalForm, goal_type: value as "regular" | "penalty" | "own_goal" })
                                   }
                                 >
-                                  <SelectTrigger className="bg-white/10 border-2 border-yellow-400/30 text-white rounded-xl h-10">
+                                  <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
                                     <SelectValue />
                                   </SelectTrigger>
-                                  <SelectContent className="bg-yellow-900/95 backdrop-blur-md border-yellow-400/30">
-                                    <SelectItem value="regular" className="text-white hover:bg-yellow-600/30">
+                                  <SelectContent className="bg-white border-slate-200">
+                                    <SelectItem value="regular" className="text-slate-900">
                                       Звичайний
                                     </SelectItem>
-                                    <SelectItem value="penalty" className="text-white hover:bg-yellow-600/30">
+                                    <SelectItem value="penalty" className="text-slate-900">
                                       Пенальті
                                     </SelectItem>
-                                    <SelectItem value="own_goal" className="text-white hover:bg-yellow-600/30">
+                                    <SelectItem value="own_goal" className="text-slate-900">
                                       Автогол
                                     </SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex flex-col sm:flex-row gap-3">
                               <Button
                                 type="submit"
                                 disabled={loading}
-                                className="bg-gradient-to-r from-yellow-600 via-amber-600 to-yellow-600 hover:from-yellow-700 hover:via-amber-700 hover:to-yellow-700 text-white font-bold shadow-lg shadow-yellow-600/50 rounded-xl border-2 border-yellow-400/30 h-10"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10"
                               >
                                 <Plus className="h-4 w-4 mr-2" />
                                 Додати гол
@@ -1290,7 +1702,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                 type="button"
                                 variant="outline"
                                 onClick={() => setSelectedMatchForGoals(null)}
-                                className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 rounded-xl h-10"
+                                className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10"
                               >
                                 Закрити
                               </Button>
@@ -1299,32 +1711,32 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
 
                           {/* Goals List */}
                           <div className="space-y-2">
-                            <h5 className="font-bold text-yellow-400 text-sm">Список голів:</h5>
+                            <h5 className="font-semibold text-slate-700 text-sm">Список голів:</h5>
                             {matchGoals.length === 0 ? (
-                              <div className="text-center py-4 text-yellow-200 text-sm">Немає доданих голів</div>
+                              <div className="text-center py-4 text-slate-400 text-sm">Немає доданих голів</div>
                             ) : (
                               <div className="space-y-2">
                                 {matchGoals.map((goal) => (
                                   <div
                                     key={goal.id}
-                                    className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-yellow-400/30"
+                                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200"
                                   >
                                     <div className="text-sm">
-                                      <span className="font-bold text-white">{goal.player_name}</span>
-                                      <span className="text-yellow-200 ml-2">({goal.team_name})</span>
-                                      {goal.minute && <span className="text-amber-400 ml-2">{goal.minute}'</span>}
+                                      <span className="font-semibold text-slate-900">{goal.player_name}</span>
+                                      <span className="text-slate-500 ml-2">({goal.team_name})</span>
+                                      {goal.minute && <span className="text-slate-600 ml-2">{goal.minute}'</span>}
                                       {goal.goal_type === "penalty" && (
-                                        <span className="text-orange-400 ml-1">(пен.)</span>
+                                        <span className="text-amber-600 ml-1">(пен.)</span>
                                       )}
                                       {goal.goal_type === "own_goal" && (
-                                        <span className="text-red-400 ml-1">(автогол)</span>
+                                        <span className="text-red-500 ml-1">(автогол)</span>
                                       )}
                                     </div>
                                     <Button
                                       size="sm"
                                       variant="destructive"
                                       onClick={() => handleDeleteMatchGoal(goal.id)}
-                                      className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 rounded-xl"
+                                      className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg"
                                     >
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
@@ -1346,31 +1758,31 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
         {/* Players Tab */}
         <TabsContent value="players" className="space-y-4">
           {!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-blue-200 bg-white/5 backdrop-blur-2xl border-2 border-blue-400/30 rounded-3xl">
+            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
               Спочатку створіть чемпіонат
             </div>
           ) : teams.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-yellow-200 bg-white/5 backdrop-blur-2xl border-2 border-yellow-400/30 rounded-3xl">
+            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
               Додайте команди для створення гравців
             </div>
           ) : (
             <>
-              <div className="bg-yellow-600/20 p-4 rounded-2xl mb-4 border-2 border-yellow-400/30 backdrop-blur-sm">
-                <div className="text-sm text-white font-bold">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="text-sm text-slate-900 font-medium">
                   <strong>Поточний чемпіонат:</strong> {championships.find((c) => c.id === currentChampionshipId)?.name}{" "}
                   ({championships.find((c) => c.id === currentChampionshipId)?.season})
                 </div>
-                <div className="text-xs text-yellow-200 mt-1 font-semibold">
+                <div className="text-xs text-slate-500 mt-1">
                   Гравці будуть додані до цього чемпіонату
                 </div>
               </div>
               <form
                 onSubmit={handlePlayerSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white/5 backdrop-blur-2xl border-2 border-yellow-400/30 rounded-3xl shadow-2xl shadow-yellow-600/30"
+                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-lg"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="player-name" className="text-white font-bold text-sm">
+                    <Label htmlFor="player-name" className="text-slate-700 font-medium text-sm">
                       Ім'я гравця
                     </Label>
                     <Input
@@ -1378,23 +1790,23 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       value={playerForm.name}
                       onChange={(e) => setPlayerForm({ ...playerForm, name: e.target.value })}
                       required
-                      className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10 sm:h-12"
+                      className="border border-slate-200 text-slate-900 rounded-lg h-10"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="player-team" className="text-white font-bold text-sm">
+                    <Label htmlFor="player-team" className="text-slate-700 font-medium text-sm">
                       Команда
                     </Label>
                     <Select
                       value={playerForm.team}
                       onValueChange={(value) => setPlayerForm({ ...playerForm, team: value })}
                     >
-                      <SelectTrigger className="bg-white/10 border-2 border-yellow-400/30 text-white rounded-xl h-10 sm:h-12">
+                      <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
                         <SelectValue placeholder="Оберіть команду" />
                       </SelectTrigger>
-                      <SelectContent className="bg-yellow-900/95 backdrop-blur-md border-yellow-400/30">
+                      <SelectContent className="bg-white border-slate-200">
                         {teams.map((team) => (
-                          <SelectItem key={team.id} value={team.name} className="text-white hover:bg-yellow-600/30">
+                          <SelectItem key={team.id} value={team.name} className="text-slate-900">
                             {team.name}
                           </SelectItem>
                         ))}
@@ -1402,7 +1814,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="player-goals" className="text-white font-bold text-sm">
+                    <Label htmlFor="player-goals" className="text-slate-700 font-medium text-sm">
                       Голи
                     </Label>
                     <Input
@@ -1414,15 +1826,15 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         const val = e.target.value
                         setPlayerForm({ ...playerForm, goals: val === "" ? 0 : Number.parseInt(val) })
                       }}
-                      className="bg-white/10 border-2 border-yellow-400/30 text-white placeholder:text-yellow-200 rounded-xl h-10 sm:h-12"
+                      className="border border-slate-200 text-slate-900 rounded-lg h-10"
                     />
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="submit"
                     disabled={loading || !playerForm.team}
-                    className="bg-gradient-to-r from-yellow-600 via-amber-600 to-yellow-600 hover:from-yellow-700 hover:via-amber-700 hover:to-yellow-700 text-white font-bold shadow-lg shadow-yellow-600/50 rounded-xl border-2 border-yellow-400/30 h-12"
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     {editingPlayer ? "Оновити" : "Додати"} гравця
@@ -1435,7 +1847,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         setEditingPlayer(null)
                         setPlayerForm({ name: "", team: "", goals: 0 })
                       }}
-                      className="bg-white/10 border-2 border-white/30 text-white hover:bg-white/20 rounded-xl h-12"
+                      className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10"
                     >
                       Скасувати
                     </Button>
@@ -1443,21 +1855,21 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 </div>
               </form>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {players.length === 0 ? (
-                  <div className="text-center py-8 text-yellow-200 bg-white/5 backdrop-blur-2xl border-2 border-yellow-400/30 rounded-3xl">
+                  <div className="text-center py-8 text-slate-400 bg-white border border-slate-200 rounded-lg">
                     Немає гравців. Додайте першого гравця вище.
                   </div>
                 ) : (
                   players.map((player) => (
                     <div
                       key={player.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white/5 backdrop-blur-2xl border-2 border-yellow-400/30 rounded-2xl shadow-lg hover:shadow-xl hover:shadow-yellow-500/20 transition-all duration-300"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
                     >
                       <div className="flex-1">
-                        <div className="font-bold text-white text-lg">{player.name}</div>
-                        <div className="text-sm text-yellow-200 font-semibold">
-                          {player.team} | {player.goals} голів
+                        <div className="font-semibold text-slate-900">{player.name}</div>
+                        <div className="text-sm text-slate-500">
+                          {player.team} · {player.goals} голів
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
@@ -1468,7 +1880,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                             setEditingPlayer(player)
                             setPlayerForm({ name: player.name, team: player.team, goals: player.goals })
                           }}
-                          className="bg-yellow-600/20 border-yellow-400/30 text-white hover:bg-yellow-600/30 rounded-xl flex-1 sm:flex-none"
+                          className="border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -1476,7 +1888,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDeletePlayer(player.id)}
-                          className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 rounded-xl flex-1 sm:flex-none"
+                          className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg flex-1 sm:flex-none"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

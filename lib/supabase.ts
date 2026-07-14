@@ -77,3 +77,21 @@ export interface MatchGoal {
   goal_type: "regular" | "penalty" | "own_goal"
   created_at: string
 }
+
+export interface MatchVoting {
+  match_id: number
+  is_active: boolean
+  start_time: string | null
+  end_time: string | null
+  created_at: string
+}
+
+export interface VotingCandidate {
+  id: number
+  match_id: number
+  player_name: string
+  team_name: string
+  votes: number
+  created_at: string
+}
+

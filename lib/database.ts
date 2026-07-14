@@ -1,5 +1,6 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchVoting, VotingCandidate } from "./supabase"
+
 
 // Mock data for demo purposes
 const mockChampionships: Championship[] = [
@@ -117,6 +118,10 @@ const mockPlayers: Player[] = [
     created_at: new Date().toISOString(),
   },
 ]
+
+const mockMatchVotings: MatchVoting[] = []
+const mockVotingCandidates: VotingCandidate[] = []
+
 
 // Helper function to check if we should use mock data
 const shouldUseMockData = () => {
@@ -528,3 +533,252 @@ export async function getCupMatches(championshipId: number, stage: string): Prom
     return []
   }
 }
+
+// Lion of the Match functions
+export async function getMatchVoting(matchId: number): Promise<MatchVoting | null> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockMatchVotings.find((v) => v.match_id === matchId) || null)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("match_votings")
+      .select("*")
+      .eq("match_id", matchId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.warn("Database error getting match voting:", error)
+    return mockMatchVotings.find((v) => v.match_id === matchId) || null
+  }
+}
+
+export async function getVotingCandidates(matchId: number): Promise<VotingCandidate[]> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockVotingCandidates.filter((c) => c.match_id === matchId))
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("voting_candidates")
+      .select("*")
+      .eq("match_id", matchId)
+      .order("votes", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting voting candidates:", error)
+    return mockVotingCandidates.filter((c) => c.match_id === matchId)
+  }
+}
+
+export async function createOrUpdateVoting(
+  matchId: number,
+  startTime: string | null,
+  endTime: string | null
+): Promise<MatchVoting> {
+  const payload = {
+    match_id: matchId,
+    start_time: startTime,
+    end_time: endTime,
+  }
+
+  if (shouldUseMockData()) {
+    const index = mockMatchVotings.findIndex((v) => v.match_id === matchId)
+    const newVoting: MatchVoting = {
+      match_id: matchId,
+      is_active: index !== -1 ? mockMatchVotings[index].is_active : false,
+      start_time: startTime,
+      end_time: endTime,
+      created_at: index !== -1 ? mockMatchVotings[index].created_at : new Date().toISOString(),
+    }
+    if (index !== -1) {
+      mockMatchVotings[index] = newVoting
+    } else {
+      mockMatchVotings.push(newVoting)
+    }
+    return Promise.resolve(newVoting)
+  }
+
+  const { data, error } = await supabase
+    .from("match_votings")
+    .upsert(payload, { onConflict: "match_id" })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function setVotingActiveState(matchId: number, isActive: boolean): Promise<MatchVoting> {
+  if (shouldUseMockData()) {
+    const index = mockMatchVotings.findIndex((v) => v.match_id === matchId)
+    if (index === -1) {
+      const newVoting: MatchVoting = {
+        match_id: matchId,
+        is_active: isActive,
+        start_time: null,
+        end_time: null,
+        created_at: new Date().toISOString(),
+      }
+      mockMatchVotings.push(newVoting)
+      return Promise.resolve(newVoting)
+    } else {
+      mockMatchVotings[index].is_active = isActive
+      return Promise.resolve(mockMatchVotings[index])
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("match_votings")
+    .update({ is_active: isActive })
+    .eq("match_id", matchId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function addVotingCandidate(
+  matchId: number,
+  playerName: string,
+  teamName: string
+): Promise<VotingCandidate> {
+  if (shouldUseMockData()) {
+    const newCandidate: VotingCandidate = {
+      id: Math.floor(Math.random() * 10000) + 1,
+      match_id: matchId,
+      player_name: playerName,
+      team_name: teamName,
+      votes: 0,
+      created_at: new Date().toISOString(),
+    }
+    mockVotingCandidates.push(newCandidate)
+    return Promise.resolve(newCandidate)
+  }
+
+  const { data, error } = await supabase
+    .from("voting_candidates")
+    .insert([{ match_id: matchId, player_name: playerName, team_name: teamName }])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteVotingCandidate(id: number): Promise<void> {
+  if (shouldUseMockData()) {
+    const index = mockVotingCandidates.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      mockVotingCandidates.splice(index, 1)
+    }
+    return Promise.resolve()
+  }
+
+  const { error } = await supabase.from("voting_candidates").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function incrementCandidateVotes(id: number): Promise<void> {
+  if (shouldUseMockData()) {
+    const index = mockVotingCandidates.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      mockVotingCandidates[index].votes = (mockVotingCandidates[index].votes || 0) + 1
+    }
+    return Promise.resolve()
+  }
+
+  const { data: candidate, error: fetchError } = await supabase
+    .from("voting_candidates")
+    .select("votes")
+    .eq("id", id)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  const currentVotes = candidate?.votes || 0
+  const { error: updateError } = await supabase
+    .from("voting_candidates")
+    .update({ votes: currentVotes + 1 })
+    .eq("id", id)
+
+  if (updateError) throw updateError
+}
+
+export async function updateVotingCandidate(id: number, playerName: string): Promise<VotingCandidate> {
+  if (shouldUseMockData()) {
+    const index = mockVotingCandidates.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      mockVotingCandidates[index].player_name = playerName
+      return Promise.resolve(mockVotingCandidates[index])
+    }
+    throw new Error("Candidate not found")
+  }
+
+  const { data, error } = await supabase
+    .from("voting_candidates")
+    .update({ player_name: playerName })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getChampionshipVotings(championshipId: number): Promise<MatchVoting[]> {
+  if (shouldUseMockData()) {
+    const matchIds = mockMatches.filter(m => m.championship_id === championshipId).map(m => m.id)
+    return Promise.resolve(mockMatchVotings.filter(v => matchIds.includes(v.match_id)))
+  }
+
+  try {
+    const { data: matches } = await supabase.from("matches").select("id").eq("championship_id", championshipId)
+    const matchIds = matches?.map(m => m.id) || []
+    if (matchIds.length === 0) return []
+
+    const { data, error } = await supabase
+      .from("match_votings")
+      .select("*")
+      .in("match_id", matchIds)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting championship votings:", error)
+    return []
+  }
+}
+
+export async function getChampionshipCandidates(championshipId: number): Promise<VotingCandidate[]> {
+  if (shouldUseMockData()) {
+    const matchIds = mockMatches.filter(m => m.championship_id === championshipId).map(m => m.id)
+    return Promise.resolve(mockVotingCandidates.filter(c => matchIds.includes(c.match_id)))
+  }
+
+  try {
+    const { data: matches } = await supabase.from("matches").select("id").eq("championship_id", championshipId)
+    const matchIds = matches?.map(m => m.id) || []
+    if (matchIds.length === 0) return []
+
+    const { data, error } = await supabase
+      .from("voting_candidates")
+      .select("*")
+      .in("match_id", matchIds)
+      .order("votes", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting championship candidates:", error)
+    return []
+  }
+}
+
+
+
