@@ -629,6 +629,14 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
             <Target className="h-4 w-4" />
             <span>Гравці</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="votings"
+            disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Star className="h-4 w-4" />
+            <span>Лев матчу</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="championships" className="space-y-4">
@@ -1899,6 +1907,321 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 )}
               </div>
             </>
+          )}
+        </TabsContent>
+
+        {/* Lion of the Match Voting Tab */}
+        <TabsContent value="votings" className="space-y-4">
+          {!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0 ? (
+            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
+              Спочатку створіть чемпіонат
+            </div>
+          ) : matches.length === 0 ? (
+            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
+              Додайте матчі для керування голосуваннями
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="text-sm text-slate-900 font-semibold">
+                  <strong>Керування голосуванням «Лев матчу»</strong>
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Оберіть матч нижче, щоб додати кандидатів та відкрити/закрити голосування.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Matches List */}
+                <div className="lg:col-span-1 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm h-[500px] flex flex-col">
+                  <div className="p-3 bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Матчі чемпіонату
+                  </div>
+                  <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+                    {matches.map((match) => (
+                      <button
+                        key={match.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMatchForVoting(match)
+                          setCandidateForm({
+                            player_name: "",
+                            team_name: match.home_team,
+                          })
+                          loadMatchVoting(match.id)
+                        }}
+                        className={`w-full text-left p-3 hover:bg-slate-50 transition-colors text-xs space-y-1.5 ${
+                          selectedMatchForVoting?.id === match.id ? "bg-slate-100/80 font-medium" : ""
+                        }`}
+                      >
+                        <div className="font-bold text-slate-900 flex justify-between items-center">
+                          <span>{match.home_team} — {match.away_team}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {currentChampionship?.tournament_type === "cup" && match.cup_stage
+                              ? match.cup_stage
+                              : `Тур ${match.round}`}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 flex items-center justify-between">
+                          <span>{match.date} {match.match_time}</span>
+                          <span className="font-semibold text-slate-600">
+                            {match.is_finished ? `${match.home_score}:${match.away_score}` : "Не зіграно"}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Voting Settings / Candidates Manager */}
+                <div className="lg:col-span-2">
+                  {selectedMatchForVoting ? (
+                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6 space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div>
+                          <h4 className="font-bold text-slate-950 text-base">
+                            {selectedMatchForVoting.home_team} vs {selectedMatchForVoting.away_team}
+                          </h4>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {selectedMatchForVoting.date} {selectedMatchForVoting.match_time && `· ${selectedMatchForVoting.match_time}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-500">Статус:</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            matchVoting?.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-red-100 text-red-800 border-red-200"
+                          }`}>
+                            {matchVoting?.is_active ? "ВІДКРИТЕ" : "ЗАКРИТЕ"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Config & Toggle */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-slate-200">
+                        {/* Time Settings */}
+                        <form onSubmit={handleVotingTimeSubmit} className="space-y-3">
+                          <h5 className="font-bold text-xs text-slate-800">Час проведення голосування</h5>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="voting-tab-start-time" className="text-slate-600 text-[11px] font-semibold">Початок</Label>
+                              <Input
+                                id="voting-tab-start-time"
+                                type="datetime-local"
+                                value={votingTimeForm.start_time}
+                                onChange={(e) => setVotingTimeForm({ ...votingTimeForm, start_time: e.target.value })}
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="voting-tab-end-time" className="text-slate-600 text-[11px] font-semibold">Кінець</Label>
+                              <Input
+                                id="voting-tab-end-time"
+                                type="datetime-local"
+                                value={votingTimeForm.end_time}
+                                onChange={(e) => setVotingTimeForm({ ...votingTimeForm, end_time: e.target.value })}
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            type="submit"
+                            disabled={loading}
+                            size="sm"
+                            className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
+                          >
+                            Зберегти час
+                          </Button>
+                        </form>
+
+                        {/* Status controls */}
+                        <div className="flex flex-col justify-between space-y-3">
+                          <div>
+                            <h5 className="font-bold text-xs text-slate-800">Керування станом</h5>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Ви можете активувати або деактивувати голосування вручну в будь-який момент.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={handleToggleVotingActiveState}
+                            disabled={loading}
+                            className={`w-full text-white text-xs h-9 rounded-lg font-semibold ${
+                              matchVoting?.is_active ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
+                            }`}
+                          >
+                            {matchVoting?.is_active ? "Закрити голосування" : "Відкрити голосування"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Add Candidates form */}
+                      <form onSubmit={handleAddCandidateSubmit} className="space-y-3 pb-6 border-b border-slate-200">
+                        <h5 className="font-bold text-xs text-slate-800">Додати кандидата</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="voting-tab-player-name" className="text-slate-600 text-[11px] font-semibold">Ім'я гравця</Label>
+                            <Input
+                              id="voting-tab-player-name"
+                              value={candidateForm.player_name}
+                              onChange={(e) => setCandidateForm({ ...candidateForm, player_name: e.target.value })}
+                              required
+                              placeholder="Введіть ім'я гравця"
+                              className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="voting-tab-team-name" className="text-slate-600 text-[11px] font-semibold">Команда</Label>
+                            <Select
+                              value={candidateForm.team_name}
+                              onValueChange={(value) => setCandidateForm({ ...candidateForm, team_name: value })}
+                            >
+                              <SelectTrigger className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white border-slate-200">
+                                <SelectItem value={selectedMatchForVoting.home_team} className="text-slate-900">
+                                  {selectedMatchForVoting.home_team} (Господарі)
+                                </SelectItem>
+                                <SelectItem value={selectedMatchForVoting.away_team} className="text-slate-900">
+                                  {selectedMatchForVoting.away_team} (Гості)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <Button
+                          type="submit"
+                          disabled={loading}
+                          size="sm"
+                          className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Додати гравця
+                        </Button>
+                      </form>
+
+                      {/* Candidates Lists */}
+                      <div className="space-y-4">
+                        <h5 className="font-bold text-xs text-slate-800">Список кандидатів</h5>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Home Candidates */}
+                          <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
+                              {selectedMatchForVoting.home_team}
+                            </h6>
+                            {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.home_team).length === 0 ? (
+                              <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.home_team).map((candidate) => (
+                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                    {editingCandidateId === candidate.id ? (
+                                      <div className="flex items-center gap-1.5 w-full">
+                                        <Input
+                                          value={editingCandidateName}
+                                          onChange={(e) => setEditingCandidateName(e.target.value)}
+                                          className="border-slate-300 text-slate-900 rounded h-7 text-xs px-2 py-0.5 flex-1"
+                                        />
+                                        <Button size="sm" onClick={handleSaveEditCandidate} className="bg-slate-900 text-white text-[10px] h-7 px-2">Зберегти</Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingCandidateId(null)} className="h-7 px-2 text-[10px]">Скасувати</Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleStartEditCandidate(candidate)}
+                                            className="h-6 w-6 p-0 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            type="button"
+                                          >
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleDeleteCandidate(candidate.id)}
+                                            className="h-6 w-6 p-0 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100"
+                                            type="button"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Away Candidates */}
+                          <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
+                              {selectedMatchForVoting.away_team}
+                            </h6>
+                            {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.away_team).length === 0 ? (
+                              <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.away_team).map((candidate) => (
+                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                    {editingCandidateId === candidate.id ? (
+                                      <div className="flex items-center gap-1.5 w-full">
+                                        <Input
+                                          value={editingCandidateName}
+                                          onChange={(e) => setEditingCandidateName(e.target.value)}
+                                          className="border-slate-300 text-slate-900 rounded h-7 text-xs px-2 py-0.5 flex-1"
+                                        />
+                                        <Button size="sm" onClick={handleSaveEditCandidate} className="bg-slate-900 text-white text-[10px] h-7 px-2">Зберегти</Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingCandidateId(null)} className="h-7 px-2 text-[10px]">Скасувати</Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleStartEditCandidate(candidate)}
+                                            className="h-6 w-6 p-0 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            type="button"
+                                          >
+                                            <Edit className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleDeleteCandidate(candidate.id)}
+                                            className="h-6 w-6 p-0 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100"
+                                            type="button"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-8 text-center text-slate-400">
+                      <Star className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+                      Будь ласка, оберіть матч зі списку ліворуч, щоб розпочати налаштування голосування.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </TabsContent>
       </Tabs>
