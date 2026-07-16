@@ -13,13 +13,8 @@ import {
   Settings,
   Clock,
   Zap,
-  Star,
   Crown,
   Users,
-  MapPin,
-  Activity,
-  Medal,
-  TrendingUp,
   Vote,
   CheckCircle2,
 } from "lucide-react"
@@ -30,7 +25,6 @@ import {
   calculateLeagueTable,
   getChampionships,
   getActiveChampionship,
-  getMatchGoals,
   getChampionshipVotings,
   getChampionshipCandidates,
   incrementCandidateVotes,
@@ -45,7 +39,6 @@ import { TeamDisplay } from "@/components/team-display"
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPassword, setAdminPassword] = useState("")
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const [teams, setTeams] = useState<Team[]>([])
   const [table, setTable] = useState<any[]>([])
@@ -92,22 +85,15 @@ export default function KSLigaSite() {
   const loadInitialData = async () => {
     try {
       setLoading(true)
-      console.log("Loading initial data...")
-
       const [championshipsData, activeChampionship] = await Promise.all([getChampionships(), getActiveChampionship()])
-
-      console.log("Championships loaded:", championshipsData)
-      console.log("Active championship:", activeChampionship)
 
       setChampionships(championshipsData)
 
       // Set the current championship
       const championshipId = activeChampionship?.id || championshipsData[0]?.id
       if (championshipId) {
-        console.log("Setting current championship to:", championshipId)
         setCurrentChampionshipId(championshipId)
       } else {
-        console.log("No championships found")
         setCurrentChampionshipId(null)
       }
     } catch (error) {
@@ -120,8 +106,6 @@ export default function KSLigaSite() {
   const loadDataForChampionship = async (championshipId: number) => {
     try {
       setLoading(true)
-      console.log("Loading data for championship:", championshipId)
-
       const [teamsData, matchesData, playersData, tableData, votingsData, candidatesData] = await Promise.all([
         getTeams(championshipId),
         getMatches(championshipId),
@@ -130,10 +114,6 @@ export default function KSLigaSite() {
         getChampionshipVotings(championshipId),
         getChampionshipCandidates(championshipId),
       ])
-
-      console.log("Loaded teams:", teamsData)
-      console.log("Loaded matches:", matchesData)
-      console.log("Loaded players:", playersData)
 
       setTeams(teamsData)
       setTable(tableData)
@@ -240,7 +220,7 @@ export default function KSLigaSite() {
 
   const handleChampionshipChange = (value: string) => {
     const newChampionshipId = Number.parseInt(value)
-    console.log("Championship changed to:", newChampionshipId)
+
     setCurrentChampionshipId(newChampionshipId)
   }
 
@@ -340,7 +320,7 @@ export default function KSLigaSite() {
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="Пароль доступу"
-                      onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                       className="bg-slate-50 border-slate-200 rounded-lg text-sm"
                     />
                     <Button
@@ -993,7 +973,7 @@ export default function KSLigaSite() {
                             value={adminPassword}
                             onChange={(e) => setAdminPassword(e.target.value)}
                             placeholder="Введіть пароль доступу"
-                            onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                             className="bg-slate-50 border-slate-200 rounded-lg text-sm"
                           />
                           <Button

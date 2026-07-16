@@ -87,4 +87,29 @@
   body {
     @apply bg-background text-foreground;
   }
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Hide scrollbar for horizontal tab navigation */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, select {
+  transition: all 0.15s ease;
+}
+
+/* Prevent layout shift on images */
+img {
+  content-visibility: auto;
 }
