@@ -361,13 +361,13 @@ export default function KSLigaSite() {
                 defaultValue={currentChampionship?.tournament_type === "cup" ? "cup" : "table"}
                 className="w-full space-y-6"
               >
-                {/* Modern Pill Tabs Trigger */}
-                <div className="overflow-x-auto pb-1.5 scrollbar-none flex justify-start">
-                  <TabsList className="bg-slate-100/90 border border-slate-200/50 p-1 rounded-xl h-auto gap-1 flex justify-start w-max">
+                {/* iOS Liquid Glass Segmented Tab Bar */}
+                <div className="overflow-x-auto pb-2.5 scrollbar-none flex justify-start">
+                  <TabsList className="ios-segmented-control w-max">
                     {currentChampionship?.tournament_type === "league" && (
                       <TabsTrigger
                         value="table"
-                        className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                        className="ios-segment"
                       >
                         Таблиця
                       </TabsTrigger>
@@ -375,48 +375,49 @@ export default function KSLigaSite() {
                     {currentChampionship?.tournament_type === "cup" && (
                       <TabsTrigger
                         value="cup"
-                        className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                        className="ios-segment"
                       >
                         Кубок
                       </TabsTrigger>
                     )}
                     <TabsTrigger
                       value="calendar"
-                      className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                      className="ios-segment"
                     >
                       Календар
                     </TabsTrigger>
                     <TabsTrigger
                       value="results"
-                      className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                      className="ios-segment"
                     >
                       Результати
                     </TabsTrigger>
                     <TabsTrigger
                       value="scorers"
-                      className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                      className="ios-segment"
                     >
                       Бомбардири
                     </TabsTrigger>
                     <TabsTrigger
                       value="lion"
-                      className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                      className="ios-segment"
                     >
                       Лев матчу
                     </TabsTrigger>
                     <TabsTrigger
                       value="admin"
-                      className="bg-transparent rounded-lg px-4 py-2 text-xs font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all border-none"
+                      className="ios-segment"
                     >
-                      Панель керування
+                      Налаштування
                     </TabsTrigger>
                   </TabsList>
                 </div>
 
                 {/* League Table Tab */}
                 {currentChampionship?.tournament_type === "league" && (
-                  <TabsContent value="table" className="outline-none">
-                    <Card className="bg-white border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden card-hover-animation">
+                  <TabsContent value="table" className="outline-none space-y-2">
+                    <div className="ios-section-header">Турнірна таблиця</div>
+                    <Card className="liquid-glass-card overflow-hidden">
                       <CardContent className="p-0">
                         {table.length === 0 ? (
                           <div className="text-center py-16 p-6">

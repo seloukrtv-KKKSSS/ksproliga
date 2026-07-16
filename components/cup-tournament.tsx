@@ -80,13 +80,13 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
         if (stageMatches.length === 0) return null
 
         return (
-          <div key={stage} className="space-y-3">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pl-1">
+          <div key={stage} className="space-y-2">
+            <h3 className="ios-section-header pl-1">
               {stage}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {stageMatches.map((match, index) => (
-                <Card key={index} className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden card-hover-animation">
+                <Card key={index} className="liquid-glass-card overflow-hidden">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-3 flex-1">

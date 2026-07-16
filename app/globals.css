@@ -10,48 +10,48 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 224 71.4% 4.1%;
+    --background: 240 14% 97%; /* #f2f2f7 iOS systemGroupedBackgroundColor */
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 219.1 100% 49%; /* #007aff iOS systemBlue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 354.3 100% 59.8%; /* #ff3b30 iOS systemRed */
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 219.1 100% 49%;
+    --radius: 0.85rem; /* iOS settings card radius */
   }
   
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 0 0% 0%; /* iOS Settings dark mode bg */
+    --foreground: 0 0% 98%;
+    --card: 240 10% 10%; /* #1c1c1e */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 219.1 100% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 354.3 100% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 219.1 100% 54%;
   }
 }
 
@@ -60,7 +60,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-slate-50/70 text-slate-900;
+    background-color: #f2f2f7;
+    color: #000000;
   }
   html {
     scroll-behavior: smooth;
@@ -70,7 +71,7 @@
   }
 }
 
-/* Hide scrollbars across all browsers but support scrolling */
+/* Hide scrollbars but keep scrolling */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
@@ -79,22 +80,171 @@
   scrollbar-width: none;
 }
 
-/* Smooth transitions for interactive elements */
-button, a, input, select, tr {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+/* Apple iOS Segmented Control styling */
+.ios-segmented-control {
+  background-color: rgba(120, 120, 128, 0.08);
+  padding: 3px;
+  border-radius: 9px;
+  display: flex;
+  gap: 1px;
 }
 
-/* Subtle dashboard card hover micro-animations */
-.card-hover-animation {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card-hover-animation:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.04), 0 4px 20px -10px rgba(0, 0, 0, 0.02);
-  border-color: rgba(148, 163, 184, 0.18);
+.ios-segment {
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3a3a3c;
+  padding: 6px 14px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none !important;
 }
 
-/* Custom sports details styling */
-img {
-  content-visibility: auto;
+.ios-segment[data-state="active"] {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.04) !important;
+  font-weight: 600;
+}
+
+/* iOS Settings Card styling (Apple Inset Grouped Table View) */
+.ios-group-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.015);
+  border: none;
+  overflow: hidden;
+}
+
+/* iOS list item row (Settings row) */
+.ios-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #ffffff;
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.12);
+  transition: background-color 0.12s ease;
+}
+
+.ios-row:last-child {
+  border-bottom: none;
+}
+
+.ios-row:active {
+  background-color: #e5e5ea;
+}
+
+/* Colorful iOS Settings-style square icon container */
+.ios-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+/* Liquid Glass cards: Apple Glassmorphism styling */
+.liquid-glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.015),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-radius: 14px;
+}
+
+.liquid-glass-header {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px) saturate(210%);
+  -webkit-backdrop-filter: blur(24px) saturate(210%);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Apple Buttons */
+.ios-btn-primary {
+  background-color: #007aff;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: opacity 0.15s ease;
+}
+.ios-btn-primary:active {
+  opacity: 0.8;
+}
+
+.ios-btn-secondary {
+  background-color: rgba(120, 120, 128, 0.12);
+  color: #007aff;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+/* Apple Settings-like Section Header */
+.ios-section-header {
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: rgba(60, 60, 67, 0.6);
+  padding-left: 16px;
+  margin-bottom: 6px;
+}
+
+.ios-section-footer {
+  font-size: 11.5px;
+  color: rgba(60, 60, 67, 0.5);
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-top: 6px;
+}
+
+/* iOS switch wrapper */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
+}
+
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e9e9ea;
+  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 34px;
+}
+
+.ios-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 3px 1px rgba(0,0,0,0.06);
+}
+
+input:checked + .ios-switch-slider {
+  background-color: #34c759;
+}
+
+input:checked + .ios-switch-slider:before {
+  transform: translateX(20px);
 }

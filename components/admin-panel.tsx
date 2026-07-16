@@ -658,44 +658,44 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       </div>
 
       <Tabs defaultValue="championships" className="w-full">
-        <TabsList className="flex w-full justify-start gap-6 border-b border-slate-200 bg-transparent h-auto p-0 rounded-none mb-6">
+        <TabsList className="ios-segmented-control w-max mb-6">
           <TabsTrigger
             value="championships"
-            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5"
+            className="ios-segment"
           >
-            <Settings className="h-4 w-4" />
-            <span>Чемпіонати</span>
+            <Settings className="h-3.5 w-3.5 mr-1" />
+            <span>Турніри</span>
           </TabsTrigger>
           <TabsTrigger
             value="teams"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
+            className="ios-segment disabled:opacity-40"
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-3.5 w-3.5 mr-1" />
             <span>Команди</span>
           </TabsTrigger>
           <TabsTrigger
             value="matches"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
+            className="ios-segment disabled:opacity-40"
           >
-            <Calendar className="h-4 w-4" />
+            <Calendar className="h-3.5 w-3.5 mr-1" />
             <span>Матчі</span>
           </TabsTrigger>
           <TabsTrigger
             value="players"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
+            className="ios-segment disabled:opacity-40"
           >
-            <Target className="h-4 w-4" />
+            <Target className="h-3.5 w-3.5 mr-1" />
             <span>Гравці</span>
           </TabsTrigger>
           <TabsTrigger
             value="votings"
             disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent rounded-none px-0 py-2.5 text-xs sm:text-sm font-semibold text-slate-500 data-[state=active]:text-slate-950 shadow-none transition-all flex items-center gap-1.5 disabled:opacity-50"
+            className="ios-segment disabled:opacity-40"
           >
-            <Star className="h-4 w-4" />
+            <Star className="h-3.5 w-3.5 mr-1" />
             <span>Лев матчу</span>
           </TabsTrigger>
         </TabsList>
