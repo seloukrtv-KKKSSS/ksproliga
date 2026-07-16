@@ -57,6 +57,7 @@ export default function KSLigaSite() {
   const [candidates, setCandidates] = useState<VotingCandidate[]>([])
   const [votedMatches, setVotedMatches] = useState<number[]>([])
   const [selectedCandidate, setSelectedCandidate] = useState<{ [matchId: number]: number }>({})
+  const [showArchive, setShowArchive] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -709,18 +710,52 @@ export default function KSLigaSite() {
 
                 {/* Lion of the Match Tab */}
                 <TabsContent value="lion" className="outline-none space-y-6">
-                  {votings.length === 0 ? (
+                  {votings.length > 0 && (
+                    <div className="flex justify-end">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm hover:bg-slate-50 transition-all">
+                        <input
+                          type="checkbox"
+                          checked={showArchive}
+                          onChange={(e) => setShowArchive(e.target.checked)}
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-4 w-4"
+                        />
+                        <span>Показати архів голосувань</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {votings.filter((voting) => {
+                    if (showArchive) return true
+                    const now = new Date()
+                    const startTime = voting.start_time ? new Date(voting.start_time) : null
+                    const endTime = voting.end_time ? new Date(voting.end_time) : null
+                    const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
+                    return voting.is_active && isWithinTime
+                  }).length === 0 ? (
                     <Card className="bg-white border border-slate-200 shadow-sm rounded-xl py-12 text-center">
                       <CardContent className="p-6">
                         <Crown className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                        <div className="text-base font-semibold text-slate-900">Голосувань ще немає</div>
+                        <div className="text-base font-semibold text-slate-900">
+                          {showArchive ? "Голосувань ще немає" : "Немає активних голосувань"}
+                        </div>
                         <div className="text-xs text-slate-500 mt-1">
-                          Адміністратор ще не створив голосування за Лева матчу.
+                          {showArchive 
+                            ? "Адміністратор ще не створив голосування за Лева матчу." 
+                            : "Увімкніть архів, щоб переглянути результати минулих матчів."}
                         </div>
                       </CardContent>
                     </Card>
                   ) : (
-                    votings.map((voting) => {
+                    votings
+                      .filter((voting) => {
+                        if (showArchive) return true
+                        const now = new Date()
+                        const startTime = voting.start_time ? new Date(voting.start_time) : null
+                        const endTime = voting.end_time ? new Date(voting.end_time) : null
+                        const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
+                        return voting.is_active && isWithinTime
+                      })
+                      .map((voting) => {
                       const match = [...calendar, ...results].find((m) => m.id === voting.match_id)
                       if (!match) return null
                       const matchCandidates = candidates

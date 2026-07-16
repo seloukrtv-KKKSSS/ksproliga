@@ -44,6 +44,7 @@ import {
   deleteMatchGoal,
   getMatchVoting,
   getVotingCandidates,
+  getChampionshipVotings,
   createOrUpdateVoting,
   setVotingActiveState,
   addVotingCandidate,
@@ -127,6 +128,8 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
   const [selectedMatchForVoting, setSelectedMatchForVoting] = useState<Match | null>(null)
   const [matchVoting, setMatchVoting] = useState<MatchVoting | null>(null)
   const [votingCandidates, setVotingCandidates] = useState<VotingCandidate[]>([])
+  const [championshipVotings, setChampionshipVotings] = useState<MatchVoting[]>([])
+  const [hideCompletedVotings, setHideCompletedVotings] = useState(false)
   const [candidateForm, setCandidateForm] = useState({
     player_name: "",
     team_name: "",
@@ -151,18 +154,21 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       setChampionships(championshipsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
-        const [teamsData, matchesData, playersData] = await Promise.all([
+        const [teamsData, matchesData, playersData, votingsData] = await Promise.all([
           getTeams(currentChampionshipId),
           getMatches(currentChampionshipId),
           getPlayers(currentChampionshipId),
+          getChampionshipVotings(currentChampionshipId),
         ])
         setTeams(teamsData)
         setMatches(matchesData)
         setPlayers(playersData)
+        setChampionshipVotings(votingsData)
       } else {
         setTeams([])
         setMatches([])
         setPlayers([])
+        setChampionshipVotings([])
       }
     } catch (error) {
       console.error("Error loading data:", error)
@@ -385,6 +391,49 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
     }
   }
 
+  const updateChampionshipVotingsList = (updatedVoting: MatchVoting) => {
+    setChampionshipVotings((prev) => {
+      const exists = prev.some((v) => v.match_id === updatedVoting.match_id)
+      if (exists) {
+        return prev.map((v) => v.match_id === updatedVoting.match_id ? updatedVoting : v)
+      } else {
+        return [...prev, updatedVoting]
+      }
+    })
+  }
+
+  const applyPreset = (preset: "match24" | "match48" | "now24" | "now48" | "clear", targetMatch: Match | null) => {
+    if (!targetMatch) return
+
+    if (preset === "clear") {
+      setVotingTimeForm({ start_time: "", end_time: "" })
+      return
+    }
+
+    let startDate = new Date()
+    if (preset.startsWith("match")) {
+      const matchDateStr = targetMatch.date // e.g. "2026-07-16"
+      const matchTimeStr = targetMatch.match_time || "12:00"
+      startDate = new Date(`${matchDateStr}T${matchTimeStr}`)
+      if (isNaN(startDate.getTime())) {
+        startDate = new Date()
+      }
+    }
+
+    const hours = preset.endsWith("24") ? 24 : 48
+    const endDate = new Date(startDate.getTime() + hours * 60 * 60 * 1000)
+
+    const toLocalISO = (d: Date) => {
+      const pad = (n: number) => n.toString().padStart(2, "0")
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+
+    setVotingTimeForm({
+      start_time: toLocalISO(startDate),
+      end_time: toLocalISO(endDate),
+    })
+  }
+
   // Lion of the Match handlers
   const loadMatchVoting = async (matchId: number) => {
     try {
@@ -419,9 +468,9 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
   }
 
   const handleVotingTimeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
     if (!selectedMatchForVoting) return
 
+    e.preventDefault()
     setLoading(true)
     try {
       const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
@@ -433,6 +482,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
         endTime
       )
       setMatchVoting(updated)
+      updateChampionshipVotingsList(updated)
       alert("Параметри голосування успішно збережено!")
     } catch (error) {
       console.error("Error saving voting configuration:", error)
@@ -450,11 +500,13 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       if (!matchVoting) {
         const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
         const endTime = votingTimeForm.end_time ? new Date(votingTimeForm.end_time).toISOString() : null
-        await createOrUpdateVoting(selectedMatchForVoting.id, startTime, endTime)
+        const created = await createOrUpdateVoting(selectedMatchForVoting.id, startTime, endTime)
+        updateChampionshipVotingsList(created)
       }
 
       const updated = await setVotingActiveState(selectedMatchForVoting.id, nextState)
       setMatchVoting(updated)
+      updateChampionshipVotingsList(updated)
     } catch (error) {
       console.error("Error toggling voting state:", error)
       alert("Помилка активації/деактивації голосування: " + getErrorMessage(error))
@@ -1393,7 +1445,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                 type="datetime-local"
                                 value={votingTimeForm.start_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, start_time: e.target.value })}
-                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
                               />
                             </div>
                             <div>
@@ -1403,9 +1455,46 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                 type="datetime-local"
                                 value={votingTimeForm.end_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, end_time: e.target.value })}
-                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                                className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
                               />
                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("match24", match)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              📅 Матч +24г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("match48", match)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              📅 Матч +48г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("now24", match)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              ⚡ Зараз +24г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("now48", match)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              ⚡ Зараз +48г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("clear", match)}
+                              className="text-[10px] font-medium text-red-650 hover:bg-red-50 px-2 py-1 rounded transition-all bg-transparent ml-auto"
+                            >
+                              ❌ Очистити
+                            </button>
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -1943,42 +2032,62 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Matches List */}
                 <div className="lg:col-span-1 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm h-[500px] flex flex-col">
-                  <div className="p-3 bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Матчі чемпіонату
+                  <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Матчі чемпіонату</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={hideCompletedVotings}
+                        onChange={(e) => setHideCompletedVotings(e.target.checked)}
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
+                      />
+                      <span>Приховати завершені</span>
+                    </label>
                   </div>
                   <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
-                    {matches.map((match) => (
-                      <button
-                        key={match.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedMatchForVoting(match)
-                          setCandidateForm({
-                            player_name: "",
-                            team_name: match.home_team,
-                          })
-                          loadMatchVoting(match.id)
-                        }}
-                        className={`w-full text-left p-3 hover:bg-slate-50 transition-colors text-xs space-y-1.5 ${
-                          selectedMatchForVoting?.id === match.id ? "bg-slate-100/80 font-medium" : ""
-                        }`}
-                      >
-                        <div className="font-bold text-slate-900 flex justify-between items-center">
-                          <span>{match.home_team} — {match.away_team}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {currentChampionship?.tournament_type === "cup" && match.cup_stage
-                              ? match.cup_stage
-                              : `Тур ${match.round}`}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 flex items-center justify-between">
-                          <span>{match.date} {match.match_time}</span>
-                          <span className="font-semibold text-slate-600">
-                            {match.is_finished ? `${match.home_score}:${match.away_score}` : "Не зіграно"}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {matches
+                      .filter((match) => {
+                        if (!hideCompletedVotings) return true
+                        const voting = championshipVotings.find((v) => v.match_id === match.id)
+                        if (!voting) return true
+                        if (voting.is_active) return true
+                        const now = new Date()
+                        const endTime = voting.end_time ? new Date(voting.end_time) : null
+                        if (endTime && endTime > now) return true
+                        return false
+                      })
+                      .map((match) => (
+                        <button
+                          key={match.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedMatchForVoting(match)
+                            setCandidateForm({
+                              player_name: "",
+                              team_name: match.home_team,
+                            })
+                            loadMatchVoting(match.id)
+                          }}
+                          className={`w-full text-left p-3 hover:bg-slate-50 transition-colors text-xs space-y-1.5 ${
+                            selectedMatchForVoting?.id === match.id ? "bg-slate-100/80 font-medium" : ""
+                          }`}
+                        >
+                          <div className="font-bold text-slate-900 flex justify-between items-center">
+                            <span>{match.home_team} — {match.away_team}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {currentChampionship?.tournament_type === "cup" && match.cup_stage
+                                ? match.cup_stage
+                                : `Тур ${match.round}`}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex items-center justify-between">
+                            <span>{match.date} {match.match_time}</span>
+                            <span className="font-semibold text-slate-600">
+                              {match.is_finished ? `${match.home_score}:${match.away_score}` : "Не зіграно"}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
                   </div>
                 </div>
 
@@ -2031,6 +2140,43 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                                 className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
                               />
                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("match24", selectedMatchForVoting)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              📅 Матч +24г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("match48", selectedMatchForVoting)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              📅 Матч +48г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("now24", selectedMatchForVoting)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              ⚡ Зараз +24г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("now48", selectedMatchForVoting)}
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                            >
+                              ⚡ Зараз +48г
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyPreset("clear", selectedMatchForVoting)}
+                              className="text-[10px] font-medium text-red-650 hover:bg-red-50 px-2 py-1 rounded transition-all bg-transparent ml-auto"
+                            >
+                              ❌ Очистити
+                            </button>
                           </div>
                           <Button
                             type="submit"
