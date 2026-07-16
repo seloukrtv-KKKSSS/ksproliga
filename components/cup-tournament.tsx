@@ -81,34 +81,38 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
 
         return (
           <div key={stage} className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pl-1">
               {stage}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {stageMatches.map((match, index) => (
-                <Card key={index} className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                <Card key={index} className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden card-hover-animation">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-3 flex-1">
                         {/* Home Team */}
                         <div className="flex items-center gap-3">
-                          <img
-                            src={getTeamLogo(match.home_team)}
-                            alt="Home Team"
-                            className="w-5 h-5 object-contain"
-                          />
-                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.home_score < match.away_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 border border-slate-250/60 shadow-sm flex-shrink-0">
+                            <img
+                              src={getTeamLogo(match.home_team)}
+                              alt="Home Team"
+                              className="w-4 h-4 object-contain"
+                            />
+                          </div>
+                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.home_score < match.away_score && !match.is_technical_defeat ? "text-slate-400 font-medium" : "text-slate-800 font-bold"}`}>
                             {match.home_team}
                           </span>
                         </div>
                         {/* Away Team */}
                         <div className="flex items-center gap-3">
-                          <img
-                            src={getTeamLogo(match.away_team)}
-                            alt="Away Team"
-                            className="w-5 h-5 object-contain"
-                          />
-                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.away_score < match.home_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 border border-slate-250/60 shadow-sm flex-shrink-0">
+                            <img
+                              src={getTeamLogo(match.away_team)}
+                              alt="Away Team"
+                              className="w-4 h-4 object-contain"
+                            />
+                          </div>
+                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.away_score < match.home_score && !match.is_technical_defeat ? "text-slate-400 font-medium" : "text-slate-800 font-bold"}`}>
                             {match.away_team}
                           </span>
                         </div>
@@ -117,18 +121,18 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                       {/* Score or VS */}
                       <div className="text-right pl-4 flex-shrink-0 flex flex-col justify-center items-end">
                         {match.is_finished ? (
-                          <div className="text-base font-bold text-slate-900">
+                          <div className="text-base font-black text-slate-900 tracking-tight">
                             {formatMatchResult(match)}
-                            <span className="text-xs text-slate-500 block font-normal">
+                            <span className="text-[10px] text-slate-550 block font-semibold mt-0.5">
                               {formatPenaltyResult(match)}
                             </span>
                           </div>
                         ) : (
-                          <div className="text-xs font-bold text-slate-400 border border-slate-200 px-2.5 py-1 rounded bg-slate-50">
+                          <div className="text-[10px] font-bold text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded bg-indigo-50/50">
                             VS
                           </div>
                         )}
-                        <div className="text-[9px] text-slate-400 mt-1">
+                        <div className="text-[9px] text-slate-400 font-semibold mt-1">
                           {new Date(match.date).toLocaleDateString("uk-UA")}
                         </div>
                       </div>
@@ -138,24 +142,24 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
                       <div className="flex items-center gap-2">
                         {match.match_time && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-slate-400" />
+                          <span className="flex items-center gap-1 font-medium text-slate-450">
+                            <Clock className="h-3.5 w-3.5 text-slate-400" />
                             {match.match_time}
                           </span>
                         )}
                         {match.is_technical_defeat && (
-                          <span className="flex items-center gap-1 text-red-600 font-medium">
-                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                          <span className="flex items-center gap-1 text-red-650 font-bold">
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
                             Тех. поразка
                           </span>
                         )}
                       </div>
                       <Badge
                         variant="outline"
-                        className={`text-[10px] px-1.5 py-0 rounded ${
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-lg ${
                           match.is_finished
-                            ? "bg-slate-50 border-slate-200 text-slate-700"
-                            : "bg-blue-50 border-blue-100 text-blue-700"
+                            ? "bg-slate-50 border-slate-200 text-slate-650"
+                            : "bg-indigo-50 border-indigo-100/50 text-indigo-750"
                         }`}
                       >
                         {match.is_finished ? "Завершено" : "Заплановано"}

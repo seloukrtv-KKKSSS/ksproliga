@@ -38,7 +38,7 @@ export function TeamDisplay({ teamName, teamLogo, size = "md", showName = true, 
           </div>
         )}
       </div>
-      {showName && <span className={`font-semibold text-white ${textSizeClasses[size]}`}>{teamName}</span>}
+      {showName && <span className={`font-semibold text-slate-700 dark:text-slate-200 ${textSizeClasses[size]}`}>{teamName}</span>}
     </div>
   )
 }
