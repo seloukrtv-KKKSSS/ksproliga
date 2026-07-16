@@ -785,74 +785,80 @@ export default function KSLigaSite() {
                               </div>
                             ) : canVote ? (
                               /* Active Voting UI */
-                              <div className="space-y-4">
-                                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                              <div className="space-y-6">
+                                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                                   Оберіть найкращого гравця матчу
                                 </div>
 
-                                {/* Home Team Candidates */}
-                                {matchCandidates.filter((c) => c.team_name === match.home_team).length > 0 && (
-                                  <div className="space-y-2">
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                  {/* Home Team Candidates */}
+                                  <div className="space-y-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
                                       <img src={getTeamLogo(match.home_team)} alt="" className="w-4 h-4 object-contain" />
-                                      {match.home_team}
+                                      <span>{match.home_team} (Господарі)</span>
                                     </div>
-                                    <div className="grid gap-2 sm:grid-cols-2">
-                                      {matchCandidates
-                                        .filter((c) => c.team_name === match.home_team)
-                                        .map((candidate) => (
-                                          <button
-                                            key={candidate.id}
-                                            onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                            className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
-                                              selectedCandidate[voting.match_id] === candidate.id
-                                                ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                                                : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
-                                            }`}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              {selectedCandidate[voting.match_id] === candidate.id && (
-                                                <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
-                                              )}
-                                              <span>{candidate.player_name}</span>
-                                            </div>
-                                          </button>
-                                        ))}
-                                    </div>
+                                    {matchCandidates.filter((c) => c.team_name === match.home_team).length === 0 ? (
+                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-100 rounded-lg">Гравців не додано</div>
+                                    ) : (
+                                      <div className="flex flex-col gap-2">
+                                        {matchCandidates
+                                          .filter((c) => c.team_name === match.home_team)
+                                          .map((candidate) => (
+                                            <button
+                                              key={candidate.id}
+                                              onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
+                                              className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
+                                                selectedCandidate[voting.match_id] === candidate.id
+                                                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                                                  : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                {selectedCandidate[voting.match_id] === candidate.id && (
+                                                  <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
+                                                )}
+                                                <span>{candidate.player_name}</span>
+                                              </div>
+                                            </button>
+                                          ))}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
 
-                                {/* Away Team Candidates */}
-                                {matchCandidates.filter((c) => c.team_name === match.away_team).length > 0 && (
-                                  <div className="space-y-2">
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                  {/* Away Team Candidates */}
+                                  <div className="space-y-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
                                       <img src={getTeamLogo(match.away_team)} alt="" className="w-4 h-4 object-contain" />
-                                      {match.away_team}
+                                      <span>{match.away_team} (Гості)</span>
                                     </div>
-                                    <div className="grid gap-2 sm:grid-cols-2">
-                                      {matchCandidates
-                                        .filter((c) => c.team_name === match.away_team)
-                                        .map((candidate) => (
-                                          <button
-                                            key={candidate.id}
-                                            onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                            className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
-                                              selectedCandidate[voting.match_id] === candidate.id
-                                                ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                                                : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
-                                            }`}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              {selectedCandidate[voting.match_id] === candidate.id && (
-                                                <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
-                                              )}
-                                              <span>{candidate.player_name}</span>
-                                            </div>
-                                          </button>
-                                        ))}
-                                    </div>
+                                    {matchCandidates.filter((c) => c.team_name === match.away_team).length === 0 ? (
+                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-100 rounded-lg">Гравців не додано</div>
+                                    ) : (
+                                      <div className="flex flex-col gap-2">
+                                        {matchCandidates
+                                          .filter((c) => c.team_name === match.away_team)
+                                          .map((candidate) => (
+                                            <button
+                                              key={candidate.id}
+                                              onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
+                                              className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
+                                                selectedCandidate[voting.match_id] === candidate.id
+                                                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                                                  : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                {selectedCandidate[voting.match_id] === candidate.id && (
+                                                  <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
+                                                )}
+                                                <span>{candidate.player_name}</span>
+                                              </div>
+                                            </button>
+                                          ))}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
+                                </div>
 
                                 <Button
                                   onClick={() => handleVoteSubmit(voting.match_id)}
