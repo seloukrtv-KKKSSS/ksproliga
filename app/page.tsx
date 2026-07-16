@@ -253,13 +253,13 @@ export default function KSLigaSite() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-55 text-slate-900 flex flex-col font-sans">
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-50 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+    <div className="min-h-screen bg-[#f2f2f7] text-slate-900 flex flex-col font-sans">
+      <header className="liquid-glass-header sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-slate-900 to-indigo-950 rounded-xl flex items-center justify-center overflow-hidden border border-slate-800/80 shadow-md">
-              <img src="/images/ks-logo.png" alt="KS Logo" className="w-7 h-7 object-contain animate-pulse" />
+            <div className="w-10 h-10 bg-gradient-to-tr from-white to-slate-50 rounded-xl flex items-center justify-center overflow-hidden border border-white/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+              <img src="/images/ks-logo.png" alt="KS Logo" className="w-7 h-7 object-contain" />
             </div>
             <div>
               <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-slate-950 via-slate-800 to-indigo-900 bg-clip-text text-transparent">
@@ -659,8 +659,9 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* Scorers Tab */}
-                <TabsContent value="scorers" className="outline-none">
-                  <Card className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                <TabsContent value="scorers" className="outline-none space-y-2">
+                  <div className="ios-section-header">Рейтинг бомбардирів</div>
+                  <Card className="liquid-glass-card overflow-hidden">
                     <CardContent className="p-0">
                       {scorers.length === 0 ? (
                         <div className="text-center py-12 p-6">
@@ -674,22 +675,22 @@ export default function KSLigaSite() {
                         <div className="divide-y divide-slate-100">
                           {scorers.map((scorer, index) => {
                             const position = index + 1
-                            let badgeStyle = "bg-slate-100 text-slate-800"
-                            if (position === 1) badgeStyle = "bg-amber-100 text-amber-800"
-                            else if (position === 2) badgeStyle = "bg-slate-200 text-slate-800"
-                            else if (position === 3) badgeStyle = "bg-orange-100 text-orange-800"
+                            let badgeStyle = "bg-slate-100 text-slate-650"
+                            if (position === 1) badgeStyle = "bg-amber-100 text-amber-850 font-bold"
+                            else if (position === 2) badgeStyle = "bg-slate-200 text-slate-700 font-bold"
+                            else if (position === 3) badgeStyle = "bg-orange-100 text-orange-850 font-bold"
 
                             return (
-                              <div key={scorer.id} className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/30">
+                              <div key={scorer.id} className="p-4 flex items-center justify-between gap-4 hover:bg-white/80 transition-colors">
                                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${badgeStyle}`}>
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${badgeStyle}`}>
                                     {position}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-slate-900 truncate">
+                                    <div className="text-sm font-bold text-slate-900 truncate">
                                       {scorer.name}
                                     </div>
-                                    <div className="text-xs text-slate-500 mt-0.5">
+                                    <div className="text-xs text-slate-500 mt-1">
                                       <TeamDisplay
                                         teamName={scorer.team}
                                         teamLogo={getTeamLogo(scorer.team)}
@@ -700,7 +701,7 @@ export default function KSLigaSite() {
                                   </div>
                                 </div>
                                 <div className="text-right flex-shrink-0">
-                                  <span className="inline-flex items-center justify-center bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-lg">
+                                  <span className="inline-flex items-center justify-center bg-indigo-50/80 border border-indigo-100/50 text-indigo-750 font-black text-xs px-3 py-1.5 rounded-lg shadow-sm">
                                     {scorer.goals} голів
                                   </span>
                                 </div>
@@ -717,14 +718,17 @@ export default function KSLigaSite() {
                 <TabsContent value="lion" className="outline-none space-y-6">
                   {votings.length > 0 && (
                     <div className="flex justify-end">
-                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm hover:bg-slate-50 transition-all">
-                        <input
-                          type="checkbox"
-                          checked={showArchive}
-                          onChange={(e) => setShowArchive(e.target.checked)}
-                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-4 w-4"
-                        />
-                        <span>Показати архів голосувань</span>
+                      <label className="flex items-center gap-3 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-xl px-4 py-2.5 shadow-sm hover:bg-white transition-all">
+                        <div className="relative inline-flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={showArchive}
+                            onChange={(e) => setShowArchive(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#34c759]"></div>
+                        </div>
+                        <span>Архів голосувань</span>
                       </label>
                     </div>
                   )}
@@ -778,9 +782,9 @@ export default function KSLigaSite() {
                       const canVote = isActive && isWithinTime && !hasVoted
 
                       return (
-                        <Card key={voting.match_id} className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+                        <Card key={voting.match_id} className="liquid-glass-card overflow-hidden">
                           {/* Match Header */}
-                          <div className="border-b border-slate-100 px-6 py-4 bg-slate-50">
+                          <div className="border-b border-slate-200/50 px-6 py-4 bg-white/40">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
@@ -847,17 +851,17 @@ export default function KSLigaSite() {
                                             <button
                                               key={candidate.id}
                                               onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                              className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
+                                              className={`p-3 rounded-xl border-0 text-left transition-all text-xs font-semibold ${
                                                 selectedCandidate[voting.match_id] === candidate.id
-                                                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                                                  : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
+                                                  ? "bg-[#007aff] text-white shadow-[0_4px_12px_rgba(0,122,255,0.22)]"
+                                                  : "bg-[#787880]/8 text-slate-800 hover:bg-[#787880]/12"
                                               }`}
                                             >
-                                              <div className="flex items-center gap-2">
+                                              <div className="flex items-center justify-between">
+                                                <span>{candidate.player_name}</span>
                                                 {selectedCandidate[voting.match_id] === candidate.id && (
                                                   <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
                                                 )}
-                                                <span>{candidate.player_name}</span>
                                               </div>
                                             </button>
                                           ))}
@@ -881,17 +885,17 @@ export default function KSLigaSite() {
                                             <button
                                               key={candidate.id}
                                               onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                              className={`p-3 rounded-lg border text-left transition-all text-sm font-medium ${
+                                              className={`p-3 rounded-xl border-0 text-left transition-all text-xs font-semibold ${
                                                 selectedCandidate[voting.match_id] === candidate.id
-                                                  ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                                                  : "border-slate-200 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50"
+                                                  ? "bg-[#007aff] text-white shadow-[0_4px_12px_rgba(0,122,255,0.22)]"
+                                                  : "bg-[#787880]/8 text-slate-800 hover:bg-[#787880]/12"
                                               }`}
                                             >
-                                              <div className="flex items-center gap-2">
+                                              <div className="flex items-center justify-between">
+                                                <span>{candidate.player_name}</span>
                                                 {selectedCandidate[voting.match_id] === candidate.id && (
                                                   <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
                                                 )}
-                                                <span>{candidate.player_name}</span>
                                               </div>
                                             </button>
                                           ))}
@@ -903,7 +907,7 @@ export default function KSLigaSite() {
                                 <Button
                                   onClick={() => handleVoteSubmit(voting.match_id)}
                                   disabled={!selectedCandidate[voting.match_id] || loading}
-                                  className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                                  className="w-full bg-[#007aff] hover:bg-[#0062cc] text-white rounded-xl text-xs font-bold h-10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-[0_4px_12px_rgba(0,122,255,0.15)] active:opacity-90"
                                 >
                                   <Vote className="h-4 w-4 mr-2" />
                                   Проголосувати
@@ -1004,8 +1008,8 @@ export default function KSLigaSite() {
 
                 {/* Admin Tab */}
                 <TabsContent value="admin" className="outline-none">
-                  <Card className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
-                    <CardHeader className="border-b border-slate-100 py-4 px-6 bg-slate-50">
+                  <Card className="liquid-glass-card overflow-hidden">
+                    <CardHeader className="border-b border-slate-200/50 py-4 px-6 bg-white/40">
                       <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-900 flex items-center gap-2">
                         <Settings className="h-4 w-4 text-slate-500" />
                         Панель керування турніром
@@ -1013,18 +1017,18 @@ export default function KSLigaSite() {
                     </CardHeader>
                     <CardContent className="p-6">
                       {!isAdmin ? (
-                        <div className="space-y-3 max-w-sm mx-auto">
+                        <div className="space-y-3 max-w-sm mx-auto py-6">
                           <Input
                             type="password"
                             value={adminPassword}
                             onChange={(e) => setAdminPassword(e.target.value)}
                             placeholder="Введіть пароль доступу"
                             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                            className="bg-slate-50 border-slate-200 rounded-lg text-sm"
+                            className="bg-[#787880]/8 border-0 focus-visible:ring-1 focus-visible:ring-[#007aff] text-slate-800 rounded-xl text-sm h-10 px-4"
                           />
                           <Button
                             onClick={handleLogin}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors"
+                            className="w-full bg-[#007aff] hover:bg-[#0062cc] text-white rounded-xl text-sm font-bold h-10 transition-all shadow-[0_4px_12px_rgba(0,122,255,0.15)] active:opacity-90"
                           >
                             Увійти
                           </Button>
