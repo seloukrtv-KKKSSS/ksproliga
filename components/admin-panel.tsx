@@ -284,7 +284,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
           matchForm.is_finished && matchForm.away_score !== ""
             ? Number.parseInt(matchForm.away_score)
             : null,
-        is_finished: matchForm.is_finished,
+        is_finished: matchForm.is_technical_defeat ? true : matchForm.is_finished,
         championship_id: currentChampionshipId,
         match_time: matchForm.match_time || undefined,
         cup_stage: currentChampionship?.tournament_type === "cup" ? (matchForm.cup_stage || undefined) : undefined,

@@ -504,27 +504,41 @@ export async function calculateLeagueTable(championshipId?: number) {
       const homeTeam = table.find((t) => t.name === match.home_team)
       const awayTeam = table.find((t) => t.name === match.away_team)
 
-      if (homeTeam && awayTeam && match.home_score !== null && match.away_score !== null) {
-        homeTeam.games++
-        awayTeam.games++
-        homeTeam.gf += match.home_score
-        homeTeam.ga += match.away_score
-        awayTeam.gf += match.away_score
-        awayTeam.ga += match.home_score
+      if (homeTeam && awayTeam) {
+        if (match.is_technical_defeat) {
+          homeTeam.games++
+          awayTeam.games++
+          if (match.technical_winner === match.home_team) {
+            homeTeam.wins++
+            homeTeam.pts += 3
+            awayTeam.losses++
+          } else if (match.technical_winner === match.away_team) {
+            awayTeam.wins++
+            awayTeam.pts += 3
+            homeTeam.losses++
+          }
+        } else if (match.home_score !== null && match.away_score !== null) {
+          homeTeam.games++
+          awayTeam.games++
+          homeTeam.gf += match.home_score
+          homeTeam.ga += match.away_score
+          awayTeam.gf += match.away_score
+          awayTeam.ga += match.home_score
 
-        if (match.home_score > match.away_score) {
-          homeTeam.wins++
-          homeTeam.pts += 3
-          awayTeam.losses++
-        } else if (match.home_score < match.away_score) {
-          awayTeam.wins++
-          awayTeam.pts += 3
-          homeTeam.losses++
-        } else {
-          homeTeam.draws++
-          awayTeam.draws++
-          homeTeam.pts += 1
-          awayTeam.pts += 1
+          if (match.home_score > match.away_score) {
+            homeTeam.wins++
+            homeTeam.pts += 3
+            awayTeam.losses++
+          } else if (match.home_score < match.away_score) {
+            awayTeam.wins++
+            awayTeam.pts += 3
+            homeTeam.losses++
+          } else {
+            homeTeam.draws++
+            awayTeam.draws++
+            homeTeam.pts += 1
+            awayTeam.pts += 1
+          }
         }
       }
     })
