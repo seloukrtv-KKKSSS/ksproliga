@@ -52,6 +52,12 @@ import {
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchVoting, VotingCandidate } from "@/lib/supabase"
 
+const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
+
+const getErrorMessage = (error: unknown): string => {
+  return error instanceof Error ? error.message : String(error)
+}
+
 interface AdminPanelProps {
   onLogout: () => void
   currentChampionshipId: number
@@ -66,7 +72,12 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
   const [loading, setLoading] = useState(false)
 
   // Championship form state
-  const [championshipForm, setChampionshipForm] = useState({
+  const [championshipForm, setChampionshipForm] = useState<{
+    name: string
+    season: string
+    is_active: boolean
+    tournament_type: "league" | "cup"
+  }>({
     name: "",
     season: "",
     is_active: false,
@@ -223,7 +234,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       await loadData()
     } catch (error) {
       console.error("Error saving team:", error)
-      alert("Помилка при збереженні команди: " + error.message)
+      alert("Помилка при збереженні команди: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -259,27 +270,25 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
         date: matchForm.date,
         home_team: matchForm.home_team,
         away_team: matchForm.away_team,
-        home_score: matchForm.is_technical_defeat
-          ? null
-          : matchForm.home_score
+        home_score:
+          matchForm.is_finished && matchForm.home_score !== ""
             ? Number.parseInt(matchForm.home_score)
             : null,
-        away_score: matchForm.is_technical_defeat
-          ? null
-          : matchForm.away_score
+        away_score:
+          matchForm.is_finished && matchForm.away_score !== ""
             ? Number.parseInt(matchForm.away_score)
             : null,
         is_finished: matchForm.is_finished,
         championship_id: currentChampionshipId,
-        match_time: matchForm.match_time,
-        cup_stage: currentChampionship?.tournament_type === "cup" ? matchForm.cup_stage : null,
-        is_technical_defeat: matchForm.is_technical_defeat,
-        technical_winner: matchForm.is_technical_defeat ? matchForm.technical_winner : null,
+        match_time: matchForm.match_time || undefined,
+        cup_stage: currentChampionship?.tournament_type === "cup" ? (matchForm.cup_stage || undefined) : undefined,
+        is_technical_defeat: matchForm.is_technical_defeat || undefined,
+        technical_winner: matchForm.is_technical_defeat ? (matchForm.technical_winner || undefined) : undefined,
         penalty_home:
           matchForm.finished_after_penalties && matchForm.penalty_home ? Number.parseInt(matchForm.penalty_home) : null,
         penalty_away:
           matchForm.finished_after_penalties && matchForm.penalty_away ? Number.parseInt(matchForm.penalty_away) : null,
-        penalty_winner: matchForm.finished_after_penalties ? matchForm.penalty_winner : null,
+        penalty_winner: matchForm.finished_after_penalties ? (matchForm.penalty_winner || undefined) : undefined,
       }
 
       if (editingMatch) {
@@ -309,7 +318,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       await loadData()
     } catch (error) {
       console.error("Error saving match:", error)
-      alert("Помилка при збереженні матчу: " + error.message)
+      alert("Помилка при збереженні матчу: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -358,7 +367,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       await loadMatchGoals(selectedMatchForGoals.id)
     } catch (error) {
       console.error("Error adding match goal:", error)
-      alert("Помилка при додаванні голу: " + error.message)
+      alert("Помилка при додаванні голу: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -427,7 +436,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       alert("Параметри голосування успішно збережено!")
     } catch (error) {
       console.error("Error saving voting configuration:", error)
-      alert("Помилка збереження голосування: " + error.message)
+      alert("Помилка збереження голосування: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -448,7 +457,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       setMatchVoting(updated)
     } catch (error) {
       console.error("Error toggling voting state:", error)
-      alert("Помилка активації/деактивації голосування: " + error.message)
+      alert("Помилка активації/деактивації голосування: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -477,7 +486,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       })
     } catch (error) {
       console.error("Error adding candidate:", error)
-      alert("Помилка додавання гравця: " + error.message)
+      alert("Помилка додавання гравця: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -511,7 +520,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       setEditingCandidateName("")
     } catch (error) {
       console.error("Error editing candidate:", error)
-      alert("Помилка редагування гравця: " + error.message)
+      alert("Помилка редагування гравця: " + getErrorMessage(error))
     }
     setLoading(false)
   }
@@ -542,7 +551,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       await loadData()
     } catch (error) {
       console.error("Error saving player:", error)
-      alert("Помилка при збереженні гравця: " + error.message)
+      alert("Помилка при збереженні гравця: " + getErrorMessage(error))
     }
     setLoading(false)
   }

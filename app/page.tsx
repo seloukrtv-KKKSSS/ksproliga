@@ -34,6 +34,7 @@ import {
   getChampionshipVotings,
   getChampionshipCandidates,
   incrementCandidateVotes,
+  getMatchesGoals,
 } from "@/lib/database"
 import { AdminPanel } from "@/components/admin-panel"
 import { CupTournament } from "@/components/cup-tournament"
@@ -146,17 +147,26 @@ export default function KSLigaSite() {
       const championship = championships.find((c) => c.id === championshipId)
       setCurrentChampionship(championship || null)
 
-      // Load match goals for finished matches
+      // Load match goals for finished matches in one single query
       const finishedMatches = matchesData.filter((m) => m.is_finished)
+      const finishedMatchIds = finishedMatches.map((m) => m.id)
       const goalsData: { [key: number]: MatchGoal[] } = {}
 
-      for (const match of finishedMatches) {
+      // Initialize all finished matches with empty arrays
+      finishedMatches.forEach((m) => {
+        goalsData[m.id] = []
+      })
+
+      if (finishedMatchIds.length > 0) {
         try {
-          const goals = await getMatchGoals(match.id)
-          goalsData[match.id] = goals
+          const allGoals = await getMatchesGoals(finishedMatchIds)
+          allGoals.forEach((goal) => {
+            if (goalsData[goal.match_id]) {
+              goalsData[goal.match_id].push(goal)
+            }
+          })
         } catch (error) {
-          console.error(`Error loading goals for match ${match.id}:`, error)
-          goalsData[match.id] = []
+          console.error("Error loading matches goals in batch:", error)
         }
       }
 
@@ -263,9 +273,8 @@ export default function KSLigaSite() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
@@ -442,8 +451,8 @@ export default function KSLigaSite() {
                                   <th className="py-3 px-4 w-12 text-center">#</th>
                                   <th className="py-3 px-4">Команда</th>
                                   <th className="py-3 px-4 w-16 text-center">Ігри</th>
-                                  <th className="py-3 px-4 w-28 text-center">В / Н / П</th>
-                                  <th className="py-3 px-4 w-24 text-center">РМ</th>
+                                  <th className="py-3 px-4 w-28 text-center hidden sm:table-cell">В / Н / П</th>
+                                  <th className="py-3 px-4 w-24 text-center hidden sm:table-cell">РМ</th>
                                   <th className="py-3 px-4 w-20 text-center">Очки</th>
                                 </tr>
                               </thead>
@@ -475,18 +484,18 @@ export default function KSLigaSite() {
                                               className="w-4 h-4 object-contain"
                                             />
                                           </div>
-                                          <span className="truncate max-w-[200px] sm:max-w-xs">{team.name}</span>
+                                          <span className="truncate max-w-[120px] sm:max-w-xs">{team.name}</span>
                                         </div>
                                       </td>
                                       <td className="py-3 px-4 text-center font-medium text-slate-600">{team.games}</td>
-                                      <td className="py-3 px-4 text-center text-xs text-slate-500">
+                                      <td className="py-3 px-4 text-center text-xs text-slate-500 hidden sm:table-cell">
                                         <span className="text-emerald-700 font-medium">{team.wins}</span>
                                         <span className="mx-1">/</span>
                                         <span className="text-amber-700 font-medium">{team.draws}</span>
                                         <span className="mx-1">/</span>
                                         <span className="text-red-700 font-medium">{team.losses}</span>
                                       </td>
-                                      <td className="py-3 px-4 text-center font-medium text-slate-600">
+                                      <td className="py-3 px-4 text-center font-medium text-slate-600 hidden sm:table-cell">
                                         {team.gf} : {team.ga}
                                       </td>
                                       <td className="py-3 px-4 text-center font-bold text-slate-900">{team.pts}</td>

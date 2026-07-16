@@ -360,6 +360,26 @@ export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
   }
 }
 
+export async function getMatchesGoals(matchIds: number[]): Promise<MatchGoal[]> {
+  if (shouldUseMockData() || matchIds.length === 0) {
+    return Promise.resolve([])
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("match_goals")
+      .select("*")
+      .in("match_id", matchIds)
+      .order("minute", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error:", error)
+    return []
+  }
+}
+
 export async function addMatchGoal(goal: {
   match_id: number
   player_name: string
