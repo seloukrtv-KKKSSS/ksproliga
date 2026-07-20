@@ -503,12 +503,7 @@ export default function KSLigaSite() {
                 {/* League Table Tab */}
                 {currentChampionship?.tournament_type === "league" && (
                   <TabsContent value="table" className="outline-none space-y-3">
-                    <div className="ios-section-header flex items-center justify-between">
-                      <span>Турнірна таблиця</span>
-                      <span className="text-xs font-normal text-slate-500 hidden sm:inline">
-                        Ігри | В / Н / П | ГЗ:ГП | Очки
-                      </span>
-                    </div>
+                    <div className="ios-section-header">Турнірна таблиця</div>
 
                     {table.length === 0 ? (
                       <Card className="liquid-glass-card overflow-hidden">
@@ -522,6 +517,19 @@ export default function KSLigaSite() {
                       </Card>
                     ) : (
                       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden divide-y divide-slate-150">
+                        {/* Table Header Legend (Mobile & Desktop) */}
+                        <div className="bg-slate-100/90 px-3 sm:px-4 py-2 border-b border-slate-200/90 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="w-7 sm:w-8 text-center shrink-0">#</span>
+                            <span className="truncate">Команда</span>
+                          </div>
+                          <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max text-right">
+                            <span>І | В / Н / П</span>
+                            <span className="min-w-[36px] sm:min-w-[44px] text-center">З:П</span>
+                            <span className="min-w-[24px] sm:min-w-[32px] text-right text-blue-600 font-extrabold">О</span>
+                          </div>
+                        </div>
+
                         {table.map((team, index) => {
                           const position = index + 1
                           let posBadgeClass = "bg-slate-100 text-slate-500 font-bold"
@@ -538,8 +546,8 @@ export default function KSLigaSite() {
                               key={index}
                               className="flex items-center justify-between px-3 sm:px-4 py-3 hover:bg-slate-50/80 transition-colors gap-2"
                             >
-                              {/* Left side: Position, Logo, Team Name */}
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              {/* Left side: Position, Logo, Team Name (Truncates smoothly without shifting stats) */}
+                              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden mr-1">
                                 <span
                                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm shrink-0 ${posBadgeClass}`}
                                 >
@@ -554,16 +562,16 @@ export default function KSLigaSite() {
                                   />
                                 </div>
 
-                                <span className="font-bold text-slate-900 text-xs min-[380px]:text-sm sm:text-base truncate">
+                                <span className="font-bold text-slate-900 text-xs min-[380px]:text-sm sm:text-base truncate min-w-0 flex-1">
                                   {team.name}
                                 </span>
                               </div>
 
-                              {/* Right side: Stats & Points */}
-                              <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+                              {/* Right side: Stats & Points (Non-movable, fixed columns) */}
+                              <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max text-right">
                                 {/* Record: Games | W / D / L */}
-                                <div className="text-xs sm:text-sm font-semibold flex items-center">
-                                  <span className="text-slate-700 font-extrabold mr-1 sm:mr-1.5">{team.games}</span>
+                                <div className="text-xs sm:text-sm font-semibold flex items-center shrink-0">
+                                  <span className="text-slate-800 font-extrabold mr-1 sm:mr-1.5">{team.games}</span>
                                   <span className="text-slate-300 font-normal mr-1 sm:mr-1.5">|</span>
                                   <span className="text-emerald-600 font-bold">{team.wins}</span>
                                   <span className="text-slate-300 font-normal mx-0.5 sm:mx-1">/</span>
@@ -572,13 +580,13 @@ export default function KSLigaSite() {
                                   <span className="text-red-500 font-bold">{team.losses}</span>
                                 </div>
 
-                                {/* Goals ratio */}
-                                <div className="text-xs sm:text-sm font-medium text-slate-500 min-w-[38px] sm:min-w-[48px] text-center hidden min-[360px]:block">
+                                {/* Goals ratio (З:П) */}
+                                <div className="text-xs sm:text-sm font-medium text-slate-500 min-w-[36px] sm:min-w-[44px] text-center shrink-0">
                                   {team.gf}:{team.ga}
                                 </div>
 
-                                {/* Points */}
-                                <div className="font-extrabold text-blue-600 text-base min-[380px]:text-lg sm:text-xl min-w-[24px] sm:min-w-[32px] text-right">
+                                {/* Points (О) */}
+                                <div className="font-extrabold text-blue-600 text-base min-[380px]:text-lg sm:text-xl min-w-[24px] sm:min-w-[32px] text-right shrink-0">
                                   {team.pts}
                                 </div>
                               </div>
