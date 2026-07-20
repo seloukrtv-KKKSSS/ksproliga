@@ -21,12 +21,15 @@ import {
   AlertTriangle,
   Crosshair,
   Star,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react"
 import {
   getChampionships,
   addChampionship,
   updateChampionship,
   deleteChampionship,
+  updateChampionshipsOrder,
   getTeams,
   addTeam,
   updateTeam,
@@ -223,6 +226,32 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       } catch (error) {
         console.error("Error deleting championship:", error)
       }
+    }
+  }
+
+  const handleMoveChampionship = async (championshipId: number, direction: "up" | "down") => {
+    const sorted = sortChampionships(championships)
+    const index = sorted.findIndex((c) => c.id === championshipId)
+    if (index === -1) return
+    if (direction === "up" && index === 0) return
+    if (direction === "down" && index === sorted.length - 1) return
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1
+    const newSorted = [...sorted]
+    const temp = newSorted[index]
+    newSorted[index] = newSorted[targetIndex]
+    newSorted[targetIndex] = temp
+
+    const reordered = newSorted.map((item, i) => ({
+      ...item,
+      sort_order: i + 1,
+    }))
+
+    setChampionships(reordered)
+    try {
+      await updateChampionshipsOrder(reordered)
+    } catch (error) {
+      console.error("Error reordering championships:", error)
     }
   }
 
@@ -853,19 +882,46 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 Немає створених чемпіонатів. Створіть перший чемпіонат вище.
               </div>
             ) : (
-              championships.map((championship) => (
+              sortChampionships(championships).map((championship, index, sortedArr) => (
                 <div
                   key={championship.id}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
                 >
                   <div className="flex-1">
-                    <div className="font-bold text-slate-900 text-base">{championship.name}</div>
+                    <div className="font-bold text-slate-900 text-base flex items-center gap-2">
+                      <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
+                      <span>{championship.name}</span>
+                    </div>
                     <div className="text-xs text-slate-500 font-medium mt-1">
                       Сезон: {championship.season} | {championship.is_active ? "Активний" : "Неактивний"} |{" "}
                       {championship.tournament_type === "league" ? "Ліга" : "Кубок"}
                     </div>
                   </div>
-                  <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={index === 0}
+                        onClick={() => handleMoveChampionship(championship.id, "up")}
+                        title="Сунути вгору"
+                        className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200 disabled:opacity-30"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={index === sortedArr.length - 1}
+                        onClick={() => handleMoveChampionship(championship.id, "down")}
+                        title="Сунути вниз"
+                        className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200 disabled:opacity-30"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
@@ -878,7 +934,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                           tournament_type: championship.tournament_type,
                         })
                       }}
-                      className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
+                      className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -886,7 +942,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteChampionship(championship.id)}
-                      className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg flex-1 sm:flex-none"
+                      className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

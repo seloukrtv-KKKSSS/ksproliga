@@ -279,41 +279,60 @@ export default function KSLigaSite() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
-      <header className="liquid-glass-header sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <header className="liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-xs">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 liquid-glass-card !rounded-[14px] flex items-center justify-center overflow-hidden">
-              <img src="/images/ks-logo.png" alt="KS Logo" className="w-7 h-7 object-contain" />
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 liquid-glass-card !rounded-[12px] sm:!rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
+              <img src="/images/ks-logo.png" alt="KS Logo" className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
             </div>
             <div>
-              <h1 className="text-lg font-extrabold tracking-tight text-slate-900">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-tight">
                 KS LIGA
               </h1>
-              <p className="text-[9px] text-slate-400/70 font-semibold uppercase tracking-[0.15em] mt-0.5">
+              <p className="text-[8px] sm:text-[9px] text-slate-500 font-semibold uppercase tracking-[0.15em] hidden min-[360px]:block">
                 Karpiuk Sport League
               </p>
             </div>
           </div>
 
           {/* Championship Selector */}
-          {championships.length > 1 && currentChampionshipId && (
-            <div>
+          {championships.length > 0 && currentChampionshipId && (
+            <div className="shrink-0 max-w-[58%] sm:max-w-xs">
               <Select value={currentChampionshipId.toString()} onValueChange={handleChampionshipChange}>
-                <SelectTrigger className="w-52 glass-input h-10 text-xs font-semibold !rounded-[var(--glass-radius-sm)]">
-                  <SelectValue placeholder="Оберіть чемпіонат" />
+                <SelectTrigger className="w-full glass-input h-9 sm:h-10 text-xs font-semibold !rounded-[var(--glass-radius-sm)] px-2.5 sm:px-3 bg-white/60 border-slate-200/80 shadow-xs hover:bg-white/80 transition-colors">
+                  <SelectValue placeholder="Оберіть чемпіонат">
+                    {(() => {
+                      const active = championships.find((c) => c.id === currentChampionshipId)
+                      if (!active) return "Оберіть чемпіонат"
+                      return (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="shrink-0">{active.tournament_type === "league" ? "🏆" : "👑"}</span>
+                          <span className="truncate max-w-[110px] min-[400px]:max-w-[160px] sm:max-w-[200px] font-bold text-slate-900">{active.name}</span>
+                          <span className="text-slate-500 text-[10px] hidden sm:inline shrink-0">({active.season})</span>
+                        </span>
+                      )
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.12)]">
+                <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] max-w-[calc(100vw-2rem)] min-w-[220px]">
                   {sortChampionships(championships).map((championship) => (
                     <SelectItem
                       key={championship.id}
                       value={championship.id.toString()}
-                      className="text-slate-900 hover:bg-white/30 focus:bg-white/30 text-xs font-medium cursor-pointer rounded-lg py-2"
+                      className="text-slate-900 hover:bg-slate-100/80 focus:bg-slate-100/80 text-xs font-medium cursor-pointer rounded-lg py-2 px-2 text-left"
                     >
-                      <span className="flex items-center gap-1.5">
-                        <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
-                        <span>{championship.name} ({championship.season})</span>
-                        {championship.is_active && <span className="text-amber-500 font-bold text-[10px]">· Активний</span>}
+                      <span className="flex items-center justify-between gap-2 w-full">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
+                          <span className="font-semibold text-slate-900 truncate">{championship.name}</span>
+                          <span className="text-slate-500 text-[10px]">({championship.season})</span>
+                        </span>
+                        {championship.is_active && (
+                          <span className="text-emerald-600 font-bold text-[9px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 shrink-0 ml-1">
+                            Активний
+                          </span>
+                        )}
                       </span>
                     </SelectItem>
                   ))}
@@ -325,7 +344,7 @@ export default function KSLigaSite() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:py-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-16 sm:pt-20 md:py-8 md:pt-24 space-y-6">
         {/* No championships state */}
         {championships.length === 0 && (
           <div className="max-w-md mx-auto text-center py-12 px-4 space-y-6">

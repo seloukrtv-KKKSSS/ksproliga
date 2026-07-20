@@ -28,6 +28,7 @@ export interface Championship {
   season: string
   is_active: boolean
   tournament_type: "league" | "cup"
+  sort_order?: number
   created_at: string
 }
 

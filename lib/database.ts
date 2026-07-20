@@ -12,6 +12,11 @@ export function formatTime(timeStr?: string): string {
 
 export function sortChampionships(championships: Championship[]): Championship[] {
   return [...championships].sort((a, b) => {
+    const orderA = a.sort_order !== undefined && a.sort_order !== null ? a.sort_order : 999999
+    const orderB = b.sort_order !== undefined && b.sort_order !== null ? b.sort_order : 999999
+    if (orderA !== orderB) {
+      return orderA - orderB
+    }
     if (a.is_active !== b.is_active) {
       return a.is_active ? -1 : 1
     }
@@ -31,6 +36,7 @@ const mockChampionships: Championship[] = [
     season: "2024-2025",
     is_active: true,
     tournament_type: "league",
+    sort_order: 1,
     created_at: new Date().toISOString(),
   },
   {
@@ -39,6 +45,7 @@ const mockChampionships: Championship[] = [
     season: "2024-2025",
     is_active: false,
     tournament_type: "cup",
+    sort_order: 2,
     created_at: new Date().toISOString(),
   },
 ]
@@ -222,6 +229,32 @@ export async function deleteChampionship(id: number): Promise<void> {
 
   const { error } = await supabase.from("championships").delete().eq("id", id)
   if (error) throw error
+}
+
+export async function updateChampionshipsOrder(orderedChampionships: Championship[]): Promise<void> {
+  const updatedList = orderedChampionships.map((c, index) => ({
+    ...c,
+    sort_order: index + 1,
+  }))
+
+  if (shouldUseMockData()) {
+    updatedList.forEach((item) => {
+      const idx = mockChampionships.findIndex((c) => c.id === item.id)
+      if (idx !== -1) {
+        mockChampionships[idx].sort_order = item.sort_order
+      }
+    })
+    return Promise.resolve()
+  }
+
+  try {
+    const updates = updatedList.map((item) =>
+      supabase.from("championships").update({ sort_order: item.sort_order }).eq("id", item.id)
+    )
+    await Promise.all(updates)
+  } catch (error) {
+    console.error("Error updating championships order in Supabase:", error)
+  }
 }
 
 // Teams
