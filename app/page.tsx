@@ -378,7 +378,7 @@ export default function KSLigaSite() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-16 sm:pt-20 md:py-8 md:pt-24 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-16 sm:pt-20 md:py-8 md:pt-24 pb-24 md:pb-8 space-y-6">
         {/* No championships state */}
         {championships.length === 0 && (
           <div className="max-w-md mx-auto text-center py-12 px-4 space-y-6">
@@ -448,8 +448,8 @@ export default function KSLigaSite() {
                 onValueChange={setActiveTab}
                 className="w-full space-y-6"
               >
-                {/* iOS Liquid Glass Segmented Tab Bar */}
-                <div className="overflow-x-auto pb-2.5 scrollbar-none flex justify-start">
+                {/* iOS Liquid Glass Segmented Tab Bar for Desktop */}
+                <div className="hidden md:flex overflow-x-auto pb-2.5 scrollbar-none justify-start">
                   <TabsList className="ios-segmented-control w-max">
                     {currentChampionship?.tournament_type === "league" && (
                       <TabsTrigger
@@ -457,7 +457,7 @@ export default function KSLigaSite() {
                         className="ios-segment flex items-center justify-center"
                       >
                         <Trophy className="h-4 w-4" />
-                        <span className="hidden md:inline ml-1.5">Таблиця</span>
+                        <span className="ml-1.5">Таблиця</span>
                       </TabsTrigger>
                     )}
                     {currentChampionship?.tournament_type === "cup" && (
@@ -466,7 +466,7 @@ export default function KSLigaSite() {
                         className="ios-segment flex items-center justify-center"
                       >
                         <Crown className="h-4 w-4" />
-                        <span className="hidden md:inline ml-1.5">Кубок</span>
+                        <span className="ml-1.5">Кубок</span>
                       </TabsTrigger>
                     )}
                     <TabsTrigger
@@ -474,28 +474,28 @@ export default function KSLigaSite() {
                       className="ios-segment flex items-center justify-center"
                     >
                       <Calendar className="h-4 w-4" />
-                      <span className="hidden md:inline ml-1.5">Календар</span>
+                      <span className="ml-1.5">Календар</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="results"
                       className="ios-segment flex items-center justify-center"
                     >
                       <Zap className="h-4 w-4" />
-                      <span className="hidden md:inline ml-1.5">Результати</span>
+                      <span className="ml-1.5">Результати</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="scorers"
                       className="ios-segment flex items-center justify-center"
                     >
                       <Target className="h-4 w-4" />
-                      <span className="hidden md:inline ml-1.5">Бомбардири</span>
+                      <span className="ml-1.5">Бомбардири</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="lion"
                       className="ios-segment flex items-center justify-center"
                     >
                       <Vote className="h-4 w-4" />
-                      <span className="hidden md:inline ml-1.5">Лев матчу</span>
+                      <span className="ml-1.5">Лев матчу</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -1251,6 +1251,129 @@ export default function KSLigaSite() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile App Bottom Navigation Bar */}
+      {championships.length > 0 && (
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-1 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-around max-w-md mx-auto">
+            {currentChampionship?.tournament_type === "league" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("table")
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
+                className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                  activeTab === "table"
+                    ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                    : "text-slate-500 font-medium hover:text-slate-900"
+                }`}
+              >
+                <Trophy className="h-5 w-5" />
+                <span className="text-[10px] leading-tight mt-1">Таблиця</span>
+              </button>
+            )}
+
+            {currentChampionship?.tournament_type === "cup" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("cup")
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
+                className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                  activeTab === "cup"
+                    ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                    : "text-slate-500 font-medium hover:text-slate-900"
+                }`}
+              >
+                <Crown className="h-5 w-5" />
+                <span className="text-[10px] leading-tight mt-1">Кубок</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("calendar")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "calendar"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Calendar className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Календар</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("results")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "results"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Zap className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Результати</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("scorers")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "scorers"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Target className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Бомбардири</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("lion")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "lion"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Vote className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Лев матчу</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("admin")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "admin"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Адмін</span>
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   )
 }
