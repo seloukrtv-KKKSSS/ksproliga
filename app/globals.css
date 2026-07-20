@@ -442,3 +442,35 @@ input:checked + .ios-switch-slider:before {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
+/* ============================================================
+   SATURATED, HIGH-CONTRAST TYPOGRAPHY OVERRIDES
+   ============================================================ */
+.text-slate-900, .text-slate-950 {
+  color: #0d121f !important;
+}
+
+.text-slate-800 {
+  color: #1a2238 !important;
+}
+
+.text-slate-700 {
+  color: #2e3b56 !important;
+}
+
+.text-slate-600, .text-slate-650 {
+  color: #3e4d6d !important;
+}
+
+.text-slate-500 {
+  color: #4e5f84 !important;
+}
+
+.text-slate-400 {
+  color: #6a7c9f !important;
+}
+
+/* Base text shadow to improve readability over mesh background gradients */
+body {
+  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.3);
+}

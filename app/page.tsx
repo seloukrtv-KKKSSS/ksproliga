@@ -367,48 +367,55 @@ export default function KSLigaSite() {
                     {currentChampionship?.tournament_type === "league" && (
                       <TabsTrigger
                         value="table"
-                        className="ios-segment"
+                        className="ios-segment flex items-center justify-center"
                       >
-                        Таблиця
+                        <Trophy className="h-4 w-4" />
+                        <span className="hidden md:inline ml-1.5">Таблиця</span>
                       </TabsTrigger>
                     )}
                     {currentChampionship?.tournament_type === "cup" && (
                       <TabsTrigger
                         value="cup"
-                        className="ios-segment"
+                        className="ios-segment flex items-center justify-center"
                       >
-                        Кубок
+                        <Crown className="h-4 w-4" />
+                        <span className="hidden md:inline ml-1.5">Кубок</span>
                       </TabsTrigger>
                     )}
                     <TabsTrigger
                       value="calendar"
-                      className="ios-segment"
+                      className="ios-segment flex items-center justify-center"
                     >
-                      Календар
+                      <Calendar className="h-4 w-4" />
+                      <span className="hidden md:inline ml-1.5">Календар</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="results"
-                      className="ios-segment"
+                      className="ios-segment flex items-center justify-center"
                     >
-                      Результати
+                      <Zap className="h-4 w-4" />
+                      <span className="hidden md:inline ml-1.5">Результати</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="scorers"
-                      className="ios-segment"
+                      className="ios-segment flex items-center justify-center"
                     >
-                      Бомбардири
+                      <Target className="h-4 w-4" />
+                      <span className="hidden md:inline ml-1.5">Бомбардири</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="lion"
-                      className="ios-segment"
+                      className="ios-segment flex items-center justify-center"
                     >
-                      Лев матчу
+                      <Vote className="h-4 w-4" />
+                      <span className="hidden md:inline ml-1.5">Лев матчу</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="admin"
-                      className="ios-segment"
+                      className="ios-segment flex items-center justify-center"
                     >
-                      Налаштування
+                      <Settings className="h-4 w-4" />
+                      <span className="hidden md:inline ml-1.5">Налаштування</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
