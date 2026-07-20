@@ -8,50 +8,83 @@
   }
 }
 
+/* ============================================================
+   APPLE LIQUID GLASS DESIGN SYSTEM — iOS 26 / WWDC 2025
+   Based on: haider-nawaz/liquid-glass-skill SKILL.md
+   
+   Core Principle: Liquid Glass is a translucent, dynamic 
+   material for the NAVIGATION LAYER (toolbars, tab bars, 
+   buttons, controls) that floats above app content.
+   It bends and refracts light in real-time.
+   ============================================================ */
+
 @layer base {
   :root {
-    --background: 240 14% 97%; /* #f2f2f7 iOS systemGroupedBackgroundColor */
-    --foreground: 240 10% 3.9%;
+    /* iOS 26 System Colors */
+    --lg-blue: #007AFF;
+    --lg-green: #34C759;
+    --lg-red: #FF3B30;
+    --lg-orange: #FF9500;
+    --lg-yellow: #FFCC00;
+    --lg-purple: #AF52DE;
+    --lg-pink: #FF2D55;
+    --lg-teal: #5AC8FA;
+    --lg-indigo: #5856D6;
+    
+    /* Glass Material Tokens */
+    --glass-bg: rgba(255, 255, 255, 0.18);
+    --glass-bg-hover: rgba(255, 255, 255, 0.28);
+    --glass-bg-active: rgba(255, 255, 255, 0.35);
+    --glass-border: rgba(255, 255, 255, 0.35);
+    --glass-border-strong: rgba(255, 255, 255, 0.5);
+    --glass-blur: 40px;
+    --glass-saturate: 200%;
+    --glass-radius: 22px;
+    --glass-radius-sm: 14px;
+    --glass-radius-xs: 10px;
+    
+    /* Glass Shadow */
+    --glass-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.06),
+      0 2px 8px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+    --glass-shadow-hover:
+      0 12px 40px rgba(0, 0, 0, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+    
+    /* Specular highlight (satin shimmer) */
+    --glass-specular: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.05) 40%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(255, 255, 255, 0.1) 100%
+    );
+
+    /* ShadCN tokens mapped to iOS 26 */
+    --background: 220 20% 96%;
+    --foreground: 220 15% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 220 15% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 219.1 100% 49%; /* #007aff iOS systemBlue */
+    --popover-foreground: 220 15% 10%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 354.3 100% 59.8%; /* #ff3b30 iOS systemRed */
+    --secondary: 220 10% 94%;
+    --secondary-foreground: 220 10% 20%;
+    --muted: 220 10% 94%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 220 10% 94%;
+    --accent-foreground: 220 10% 20%;
+    --destructive: 354 100% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 219.1 100% 49%;
-    --radius: 0.85rem; /* iOS settings card radius */
-  }
-  
-  .dark {
-    --background: 0 0% 0%; /* iOS Settings dark mode bg */
-    --foreground: 0 0% 98%;
-    --card: 240 10% 10%; /* #1c1c1e */
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 219.1 100% 54%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 354.3 100% 45%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 219.1 100% 54%;
+    --border: 220 10% 88%;
+    --input: 220 10% 88%;
+    --ring: 211 100% 50%;
+    --radius: 0.875rem;
   }
 }
 
@@ -59,25 +92,33 @@
   * {
     @apply border-border;
   }
-  body {
-    background-color: #f2f2f7;
-    background-image: 
-      radial-gradient(circle at 10% 20%, rgba(230, 240, 255, 0.9) 0%, transparent 40%),
-      radial-gradient(circle at 90% 10%, rgba(255, 230, 240, 0.8) 0%, transparent 40%),
-      radial-gradient(circle at 80% 90%, rgba(220, 250, 230, 0.7) 0%, transparent 40%),
-      radial-gradient(circle at 20% 80%, rgba(250, 240, 220, 0.8) 0%, transparent 40%);
-    background-attachment: fixed;
-    color: #000000;
-  }
+
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  body {
+    /* iOS 26-style dynamic mesh background */
+    background-color: #e8ecf4;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, rgba(90, 200, 250, 0.25) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 15%, rgba(175, 82, 222, 0.2) 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 85%, rgba(52, 199, 89, 0.18) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 80%, rgba(255, 149, 0, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(0, 122, 255, 0.08) 0%, transparent 60%);
+    background-attachment: fixed;
+    color: #1c1c1e;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    min-height: 100vh;
+  }
 }
 
-/* Hide scrollbars but keep scrolling */
+/* ============================================================
+   HIDE SCROLLBARS
+   ============================================================ */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
@@ -86,53 +127,178 @@
   scrollbar-width: none;
 }
 
-/* Apple iOS 26 Segmented Control styling */
+/* ============================================================
+   LIQUID GLASS CARD — Primary glass panel component
+   Maps to .glassEffect(.regular) from SwiftUI
+   ============================================================ */
+.liquid-glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Specular highlight overlay (satin shimmer) */
+.liquid-glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--glass-specular);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.liquid-glass-card:hover {
+  box-shadow: var(--glass-shadow-hover);
+}
+
+/* ============================================================
+   LIQUID GLASS HEADER — Sticky navigation bar
+   Maps to .glassEffect(.regular) on toolbars
+   ============================================================ */
+.liquid-glass-header {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(50px) saturate(250%);
+  -webkit-backdrop-filter: blur(50px) saturate(250%);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 4px 20px -4px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================================
+   iOS 26 SEGMENTED CONTROL — Tab bar with glass
+   Maps to .buttonStyle(.glass) + GlassEffectContainer
+   ============================================================ */
 .ios-segmented-control {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: var(--glass-bg);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
   padding: 4px;
-  border-radius: 14px;
+  border-radius: 16px;
   display: flex;
   gap: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  position: relative;
 }
 
 .ios-segment {
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(0,0,0,0.6);
+  color: rgba(0, 0, 0, 0.55);
   padding: 8px 16px;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   border: none !important;
+  position: relative;
+  z-index: 1;
+  letter-spacing: -0.01em;
 }
 
+/* Active segment — morphing glass pill */
 .ios-segment[data-state="active"] {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
   color: #000000 !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
-  transform: scale(1.02);
+  font-weight: 700;
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  transform: scale(1.01);
 }
 
-/* iOS Settings Card styling (Apple Inset Grouped Table View) */
-.ios-group-card {
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.015);
+/* ============================================================
+   MICRO-ANIMATIONS — Interactive feedback
+   Maps to .glassEffect(.regular.interactive())
+   "scales, bounces, shimmers on touch"
+   ============================================================ */
+.ios-active-scale {
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  will-change: transform;
+}
+.ios-active-scale:active {
+  transform: scale(0.96) !important;
+}
+
+/* ============================================================
+   GLASS BUTTON — Primary action
+   Maps to .buttonStyle(.glass) tinted with systemBlue
+   ============================================================ */
+.ios-btn-primary {
+  background: var(--lg-blue);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: var(--glass-radius-sm);
   border: none;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+.ios-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.ios-btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.35);
+  transform: translateY(-1px);
+}
+.ios-btn-primary:active {
+  transform: scale(0.97) translateY(0);
+  opacity: 0.9;
+}
+
+.ios-btn-secondary {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--lg-blue);
+  font-weight: 600;
+  border-radius: var(--glass-radius-sm);
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s ease;
+}
+.ios-btn-secondary:hover {
+  background: var(--glass-bg-hover);
+}
+
+/* ============================================================
+   IOS GROUP CARD — Settings Inset Grouped Table View
+   Now with glass material
+   ============================================================ */
+.ios-group-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-radius: var(--glass-radius);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
 }
 
-/* iOS list item row (Settings row) */
+/* ============================================================
+   IOS ROW — Settings list row with glass
+   ============================================================ */
 .ios-row {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background-color: #ffffff;
-  border-bottom: 0.5px solid rgba(60, 60, 67, 0.12);
-  transition: background-color 0.12s ease;
+  background: transparent;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.2);
+  transition: background-color 0.15s ease;
 }
 
 .ios-row:last-child {
@@ -140,88 +306,48 @@
 }
 
 .ios-row:active {
-  background-color: #e5e5ea;
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Colorful iOS Settings-style square icon container */
+/* ============================================================
+   IOS ICON BOX — Colorful square icon (Settings style)
+   ============================================================ */
 .ios-icon-box {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
-/* Liquid Glass cards: Apple Glassmorphism styling (iOS 26 Extreme) */
-.liquid-glass-card {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(40px) saturate(220%);
-  -webkit-backdrop-filter: blur(40px) saturate(220%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 
-    0 10px 40px -10px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  border-radius: 24px;
-}
-
-.liquid-glass-header {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(50px) saturate(250%);
-  -webkit-backdrop-filter: blur(50px) saturate(250%);
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 30px -8px rgba(0,0,0,0.08);
-}
-
-/* Micro-animations */
-.ios-active-scale {
-  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-}
-.ios-active-scale:active {
-  transform: scale(0.96) !important;
-}
-
-/* Apple Buttons */
-.ios-btn-primary {
-  background-color: #007aff;
-  color: #ffffff;
-  font-weight: 600;
-  border-radius: 10px;
-  transition: opacity 0.15s ease;
-}
-.ios-btn-primary:active {
-  opacity: 0.8;
-}
-
-.ios-btn-secondary {
-  background-color: rgba(120, 120, 128, 0.12);
-  color: #007aff;
-  font-weight: 600;
-  border-radius: 10px;
-}
-
-/* Apple Settings-like Section Header */
+/* ============================================================
+   SECTION HEADERS / FOOTERS
+   ============================================================ */
 .ios-section-header {
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.35px;
-  color: rgba(60, 60, 67, 0.6);
-  padding-left: 16px;
-  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+  color: rgba(60, 60, 67, 0.5);
+  padding-left: 20px;
+  margin-bottom: 8px;
 }
 
 .ios-section-footer {
-  font-size: 11.5px;
-  color: rgba(60, 60, 67, 0.5);
-  padding-left: 16px;
-  padding-right: 16px;
-  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.4);
+  padding-left: 20px;
+  padding-right: 20px;
+  margin-top: 8px;
 }
 
-/* iOS switch wrapper */
+/* ============================================================
+   iOS SWITCH — Toggle with glass-era styling
+   ============================================================ */
 .ios-switch {
   position: relative;
   display: inline-block;
@@ -242,8 +368,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #e9e9ea;
-  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  background-color: rgba(120, 120, 128, 0.16);
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 34px;
 }
 
@@ -255,15 +381,64 @@
   left: 2px;
   bottom: 2px;
   background-color: white;
-  transition: .25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 50%;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 3px 1px rgba(0,0,0,0.06);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 input:checked + .ios-switch-slider {
-  background-color: #34c759;
+  background-color: var(--lg-green);
 }
 
 input:checked + .ios-switch-slider:before {
   transform: translateX(20px);
+}
+
+/* ============================================================
+   FLOATING GLASS ANIMATION — Subtle entrance
+   ============================================================ */
+@keyframes glassFloat {
+  0% { opacity: 0; transform: translateY(12px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.glass-animate-in {
+  animation: glassFloat 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================================
+   GLASS INPUT — Form inputs with glass material
+   ============================================================ */
+.glass-input {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--glass-radius-xs);
+  color: #1c1c1e;
+  transition: all 0.2s ease;
+}
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--lg-blue);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+  outline: none;
+}
+.glass-input::placeholder {
+  color: rgba(60, 60, 67, 0.4);
+}
+
+/* ============================================================
+   GLASS BADGE — Floating pill badge
+   ============================================================ */
+.glass-badge {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: 100px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
