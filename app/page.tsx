@@ -518,15 +518,26 @@ export default function KSLigaSite() {
                     ) : (
                       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden divide-y divide-slate-150">
                         {/* Table Header Legend (Mobile & Desktop) */}
-                        <div className="bg-slate-100/90 px-3 sm:px-4 py-2 border-b border-slate-200/90 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <div className="bg-slate-100/90 px-3 sm:px-4 py-2 border-b border-slate-200/90 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="w-7 sm:w-8 text-center shrink-0">#</span>
                             <span className="truncate">Команда</span>
                           </div>
-                          <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max text-right">
-                            <span>І | В / Н / П</span>
-                            <span className="min-w-[36px] sm:min-w-[44px] text-center">З:П</span>
-                            <span className="min-w-[24px] sm:min-w-[32px] text-right text-blue-600 font-extrabold">О</span>
+                          <div className="flex items-center shrink-0 text-right">
+                            {/* І */}
+                            <span className="w-5 sm:w-6 text-center">І</span>
+                            {/* Divider spacing */}
+                            <span className="w-2.5"></span>
+                            {/* В / Н / П */}
+                            <span className="w-[58px] sm:w-[72px] text-center">В/Н/П</span>
+                            {/* spacing */}
+                            <span className="w-2 sm:w-4"></span>
+                            {/* З:П */}
+                            <span className="w-10 sm:w-14 text-center">З:П</span>
+                            {/* spacing */}
+                            <span className="w-2 sm:w-4"></span>
+                            {/* О */}
+                            <span className="w-7 sm:w-9 text-right text-blue-600 font-extrabold">О</span>
                           </div>
                         </div>
 
@@ -567,28 +578,34 @@ export default function KSLigaSite() {
                                 </span>
                               </div>
 
-                              {/* Right side: Stats & Points (Non-movable, fixed columns) */}
-                              <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max text-right">
-                                {/* Record: Games | W / D / L */}
-                                <div className="text-xs sm:text-sm font-semibold flex items-center shrink-0">
-                                  <span className="text-slate-800 font-extrabold mr-1 sm:mr-1.5">{team.games}</span>
-                                  <span className="text-slate-300 font-normal mr-1 sm:mr-1.5">|</span>
-                                  <span className="text-emerald-600 font-bold">{team.wins}</span>
-                                  <span className="text-slate-300 font-normal mx-0.5 sm:mx-1">/</span>
-                                  <span className="text-amber-600 font-bold">{team.draws}</span>
-                                  <span className="text-slate-300 font-normal mx-0.5 sm:mx-1">/</span>
-                                  <span className="text-red-500 font-bold">{team.losses}</span>
+                              {/* Right side: Stats & Points (Completely locked column positions) */}
+                              <div className="flex items-center shrink-0 text-right text-xs sm:text-sm font-semibold select-none">
+                                {/* Games played (І) */}
+                                <span className="w-5 sm:w-6 text-center font-extrabold text-slate-800 shrink-0">{team.games}</span>
+
+                                {/* Divider */}
+                                <span className="text-slate-300 mx-0.5 sm:mx-1 shrink-0">|</span>
+
+                                {/* Record (В / Н / П) */}
+                                <div className="flex items-center justify-center w-[58px] sm:w-[72px] shrink-0">
+                                  <span className="w-4 sm:w-5 text-center text-emerald-600 font-bold shrink-0">{team.wins}</span>
+                                  <span className="text-slate-300 shrink-0">/</span>
+                                  <span className="w-4 sm:w-5 text-center text-amber-600 font-bold shrink-0">{team.draws}</span>
+                                  <span className="text-slate-300 shrink-0">/</span>
+                                  <span className="w-4 sm:w-5 text-center text-red-500 font-bold shrink-0">{team.losses}</span>
                                 </div>
+
+                                {/* Divider spacing */}
+                                <span className="w-2 sm:w-4 shrink-0"></span>
 
                                 {/* Goals ratio (З:П) */}
-                                <div className="text-xs sm:text-sm font-medium text-slate-500 min-w-[36px] sm:min-w-[44px] text-center shrink-0">
-                                  {team.gf}:{team.ga}
-                                </div>
+                                <span className="w-10 sm:w-14 text-center text-slate-500 font-medium shrink-0">{team.gf}:{team.ga}</span>
+
+                                {/* Divider spacing */}
+                                <span className="w-2 sm:w-4 shrink-0"></span>
 
                                 {/* Points (О) */}
-                                <div className="font-extrabold text-blue-600 text-base min-[380px]:text-lg sm:text-xl min-w-[24px] sm:min-w-[32px] text-right shrink-0">
-                                  {team.pts}
-                                </div>
+                                <span className="w-7 sm:w-9 text-right font-extrabold text-blue-600 text-sm sm:text-base shrink-0">{team.pts}</span>
                               </div>
                             </div>
                           )
