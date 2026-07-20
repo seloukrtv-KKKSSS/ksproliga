@@ -500,87 +500,102 @@ export default function KSLigaSite() {
                   </TabsList>
                 </div>
 
-                {/* League Table Tab */}
+                {/* League Table Tab (Cards Representation) */}
                 {currentChampionship?.tournament_type === "league" && (
-                  <TabsContent value="table" className="outline-none space-y-2">
-                    <div className="ios-section-header">Турнірна таблиця</div>
-                    <Card className="liquid-glass-card overflow-hidden">
-                      <CardContent className="p-0">
-                        {table.length === 0 ? (
-                          <div className="text-center py-16 p-6">
-                            <Trophy className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                            <div className="text-base font-semibold text-slate-900">Немає даних таблиці</div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              Додайте команди та результати матчів для формування таблиці.
-                            </div>
+                  <TabsContent value="table" className="outline-none space-y-3">
+                    <div className="ios-section-header flex items-center justify-between">
+                      <span>Турнірна таблиця</span>
+                      <span className="text-xs text-slate-500 font-normal">Команд: {table.length}</span>
+                    </div>
+                    {table.length === 0 ? (
+                      <Card className="liquid-glass-card overflow-hidden py-16 text-center">
+                        <CardContent className="p-6">
+                          <Trophy className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                          <div className="text-base font-semibold text-slate-900">Немає даних таблиці</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Додайте команди та результати матчів для формування таблиці.
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto scrollbar-none">
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr className="bg-white/20 border-b border-white/25 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                  <th className="py-4 px-4 w-12 text-center">#</th>
-                                  <th className="py-4 px-4">Команда</th>
-                                  <th className="py-4 px-4 w-16 text-center">Ігри</th>
-                                  <th className="py-4 px-4 w-28 text-center hidden sm:table-cell">В / Н / П</th>
-                                  <th className="py-4 px-4 w-24 text-center hidden sm:table-cell">РМ</th>
-                                  <th className="py-4 px-4 w-20 text-center">Очки</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-white/20 text-sm">
-                                {table.map((team, index) => {
-                                  const position = index + 1
-                                  let rowStyle = "text-slate-900 hover:bg-white/15 border-l-4 border-l-transparent transition-colors"
-                                  let positionBadgeStyle = "text-slate-600 font-semibold"
-                                  
-                                  if (position === 1) {
-                                    rowStyle = "bg-[var(--lg-green)]/8 hover:bg-[var(--lg-green)]/15 text-slate-900 border-l-4 border-l-[var(--lg-green)] transition-colors"
-                                    positionBadgeStyle = "bg-[var(--lg-green)] text-white font-bold px-2 py-0.5 rounded-lg text-[11px] shadow-[0_2px_8px_rgba(52,199,89,0.3)]"
-                                  } else if (position <= 3) {
-                                    rowStyle = "bg-[var(--lg-blue)]/6 hover:bg-[var(--lg-blue)]/12 text-slate-900 border-l-4 border-l-[var(--lg-blue)] transition-colors"
-                                    positionBadgeStyle = "bg-[var(--lg-blue)] text-white font-semibold px-2 py-0.5 rounded-lg text-[11px] shadow-[0_2px_8px_rgba(0,122,255,0.3)]"
-                                  } else {
-                                    positionBadgeStyle = "text-slate-600 font-bold bg-white/25 border border-white/30 px-2 py-0.5 rounded-lg text-[11px]"
-                                  }
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {table.map((team, index) => {
+                          const position = index + 1
+                          let borderAccent = "border-l-4 border-l-slate-300"
+                          let posBadge = "bg-slate-100 text-slate-700 border border-slate-200"
 
-                                  return (
-                                    <tr key={index} className={rowStyle}>
-                                      <td className="py-3.5 px-4 text-center">
-                                        <span className={positionBadgeStyle}>{position}</span>
-                                      </td>
-                                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                            <img
-                                              src={getTeamLogo(team.name) || "/placeholder.svg"}
-                                              alt={`${team.name} Logo`}
-                                              className="w-full h-full object-contain"
-                                            />
-                                          </div>
-                                          <span className="truncate max-w-[120px] sm:max-w-xs font-bold text-slate-900">{team.name}</span>
-                                        </div>
-                                      </td>
-                                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">{team.games}</td>
-                                      <td className="py-3.5 px-4 text-center text-xs text-slate-500 hidden sm:table-cell font-medium">
-                                        <span className="text-emerald-700 font-semibold">{team.wins}</span>
-                                        <span className="mx-1 text-slate-300">/</span>
-                                        <span className="text-amber-700 font-semibold">{team.draws}</span>
-                                        <span className="mx-1 text-slate-300">/</span>
-                                        <span className="text-red-700 font-semibold">{team.losses}</span>
-                                      </td>
-                                      <td className="py-3.5 px-4 text-center font-semibold text-slate-550 hidden sm:table-cell">
-                                        {team.gf} : {team.ga}
-                                      </td>
-                                      <td className="py-3.5 px-4 text-center font-black text-base text-slate-900">{team.pts}</td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                          if (position === 1) {
+                            borderAccent = "border-l-4 border-l-amber-500 shadow-xs"
+                            posBadge = "bg-gradient-to-r from-amber-400 to-amber-500 text-white font-black shadow-xs"
+                          } else if (position <= 3) {
+                            borderAccent = "border-l-4 border-l-blue-500 shadow-xs"
+                            posBadge = "bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold shadow-xs"
+                          }
+
+                          return (
+                            <Card key={index} className={`liquid-glass-card ${borderAccent} overflow-hidden hover:border-slate-300 transition-all`}>
+                              <CardContent className="p-3.5 space-y-3">
+                                {/* Team Header & Rank */}
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${posBadge}`}>
+                                      {position}
+                                    </span>
+                                    <div className="w-8 h-8 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                      <img
+                                        src={getTeamLogo(team.name) || "/placeholder.svg"}
+                                        alt={team.name}
+                                        className="w-full h-full object-contain"
+                                      />
+                                    </div>
+                                    <span className="font-extrabold text-slate-900 text-sm sm:text-base truncate">{team.name}</span>
+                                  </div>
+                                  {/* Total Points Highlight */}
+                                  <div className="text-right shrink-0 bg-blue-50/90 border border-blue-200/80 px-3 py-1 rounded-xl">
+                                    <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider block leading-none">Очки</span>
+                                    <span className="text-base font-black text-blue-900 leading-tight">{team.pts}</span>
+                                  </div>
+                                </div>
+
+                                {/* Core Stats Grid */}
+                                <div className="grid grid-cols-3 gap-2 bg-white/60 p-2.5 rounded-xl border border-slate-200/60 text-center text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-500 font-semibold block uppercase">Ігри</span>
+                                    <span className="font-bold text-slate-900 text-sm">{team.games}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-500 font-semibold block uppercase">З : П</span>
+                                    <span className="font-bold text-slate-800 text-sm">{team.gf} : {team.ga}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-500 font-semibold block uppercase">Різниця</span>
+                                    <span className={`font-bold text-sm ${team.gd > 0 ? "text-emerald-600" : team.gd < 0 ? "text-rose-600" : "text-slate-600"}`}>
+                                      {team.gd > 0 ? `+${team.gd}` : team.gd}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* W / D / L Badges */}
+                                <div className="flex items-center justify-between text-xs pt-1 px-1 border-t border-slate-100">
+                                  <span className="text-[11px] text-slate-500 font-medium">Результати:</span>
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200/80 text-[11px]" title="Перемоги">
+                                      {team.wins} В
+                                    </span>
+                                    <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-200/80 text-[11px]" title="Нічиї">
+                                      {team.draws} Н
+                                    </span>
+                                    <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded-md border border-rose-200/80 text-[11px]" title="Поразки">
+                                      {team.losses} П
+                                    </span>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    )}
                   </TabsContent>
                 )}
 
@@ -716,27 +731,39 @@ export default function KSLigaSite() {
                                         </span>
                                       </div>
                                     </div>
-
-                                    {/* Score & Time */}
-                                    <div className="text-right pl-4 flex-shrink-0 flex flex-col justify-center items-end">
-                                      <div className="text-base font-bold text-slate-900">
-                                        {formatMatchResult(match)}
-                                        <span className="text-xs text-slate-500 block font-normal">
-                                          {formatPenaltyResult(match)}
-                                        </span>
-                                      </div>
-                                      <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-end gap-1">
+                                    {/* Color-Coded Score Badge & Time */}
+                                    <div className="text-right pl-3 flex-shrink-0 flex flex-col justify-center items-end gap-1">
+                                      {(() => {
+                                        let badgeStyle = "bg-slate-800 text-white"
+                                        if (match.is_technical_defeat) {
+                                          badgeStyle = "bg-rose-600 text-white shadow-xs"
+                                        } else if (match.home_score !== null && match.away_score !== null) {
+                                          if (match.home_score > match.away_score) badgeStyle = "bg-emerald-600 text-white shadow-xs"
+                                          else if (match.away_score > match.home_score) badgeStyle = "bg-blue-600 text-white shadow-xs"
+                                          else badgeStyle = "bg-amber-500 text-white shadow-xs"
+                                        }
+                                        return (
+                                          <div className={`px-3 py-1 rounded-xl font-black text-sm sm:text-base tracking-tight text-center ${badgeStyle}`}>
+                                            {formatMatchResult(match)}
+                                            {formatPenaltyResult(match) && (
+                                              <span className="text-[10px] font-normal block opacity-90">
+                                                {formatPenaltyResult(match)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )
+                                      })()}
+                                      <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1">
                                         {match.match_time && <span>{formatTime(match.match_time)} ·</span>}
                                         <span>{new Date(match.date).toLocaleDateString("uk-UA")}</span>
                                       </div>
                                     </div>
                                   </div>
-
                                   {/* Toggle Expand Bar */}
-                                  <div className="border-t border-white/20 pt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                                  <div className="border-t border-white/20 pt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer" onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}>
                                     <span className="flex items-center gap-1.5">
                                       <Target className="h-3.5 w-3.5 text-slate-400" />
-                                      Деталі матчу (голи та картки)
+                                      Деталі матчу (голи у 2 стовпці та картки)
                                     </span>
                                     {expandedMatchId === match.id ? (
                                       <ChevronUp className="h-4 w-4 text-slate-500" />
@@ -744,42 +771,71 @@ export default function KSLigaSite() {
                                       <ChevronDown className="h-4 w-4 text-slate-500" />
                                     )}
                                   </div>
-
-                                  {/* Expanded Match Details (Goals & Cards) */}
+                                  {/* Expanded Match Details (Goals in 2 Columns & Cards) */}
                                   {expandedMatchId === match.id && (
                                     <div
                                       className="border-t border-white/30 pt-3 space-y-3 glass-animate-in text-xs"
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      {/* Goals Section */}
+                                      {/* Goals Section in 2 Columns */}
                                       <div>
-                                        <div className="font-bold text-slate-800 text-[11px] mb-1.5 flex items-center gap-1.5">
+                                        <div className="font-bold text-slate-800 text-[11px] mb-2 flex items-center gap-1.5">
                                           <Target className="h-3.5 w-3.5 text-[var(--lg-blue)]" />
                                           Забиті голи ({matchGoals[match.id]?.length || 0})
                                         </div>
                                         {!matchGoals[match.id] || matchGoals[match.id].length === 0 ? (
                                           <div className="text-[11px] text-slate-400 italic pl-5">Голи відсутні</div>
                                         ) : (
-                                          <div className="space-y-1 pl-1">
-                                            {matchGoals[match.id].map((goal) => (
-                                              <div
-                                                key={goal.id}
-                                                className="flex justify-between items-center text-[11px] bg-white/20 px-2.5 py-1 rounded-md border border-white/25"
-                                              >
-                                                <div className="flex items-center gap-1.5">
-                                                  <span className="font-semibold text-slate-900">{goal.player_name}</span>
-                                                  <span className="text-[10px] text-slate-500">({goal.team_name})</span>
-                                                </div>
-                                                <span className="font-bold text-slate-700">
-                                                  {goal.minute ? `${goal.minute}' ` : ""}
-                                                  {goal.goal_type === "penalty"
-                                                    ? "(пен.)"
-                                                    : goal.goal_type === "own_goal"
-                                                      ? "(авт.)"
-                                                      : ""}
-                                                </span>
+                                          <div className="grid grid-cols-2 gap-2.5 bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80">
+                                            {/* Home Goals Column */}
+                                            <div className="space-y-1">
+                                              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1 truncate border-b border-slate-200/60 pb-1">
+                                                ⚽ {match.home_team}
                                               </div>
-                                            ))}
+                                              {matchGoals[match.id].filter((g) => g.team_name === match.home_team).length === 0 ? (
+                                                <span className="text-[10px] text-slate-400 italic block">—</span>
+                                              ) : (
+                                                matchGoals[match.id]
+                                                  .filter((g) => g.team_name === match.home_team)
+                                                  .map((goal) => (
+                                                    <div
+                                                      key={goal.id}
+                                                      className="flex justify-between items-center text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70 shadow-2xs"
+                                                    >
+                                                      <span className="font-bold text-slate-900 truncate">{goal.player_name}</span>
+                                                      <span className="text-[10px] font-bold text-slate-600 ml-1 shrink-0">
+                                                        {goal.minute ? `${goal.minute}'` : ""}
+                                                        {goal.goal_type === "penalty" ? " (пен)" : goal.goal_type === "own_goal" ? " (авт)" : ""}
+                                                      </span>
+                                                    </div>
+                                                  ))
+                                              )}
+                                            </div>
+
+                                            {/* Away Goals Column */}
+                                            <div className="space-y-1 text-right">
+                                              <div className="text-[10px] font-bold uppercase text-slate-500 mb-1 truncate border-b border-slate-200/60 pb-1 text-right">
+                                                {match.away_team} ⚽
+                                              </div>
+                                              {matchGoals[match.id].filter((g) => g.team_name === match.away_team).length === 0 ? (
+                                                <span className="text-[10px] text-slate-400 italic block">—</span>
+                                              ) : (
+                                                matchGoals[match.id]
+                                                  .filter((g) => g.team_name === match.away_team)
+                                                  .map((goal) => (
+                                                    <div
+                                                      key={goal.id}
+                                                      className="flex justify-between items-center text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70 shadow-2xs"
+                                                    >
+                                                      <span className="text-[10px] font-bold text-slate-600 mr-1 shrink-0">
+                                                        {goal.minute ? `${goal.minute}'` : ""}
+                                                        {goal.goal_type === "penalty" ? " (пен)" : goal.goal_type === "own_goal" ? " (авт)" : ""}
+                                                      </span>
+                                                      <span className="font-bold text-slate-900 truncate">{goal.player_name}</span>
+                                                    </div>
+                                                  ))
+                                              )}
+                                            </div>
                                           </div>
                                         )}
                                       </div>
