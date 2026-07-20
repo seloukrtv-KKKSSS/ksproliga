@@ -92,27 +92,27 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                       <div className="space-y-3 flex-1">
                         {/* Home Team */}
                         <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 border border-slate-250/60 shadow-sm flex-shrink-0">
+                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                             <img
                               src={getTeamLogo(match.home_team)}
                               alt="Home Team"
-                              className="w-4 h-4 object-contain"
+                              className="w-full h-full object-contain"
                             />
                           </div>
-                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.home_score < match.away_score && !match.is_technical_defeat ? "text-slate-400 font-medium" : "text-slate-800 font-bold"}`}>
+                          <span className="text-sm font-bold text-slate-900">
                             {match.home_team}
                           </span>
                         </div>
                         {/* Away Team */}
                         <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 border border-slate-250/60 shadow-sm flex-shrink-0">
+                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                             <img
                               src={getTeamLogo(match.away_team)}
                               alt="Away Team"
-                              className="w-4 h-4 object-contain"
+                              className="w-full h-full object-contain"
                             />
                           </div>
-                          <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.away_score < match.home_score && !match.is_technical_defeat ? "text-slate-400 font-medium" : "text-slate-800 font-bold"}`}>
+                          <span className="text-sm font-bold text-slate-900">
                             {match.away_team}
                           </span>
                         </div>

@@ -510,16 +510,16 @@ export default function KSLigaSite() {
                                       <td className="py-3.5 px-4 text-center">
                                         <span className={positionBadgeStyle}>{position}</span>
                                       </td>
-                                      <td className="py-3.5 px-4 font-semibold text-slate-800">
+                                      <td className="py-3.5 px-4 font-bold text-slate-900">
                                         <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden bg-white/20 border border-white/30 shadow-sm">
+                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                                             <img
                                               src={getTeamLogo(team.name) || "/placeholder.svg"}
                                               alt={`${team.name} Logo`}
-                                              className="w-5 h-5 object-contain"
+                                              className="w-full h-full object-contain"
                                             />
                                           </div>
-                                          <span className="truncate max-w-[120px] sm:max-w-xs">{team.name}</span>
+                                          <span className="truncate max-w-[120px] sm:max-w-xs font-bold text-slate-900">{team.name}</span>
                                         </div>
                                       </td>
                                       <td className="py-3.5 px-4 text-center font-bold text-slate-700">{team.games}</td>
@@ -580,21 +580,25 @@ export default function KSLigaSite() {
                                   <div className="flex-1 space-y-3">
                                     {/* Team 1 */}
                                     <div className="flex items-center gap-3">
-                                      <img
-                                        src={getTeamLogo(match.home_team)}
-                                        alt="Home Team"
-                                        className="w-5 h-5 object-contain"
-                                      />
-                                      <span className="text-sm font-semibold text-slate-900 truncate">{match.home_team}</span>
+                                      <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                        <img
+                                          src={getTeamLogo(match.home_team)}
+                                          alt="Home Team"
+                                          className="w-full h-full object-contain"
+                                        />
+                                      </div>
+                                      <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
                                     </div>
                                     {/* Team 2 */}
                                     <div className="flex items-center gap-3">
-                                      <img
-                                        src={getTeamLogo(match.away_team)}
-                                        alt="Away Team"
-                                        className="w-5 h-5 object-contain"
-                                      />
-                                      <span className="text-sm font-semibold text-slate-900 truncate">{match.away_team}</span>
+                                      <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                        <img
+                                          src={getTeamLogo(match.away_team)}
+                                          alt="Away Team"
+                                          className="w-full h-full object-contain"
+                                        />
+                                      </div>
+                                      <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
                                     </div>
                                   </div>
 
@@ -649,41 +653,27 @@ export default function KSLigaSite() {
                                     <div className="space-y-3 flex-1">
                                       {/* Home Team */}
                                       <div className="flex items-center gap-3">
-                                        <img
-                                          src={getTeamLogo(match.home_team)}
-                                          alt="Home Team"
-                                          className="w-5 h-5 object-contain"
-                                        />
-                                        <span
-                                          className={`text-sm ${
-                                            match.home_score !== null &&
-                                            match.away_score !== null &&
-                                            match.home_score < match.away_score &&
-                                            !match.is_technical_defeat
-                                              ? "text-slate-400"
-                                              : "text-slate-900 font-semibold"
-                                          }`}
-                                        >
+                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                          <img
+                                            src={getTeamLogo(match.home_team)}
+                                            alt="Home Team"
+                                            className="w-full h-full object-contain"
+                                          />
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-900">
                                           {match.home_team}
                                         </span>
                                       </div>
                                       {/* Away Team */}
                                       <div className="flex items-center gap-3">
-                                        <img
-                                          src={getTeamLogo(match.away_team)}
-                                          alt="Away Team"
-                                          className="w-5 h-5 object-contain"
-                                        />
-                                        <span
-                                          className={`text-sm ${
-                                            match.home_score !== null &&
-                                            match.away_score !== null &&
-                                            match.away_score < match.home_score &&
-                                            !match.is_technical_defeat
-                                              ? "text-slate-400"
-                                              : "text-slate-900 font-semibold"
-                                          }`}
-                                        >
+                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                          <img
+                                            src={getTeamLogo(match.away_team)}
+                                            alt="Away Team"
+                                            className="w-full h-full object-contain"
+                                          />
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-900">
                                           {match.away_team}
                                         </span>
                                       </div>

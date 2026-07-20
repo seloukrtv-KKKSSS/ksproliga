@@ -1036,11 +1036,13 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                       className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <img
-                          src={team.logo || "/placeholder.svg?height=32&width=32"}
-                          alt={team.name}
-                          className="h-10 w-10 rounded-full border border-slate-200 object-cover"
-                        />
+                        <div className="w-10 h-10 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center p-1 shrink-0">
+                          <img
+                            src={team.logo || "/placeholder.svg?height=32&width=32"}
+                            alt={team.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
                         <span className="font-bold text-slate-900 text-base">{team.name}</span>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
