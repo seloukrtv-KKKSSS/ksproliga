@@ -106,3 +106,12 @@ export interface VotingCandidate {
   created_at: string
 }
 
+export interface Organizer {
+  id: number
+  name: string
+  password: string
+  championship_ids: number[]
+  last_login_at?: string | null
+  created_at: string
+}
+

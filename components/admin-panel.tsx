@@ -23,6 +23,10 @@ import {
   Star,
   ChevronUp,
   ChevronDown,
+  UserCheck,
+  ShieldCheck,
+  Check,
+  Key,
 } from "lucide-react"
 import {
   getChampionships,
@@ -30,6 +34,10 @@ import {
   updateChampionship,
   deleteChampionship,
   updateChampionshipsOrder,
+  getOrganizers,
+  addOrganizer,
+  updateOrganizer,
+  deleteOrganizer,
   getTeams,
   addTeam,
   updateTeam,
@@ -59,7 +67,7 @@ import {
   deleteVotingCandidate,
   updateVotingCandidate,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer } from "@/lib/supabase"
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -71,14 +79,37 @@ interface AdminPanelProps {
   onLogout: () => void
   currentChampionshipId: number
   onChampionshipChange: (id: number) => void
+  isMainAdmin?: boolean
+  allowedChampionshipIds?: number[] | "all"
+  organizerName?: string
 }
 
-export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChange }: AdminPanelProps) {
+export function AdminPanel({
+  onLogout,
+  currentChampionshipId,
+  onChampionshipChange,
+  isMainAdmin = true,
+  allowedChampionshipIds = "all",
+  organizerName,
+}: AdminPanelProps) {
   const [championships, setChampionships] = useState<Championship[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [organizers, setOrganizers] = useState<Organizer[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Organizer form state
+  const [organizerForm, setOrganizerForm] = useState<{
+    name: string
+    password: string
+    championship_ids: number[]
+  }>({
+    name: "",
+    password: "",
+    championship_ids: [],
+  })
+  const [editingOrganizer, setEditingOrganizer] = useState<Organizer | null>(null)
 
   // Championship form state
   const [championshipForm, setChampionshipForm] = useState<{
@@ -161,12 +192,21 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
 
   useEffect(() => {
     loadData()
-  }, [currentChampionshipId])
+  }, [currentChampionshipId, isMainAdmin, JSON.stringify(allowedChampionshipIds)])
 
   const loadData = async () => {
     try {
       const championshipsData = await getChampionships()
-      setChampionships(championshipsData)
+      const filteredChampionships = isMainAdmin || allowedChampionshipIds === "all"
+        ? championshipsData
+        : championshipsData.filter((c) => Array.isArray(allowedChampionshipIds) && allowedChampionshipIds.includes(c.id))
+
+      setChampionships(filteredChampionships)
+
+      if (isMainAdmin) {
+        const organizersData = await getOrganizers()
+        setOrganizers(organizersData)
+      }
 
       if (currentChampionshipId && currentChampionshipId > 0) {
         const [teamsData, matchesData, playersData, votingsData] = await Promise.all([
@@ -227,6 +267,53 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
         console.error("Error deleting championship:", error)
       }
     }
+  }
+
+  // Organizer handlers
+  const handleOrganizerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organizerForm.name.trim() || !organizerForm.password.trim()) {
+      alert("Вкажіть назву та пароль організатора")
+      return
+    }
+    setLoading(true)
+    try {
+      if (editingOrganizer) {
+        await updateOrganizer(editingOrganizer.id, organizerForm)
+        setEditingOrganizer(null)
+      } else {
+        await addOrganizer(organizerForm)
+      }
+      setOrganizerForm({ name: "", password: "", championship_ids: [] })
+      await loadData()
+    } catch (error) {
+      console.error("Error saving organizer:", error)
+      alert(`Помилка: ${getErrorMessage(error)}`)
+    }
+    setLoading(false)
+  }
+
+  const handleDeleteOrganizer = async (id: number) => {
+    if (confirm("Ви впевнені, що хочете видалити цього організатора?")) {
+      try {
+        await deleteOrganizer(id)
+        await loadData()
+      } catch (error) {
+        console.error("Error deleting organizer:", error)
+      }
+    }
+  }
+
+  const toggleOrganizerChampionship = (champId: number) => {
+    setOrganizerForm((prev) => {
+      const exists = prev.championship_ids.includes(champId)
+      return {
+        ...prev,
+        championship_ids: exists
+          ? prev.championship_ids.filter((id) => id !== champId)
+          : [...prev.championship_ids, champId],
+      }
+    })
   }
 
   const handleMoveChampionship = async (championshipId: number, direction: "up" | "down") => {
@@ -783,6 +870,12 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
             <Star className="h-3.5 w-3.5 mr-1" />
             <span>Лев матчу</span>
           </TabsTrigger>
+          {isMainAdmin && (
+            <TabsTrigger value="organizers" className="ios-segment">
+              <UserCheck className="h-3.5 w-3.5 mr-1" />
+              <span>Організатори</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="championships" className="space-y-4">
@@ -2650,6 +2743,172 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
             </div>
           )}
         </TabsContent>
+
+        {isMainAdmin && (
+          <TabsContent value="organizers" className="space-y-4">
+            <form onSubmit={handleOrganizerSubmit} className="bg-white p-6 border border-slate-200 rounded-xl space-y-4 shadow-xs">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[var(--lg-blue)]" />
+                {editingOrganizer ? "Редагування організатора" : "Створення нового організатора"}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="organizer-name" className="text-slate-700 font-semibold text-xs">
+                    Назва або ім'я організатора
+                  </Label>
+                  <Input
+                    id="organizer-name"
+                    value={organizerForm.name}
+                    onChange={(e) => setOrganizerForm({ ...organizerForm, name: e.target.value })}
+                    placeholder="Наприклад: Організатор Ліги Коломия"
+                    className="glass-input text-sm h-10 px-4"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="organizer-password" className="text-slate-700 font-semibold text-xs">
+                    Пароль доступу для організатора
+                  </Label>
+                  <Input
+                    id="organizer-password"
+                    type="text"
+                    value={organizerForm.password}
+                    onChange={(e) => setOrganizerForm({ ...organizerForm, password: e.target.value })}
+                    placeholder="Придумайте пароль (напр: org2025)"
+                    className="glass-input text-sm h-10 px-4 font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold text-xs">
+                  Дозволені турніри / кубки (якими керує цей організатор)
+                </Label>
+                {championships.length === 0 ? (
+                  <div className="text-xs text-slate-400 italic">Спочатку створіть чемпіонати у першій вкладці</div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {championships.map((champ) => {
+                      const isChecked = organizerForm.championship_ids.includes(champ.id)
+                      return (
+                        <div
+                          key={champ.id}
+                          onClick={() => toggleOrganizerChampionship(champ.id)}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            isChecked
+                              ? "bg-blue-50/80 border-blue-300 text-blue-900 font-semibold"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+                            {isChecked && <Check className="h-3 w-3" />}
+                          </div>
+                          <span className="text-xs truncate">
+                            {champ.tournament_type === "league" ? "🏆 " : "👑 "}
+                            {champ.name} ({champ.season})
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" disabled={loading} className="ios-btn-primary text-xs font-bold h-10 px-6">
+                  {editingOrganizer ? "Зберегти зміни" : "Додати організатора"}
+                </Button>
+                {editingOrganizer && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingOrganizer(null)
+                      setOrganizerForm({ name: "", password: "", championship_ids: [] })
+                    }}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
+                  >
+                    Скасувати
+                  </Button>
+                )}
+              </div>
+            </form>
+
+            {/* List of organizers */}
+            <div className="space-y-3">
+              {organizers.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
+                  Немає створених організаторів. Створіть першого організатора вище.
+                </div>
+              ) : (
+                organizers.map((org) => (
+                  <div
+                    key={org.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all"
+                  >
+                    <div className="space-y-1.5 flex-1">
+                      <div className="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-[var(--lg-blue)]" />
+                        <span>{org.name}</span>
+                      </div>
+                      <div className="text-xs text-slate-600 font-medium flex flex-wrap items-center gap-3">
+                        <span className="font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-slate-800">
+                          Пароль: {org.password}
+                        </span>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-slate-500">
+                          Останній вхід: {org.last_login_at ? new Date(org.last_login_at).toLocaleString("uk-UA") : "Ще не входив"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {org.championship_ids.length === 0 ? (
+                          <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Немає призначених турнірів
+                          </span>
+                        ) : (
+                          org.championship_ids.map((cid) => {
+                            const c = championships.find((ch) => ch.id === cid)
+                            return (
+                              <span key={cid} className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                {c ? `${c.tournament_type === "league" ? "🏆" : "👑"} ${c.name}` : `Турнір #${cid}`}
+                              </span>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingOrganizer(org)
+                          setOrganizerForm({
+                            name: org.name,
+                            password: org.password,
+                            championship_ids: org.championship_ids || [],
+                          })
+                        }}
+                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteOrganizer(org.id)}
+                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

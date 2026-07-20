@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer } from "./supabase"
 
 export function formatTime(timeStr?: string): string {
   if (!timeStr) return ""
@@ -149,6 +149,7 @@ const mockPlayers: Player[] = [
 
 const mockMatchVotings: MatchVoting[] = []
 const mockVotingCandidates: VotingCandidate[] = []
+const mockOrganizers: Organizer[] = []
 
 
 // Helper function to check if we should use mock data
@@ -255,6 +256,90 @@ export async function updateChampionshipsOrder(orderedChampionships: Championshi
   } catch (error) {
     console.error("Error updating championships order in Supabase:", error)
   }
+}
+
+// Organizers & Authentication
+export async function getOrganizers(): Promise<Organizer[]> {
+  if (shouldUseMockData()) {
+    return Promise.resolve([...mockOrganizers])
+  }
+
+  try {
+    const { data, error } = await supabase.from("organizers").select("*").order("created_at", { ascending: false })
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error, using mock data for organizers:", error)
+    return mockOrganizers
+  }
+}
+
+export async function addOrganizer(organizer: Omit<Organizer, "id" | "created_at">): Promise<Organizer> {
+  if (shouldUseMockData()) {
+    const newOrganizer: Organizer = {
+      ...organizer,
+      id: Math.max(0, ...mockOrganizers.map((o) => o.id)) + 1,
+      created_at: new Date().toISOString(),
+    }
+    mockOrganizers.push(newOrganizer)
+    return Promise.resolve(newOrganizer)
+  }
+
+  const { data, error } = await supabase.from("organizers").insert([organizer]).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateOrganizer(id: number, updates: Partial<Organizer>): Promise<Organizer> {
+  if (shouldUseMockData()) {
+    const index = mockOrganizers.findIndex((o) => o.id === id)
+    if (index !== -1) {
+      mockOrganizers[index] = { ...mockOrganizers[index], ...updates }
+      return Promise.resolve(mockOrganizers[index])
+    }
+    throw new Error("Organizer not found")
+  }
+
+  const { data, error } = await supabase.from("organizers").update(updates).eq("id", id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteOrganizer(id: number): Promise<void> {
+  if (shouldUseMockData()) {
+    const index = mockOrganizers.findIndex((o) => o.id === id)
+    if (index !== -1) {
+      mockOrganizers.splice(index, 1)
+    }
+    return Promise.resolve()
+  }
+
+  const { error } = await supabase.from("organizers").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function authenticateUser(password: string): Promise<
+  | { type: "main" }
+  | { type: "organizer"; organizer: Organizer }
+  | null
+> {
+  if (password === "ks2025") {
+    return { type: "main" }
+  }
+
+  const organizers = await getOrganizers()
+  const found = organizers.find((o) => o.password === password)
+  if (found) {
+    const now = new Date().toISOString()
+    try {
+      await updateOrganizer(found.id, { last_login_at: now })
+    } catch (e) {
+      console.error("Failed to update organizer last_login_at:", e)
+    }
+    return { type: "organizer", organizer: { ...found, last_login_at: now } }
+  }
+
+  return null
 }
 
 // Teams

@@ -35,6 +35,7 @@ import {
   getMatchesCards,
   formatTime,
   sortChampionships,
+  authenticateUser,
 } from "@/lib/database"
 import { AdminPanel } from "@/components/admin-panel"
 import { CupTournament } from "@/components/cup-tournament"
@@ -44,7 +45,11 @@ import { TeamDisplay } from "@/components/team-display"
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isMainAdmin, setIsMainAdmin] = useState(true)
+  const [allowedChampionshipIds, setAllowedChampionshipIds] = useState<number[] | "all">("all")
+  const [organizerName, setOrganizerName] = useState<string>("")
   const [adminPassword, setAdminPassword] = useState("")
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const [teams, setTeams] = useState<Team[]>([])
   const [table, setTable] = useState<any[]>([])
@@ -235,13 +240,42 @@ export default function KSLigaSite() {
     return team?.logo || "/placeholder.svg?height=32&width=32"
   }
 
-  const handleLogin = () => {
-    if (adminPassword === "ks2025") {
+  const handleLogin = async () => {
+    setLoginError(null)
+    if (!adminPassword) return
+
+    const authResult = await authenticateUser(adminPassword)
+    if (authResult) {
       setIsAdmin(true)
+      if (authResult.type === "main") {
+        setIsMainAdmin(true)
+        setAllowedChampionshipIds("all")
+        setOrganizerName("Головний адміністратор")
+      } else {
+        setIsMainAdmin(false)
+        setAllowedChampionshipIds(authResult.organizer.championship_ids)
+        setOrganizerName(authResult.organizer.name)
+
+        if (
+          !authResult.organizer.championship_ids.includes(currentChampionshipId || 0) &&
+          authResult.organizer.championship_ids.length > 0
+        ) {
+          const firstAllowed = authResult.organizer.championship_ids[0]
+          setCurrentChampionshipId(firstAllowed)
+          loadDataForChampionship(firstAllowed)
+        }
+      }
       setAdminPassword("")
     } else {
-      alert("Невірний пароль")
+      setLoginError("Невірний пароль доступу. Перевірте пароль та спробуйте ще раз.")
     }
+  }
+
+  const handleLogout = () => {
+    setIsAdmin(false)
+    setIsMainAdmin(true)
+    setAllowedChampionshipIds("all")
+    setOrganizerName("")
   }
 
   const handleChampionshipChange = (value: string) => {
@@ -370,10 +404,11 @@ export default function KSLigaSite() {
                       type="password"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Пароль доступу"
+                      placeholder="Пароль доступу (адмін або організатор)"
                       onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                       className="glass-input text-sm h-10 px-4"
                     />
+                    {loginError && <p className="text-xs font-semibold text-red-600 px-1">{loginError}</p>}
                     <Button
                       onClick={handleLogin}
                       className="w-full ios-btn-primary text-xs font-bold h-10 ios-active-scale"
@@ -383,12 +418,15 @@ export default function KSLigaSite() {
                   </div>
                 ) : (
                   <AdminPanel
-                    onLogout={() => setIsAdmin(false)}
+                    onLogout={handleLogout}
                     currentChampionshipId={0}
                     onChampionshipChange={(id) => {
                       setCurrentChampionshipId(id)
                       loadInitialData()
                     }}
+                    isMainAdmin={isMainAdmin}
+                    allowedChampionshipIds={allowedChampionshipIds}
+                    organizerName={organizerName}
                   />
                 )}
               </CardContent>
@@ -1164,6 +1202,7 @@ export default function KSLigaSite() {
                             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                             className="glass-input text-sm h-10 px-4"
                           />
+                          {loginError && <p className="text-xs font-semibold text-red-600 text-center px-1">{loginError}</p>}
                           <Button
                             onClick={handleLogin}
                             className="w-full ios-btn-primary text-sm font-bold h-10 ios-active-scale"
@@ -1173,11 +1212,14 @@ export default function KSLigaSite() {
                         </div>
                       ) : (
                         <AdminPanel
-                          onLogout={() => setIsAdmin(false)}
+                          onLogout={handleLogout}
                           currentChampionshipId={currentChampionshipId || 0}
                           onChampionshipChange={(id) => {
                             setCurrentChampionshipId(id)
                           }}
+                          isMainAdmin={isMainAdmin}
+                          allowedChampionshipIds={allowedChampionshipIds}
+                          organizerName={organizerName}
                         />
                       )}
                     </CardContent>
