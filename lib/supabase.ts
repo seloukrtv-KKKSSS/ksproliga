@@ -78,6 +78,16 @@ export interface MatchGoal {
   created_at: string
 }
 
+export interface MatchCard {
+  id: number
+  match_id: number
+  player_name: string
+  team_name: string
+  minute?: number
+  card_type: "yellow" | "red" | "yellow_red"
+  created_at: string
+}
+
 export interface MatchVoting {
   match_id: number
   is_active: boolean

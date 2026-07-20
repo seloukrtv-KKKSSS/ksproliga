@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Clock, AlertTriangle } from "lucide-react"
-import { getCupMatches, getTeams } from "@/lib/database"
+import { Clock, AlertTriangle } from "lucide-react"
+import { getCupMatches, getTeams, formatTime } from "@/lib/database"
 import type { Match, Team } from "@/lib/supabase"
 
 interface CupTournamentProps {
@@ -144,7 +144,7 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                         {match.match_time && (
                           <span className="flex items-center gap-1 font-medium text-slate-450">
                             <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {match.match_time}
+                            {formatTime(match.match_time)}
                           </span>
                         )}
                         {match.is_technical_defeat && (

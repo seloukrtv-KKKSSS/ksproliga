@@ -1,5 +1,26 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchVoting, VotingCandidate } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate } from "./supabase"
+
+export function formatTime(timeStr?: string): string {
+  if (!timeStr) return ""
+  const parts = timeStr.trim().split(":")
+  if (parts.length >= 2) {
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`
+  }
+  return timeStr
+}
+
+export function sortChampionships(championships: Championship[]): Championship[] {
+  return [...championships].sort((a, b) => {
+    if (a.is_active !== b.is_active) {
+      return a.is_active ? -1 : 1
+    }
+    if (a.tournament_type !== b.tournament_type) {
+      return a.tournament_type === "league" ? -1 : 1
+    }
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  })
+}
 
 
 // Mock data for demo purposes
@@ -131,16 +152,16 @@ const shouldUseMockData = () => {
 // Championships
 export async function getChampionships(): Promise<Championship[]> {
   if (shouldUseMockData()) {
-    return Promise.resolve(mockChampionships)
+    return Promise.resolve(sortChampionships(mockChampionships))
   }
 
   try {
     const { data, error } = await supabase.from("championships").select("*").order("created_at", { ascending: false })
     if (error) throw error
-    return data || []
+    return sortChampionships(data || [])
   } catch (error) {
     console.warn("Database error, using mock data:", error)
-    return mockChampionships
+    return sortChampionships(mockChampionships)
   }
 }
 
@@ -413,6 +434,87 @@ export async function deleteMatchGoal(id: number): Promise<void> {
   }
 
   const { error } = await supabase.from("match_goals").delete().eq("id", id)
+  if (error) throw error
+}
+
+// Match Cards
+const mockMatchCards: MatchCard[] = []
+
+export async function getMatchCards(matchId: number): Promise<MatchCard[]> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockMatchCards.filter((c) => c.match_id === matchId))
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("match_cards")
+      .select("*")
+      .eq("match_id", matchId)
+      .order("minute", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error (match_cards):", error)
+    return mockMatchCards.filter((c) => c.match_id === matchId)
+  }
+}
+
+export async function getMatchesCards(matchIds: number[]): Promise<MatchCard[]> {
+  if (shouldUseMockData() || matchIds.length === 0) {
+    return Promise.resolve([])
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("match_cards")
+      .select("*")
+      .in("match_id", matchIds)
+      .order("minute", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error (match_cards):", error)
+    return []
+  }
+}
+
+export async function addMatchCard(card: {
+  match_id: number
+  player_name: string
+  team_name: string
+  minute?: number
+  card_type: "yellow" | "red" | "yellow_red"
+}): Promise<MatchCard> {
+  if (shouldUseMockData()) {
+    const newCard: MatchCard = {
+      ...card,
+      id: Math.floor(Math.random() * 1000),
+      created_at: new Date().toISOString(),
+    }
+    mockMatchCards.push(newCard)
+    return Promise.resolve(newCard)
+  }
+
+  const { data, error } = await supabase
+    .from("match_cards")
+    .insert([card])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteMatchCard(id: number): Promise<void> {
+  if (shouldUseMockData()) {
+    const idx = mockMatchCards.findIndex((c) => c.id === id)
+    if (idx !== -1) mockMatchCards.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  const { error } = await supabase.from("match_cards").delete().eq("id", id)
   if (error) throw error
 }
 

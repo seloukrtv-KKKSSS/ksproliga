@@ -42,6 +42,11 @@ import {
   getMatchGoals,
   addMatchGoal,
   deleteMatchGoal,
+  getMatchCards,
+  addMatchCard,
+  deleteMatchCard,
+  formatTime,
+  sortChampionships,
   getMatchVoting,
   getVotingCandidates,
   getChampionshipVotings,
@@ -51,7 +56,7 @@ import {
   deleteVotingCandidate,
   updateVotingCandidate,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal, MatchVoting, VotingCandidate } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate } from "@/lib/supabase"
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -114,14 +119,21 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
   const [playerForm, setPlayerForm] = useState({ name: "", team: "", goals: 0 })
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
 
-  // Match goals state
+  // Match goals and cards state
   const [selectedMatchForGoals, setSelectedMatchForGoals] = useState<Match | null>(null)
   const [matchGoals, setMatchGoals] = useState<MatchGoal[]>([])
+  const [matchCards, setMatchCards] = useState<MatchCard[]>([])
   const [goalForm, setGoalForm] = useState({
     player_name: "",
     team_name: "",
     minute: "",
     goal_type: "regular" as "regular" | "penalty" | "own_goal",
+  })
+  const [cardForm, setCardForm] = useState({
+    player_name: "",
+    team_name: "",
+    minute: "",
+    card_type: "yellow" as "yellow" | "red" | "yellow_red",
   })
 
   // Lion of the Match state
@@ -340,13 +352,14 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
     }
   }
 
-  // Match goals handlers
-  const loadMatchGoals = async (matchId: number) => {
+  // Match events (goals and cards) handlers
+  const loadMatchEvents = async (matchId: number) => {
     try {
-      const goals = await getMatchGoals(matchId)
+      const [goals, cards] = await Promise.all([getMatchGoals(matchId), getMatchCards(matchId)])
       setMatchGoals(goals)
+      setMatchCards(cards)
     } catch (error) {
-      console.error("Error loading match goals:", error)
+      console.error("Error loading match events:", error)
     }
   }
 
@@ -370,7 +383,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
         minute: "",
         goal_type: "regular",
       })
-      await loadMatchGoals(selectedMatchForGoals.id)
+      await loadMatchEvents(selectedMatchForGoals.id)
     } catch (error) {
       console.error("Error adding match goal:", error)
       alert("Помилка при додаванні голу: " + getErrorMessage(error))
@@ -383,10 +396,51 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
       try {
         await deleteMatchGoal(goalId)
         if (selectedMatchForGoals) {
-          await loadMatchGoals(selectedMatchForGoals.id)
+          await loadMatchEvents(selectedMatchForGoals.id)
         }
       } catch (error) {
         console.error("Error deleting match goal:", error)
+      }
+    }
+  }
+
+  const handleAddMatchCard = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedMatchForGoals) return
+
+    setLoading(true)
+    try {
+      await addMatchCard({
+        match_id: selectedMatchForGoals.id,
+        player_name: cardForm.player_name,
+        team_name: cardForm.team_name,
+        minute: cardForm.minute ? Number.parseInt(cardForm.minute) : undefined,
+        card_type: cardForm.card_type,
+      })
+
+      setCardForm({
+        player_name: "",
+        team_name: selectedMatchForGoals.home_team,
+        minute: "",
+        card_type: "yellow",
+      })
+      await loadMatchEvents(selectedMatchForGoals.id)
+    } catch (error) {
+      console.error("Error adding match card:", error)
+      alert("Помилка при додаванні картки: " + getErrorMessage(error))
+    }
+    setLoading(false)
+  }
+
+  const handleDeleteMatchCard = async (cardId: number) => {
+    if (confirm("Ви впевнені, що хочете видалити цю картку?")) {
+      try {
+        await deleteMatchCard(cardId)
+        if (selectedMatchForGoals) {
+          await loadMatchEvents(selectedMatchForGoals.id)
+        }
+      } catch (error) {
+        console.error("Error deleting match card:", error)
       }
     }
   }
@@ -633,13 +687,15 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                 <SelectValue placeholder="Оберіть чемпіонат" />
               </SelectTrigger>
               <SelectContent className="bg-slate-900/95 backdrop-blur-md border-blue-400/30">
-                {championships.map((championship) => (
+                {sortChampionships(championships).map((championship) => (
                   <SelectItem
                     key={championship.id}
                     value={championship.id.toString()}
                     className="text-white hover:bg-slate-800/30"
                   >
+                    {championship.tournament_type === "league" ? "🏆 " : "👑 "}
                     {championship.name} ({championship.season})
+                    {championship.is_active ? " ⭐" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1322,7 +1378,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                         {match.match_time && (
                           <span className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {match.match_time}
+                            {formatTime(match.match_time)}
                           </span>
                         )}
                         <span
@@ -1362,12 +1418,12 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                               minute: "",
                               goal_type: "regular",
                             })
-                            loadMatchGoals(match.id)
+                            loadMatchEvents(match.id)
                           }}
                           className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
                           <Trophy className="h-4 w-4 mr-1.5 text-slate-400" />
-                          Голи
+                          Події (Голи/Картки)
                         </Button>
                       )}
                       <Button
@@ -1709,151 +1765,308 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                     </div>
                   )}
 
-                  {/* Match Goals Management */}
+                  {/* Match Events (Goals & Cards) Management */}
                   {selectedMatchForGoals?.id === match.id && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-900">
-                      <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                        <Trophy className="h-4 w-4 text-slate-500" />
-                        Автори голів: {match.home_team} {match.home_score} - {match.away_score} {match.away_team}
-                      </h4>
+                    <div className="mt-4 p-4 sm:p-5 bg-white rounded-xl border border-slate-200 text-slate-900 shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                          <Trophy className="h-4 w-4 text-[var(--lg-blue)]" />
+                          Події матчу: {match.home_team} {match.home_score !== null ? match.home_score : ""} - {match.away_score !== null ? match.away_score : ""} {match.away_team}
+                        </h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedMatchForGoals(null)}
+                          className="text-xs text-slate-500 hover:text-slate-900"
+                        >
+                          Закрити
+                        </Button>
+                      </div>
 
-                          {/* Add Goal Form */}
-                          <form onSubmit={handleAddMatchGoal} className="space-y-4 mb-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="goal-player-name" className="text-slate-700 font-medium text-sm">
-                                  Ім'я гравця
-                                </Label>
-                                <Input
-                                  id="goal-player-name"
-                                  value={goalForm.player_name}
-                                  onChange={(e) => setGoalForm({ ...goalForm, player_name: e.target.value })}
-                                  required
-                                  className="border border-slate-200 text-slate-900 rounded-lg h-10"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="goal-team-name" className="text-slate-700 font-medium text-sm">
-                                  Команда
-                                </Label>
-                                <Select
-                                  value={goalForm.team_name}
-                                  onValueChange={(value) => setGoalForm({ ...goalForm, team_name: value })}
-                                >
-                                  <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-white border-slate-200">
-                                    <SelectItem value={match.home_team} className="text-slate-900">
-                                      {match.home_team}
-                                    </SelectItem>
-                                    <SelectItem value={match.away_team} className="text-slate-900">
-                                      {match.away_team}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="goal-minute" className="text-slate-700 font-medium text-sm">
-                                  Хвилина
-                                </Label>
-                                <Input
-                                  id="goal-minute"
-                                  type="number"
-                                  min="1"
-                                  max="120"
-                                  value={goalForm.minute}
-                                  onChange={(e) => setGoalForm({ ...goalForm, minute: e.target.value })}
-                                  className="border border-slate-200 text-slate-900 rounded-lg h-10"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="goal-type" className="text-slate-700 font-medium text-sm">
-                                  Тип голу
-                                </Label>
-                                <Select
-                                  value={goalForm.goal_type}
-                                  onValueChange={(value) =>
-                                    setGoalForm({ ...goalForm, goal_type: value as "regular" | "penalty" | "own_goal" })
-                                  }
-                                >
-                                  <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-white border-slate-200">
-                                    <SelectItem value="regular" className="text-slate-900">
-                                      Звичайний
-                                    </SelectItem>
-                                    <SelectItem value="penalty" className="text-slate-900">
-                                      Пенальті
-                                    </SelectItem>
-                                    <SelectItem value="own_goal" className="text-slate-900">
-                                      Автогол
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <Button
-                                type="submit"
-                                disabled={loading}
-                                className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Додати гол
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setSelectedMatchForGoals(null)}
-                                className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10"
-                              >
-                                Закрити
-                              </Button>
-                            </div>
-                          </form>
+                      {/* --- SECTION 1: GOALS --- */}
+                      <div className="space-y-4">
+                        <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                          <Target className="h-4 w-4 text-emerald-600" />
+                          1. Забиті голи
+                        </h5>
 
-                          {/* Goals List */}
-                          <div className="space-y-2">
-                            <h5 className="font-semibold text-slate-700 text-sm">Список голів:</h5>
-                            {matchGoals.length === 0 ? (
-                              <div className="text-center py-4 text-slate-400 text-sm">Немає доданих голів</div>
-                            ) : (
-                              <div className="space-y-2">
-                                {matchGoals.map((goal) => (
-                                  <div
-                                    key={goal.id}
-                                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200"
-                                  >
-                                    <div className="text-sm">
-                                      <span className="font-semibold text-slate-900">{goal.player_name}</span>
-                                      <span className="text-slate-500 ml-2">({goal.team_name})</span>
-                                      {goal.minute && <span className="text-slate-600 ml-2">{goal.minute}'</span>}
-                                      {goal.goal_type === "penalty" && (
-                                        <span className="text-amber-600 ml-1">(пен.)</span>
-                                      )}
-                                      {goal.goal_type === "own_goal" && (
-                                        <span className="text-red-500 ml-1">(автогол)</span>
-                                      )}
-                                    </div>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => handleDeleteMatchGoal(goal.id)}
-                                      className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                        {/* Add Goal Form */}
+                        <form onSubmit={handleAddMatchGoal} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="goal-player-name" className="text-slate-700 font-medium text-xs">
+                                Ім'я гравця (автор голу)
+                              </Label>
+                              <Input
+                                id="goal-player-name"
+                                value={goalForm.player_name}
+                                onChange={(e) => setGoalForm({ ...goalForm, player_name: e.target.value })}
+                                required
+                                placeholder="Шевченко Андрій"
+                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="goal-team-name" className="text-slate-700 font-medium text-xs">
+                                Команда
+                              </Label>
+                              <Select
+                                value={goalForm.team_name}
+                                onValueChange={(value) => setGoalForm({ ...goalForm, team_name: value })}
+                              >
+                                <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  <SelectItem value={match.home_team} className="text-slate-900 text-xs">
+                                    {match.home_team}
+                                  </SelectItem>
+                                  <SelectItem value={match.away_team} className="text-slate-900 text-xs">
+                                    {match.away_team}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="goal-minute" className="text-slate-700 font-medium text-xs">
+                                Хвилина (1-120)
+                              </Label>
+                              <Input
+                                id="goal-minute"
+                                type="number"
+                                min="1"
+                                max="120"
+                                placeholder="45"
+                                value={goalForm.minute}
+                                onChange={(e) => setGoalForm({ ...goalForm, minute: e.target.value })}
+                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="goal-type" className="text-slate-700 font-medium text-xs">
+                                Тип голу
+                              </Label>
+                              <Select
+                                value={goalForm.goal_type}
+                                onValueChange={(value) =>
+                                  setGoalForm({ ...goalForm, goal_type: value as "regular" | "penalty" | "own_goal" })
+                                }
+                              >
+                                <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  <SelectItem value="regular" className="text-slate-900 text-xs">
+                                    Звичайний
+                                  </SelectItem>
+                                  <SelectItem value="penalty" className="text-slate-900 text-xs">
+                                    Пенальті (пен.)
+                                  </SelectItem>
+                                  <SelectItem value="own_goal" className="text-slate-900 text-xs">
+                                    Автогол (авт.)
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <Button
+                            type="submit"
+                            disabled={loading}
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs h-9"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Додати гол
+                          </Button>
+                        </form>
+
+                        {/* Goals List */}
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold text-slate-600">Список доданих голів ({matchGoals.length}):</div>
+                          {matchGoals.length === 0 ? (
+                            <div className="text-xs text-slate-400 italic py-2">Голів ще не додано</div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {matchGoals.map((goal) => (
+                                <div
+                                  key={goal.id}
+                                  className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-slate-900">{goal.player_name}</span>
+                                    <span className="text-slate-500">({goal.team_name})</span>
+                                    {goal.minute && <span className="font-bold text-slate-700">{goal.minute}'</span>}
+                                    {goal.goal_type === "penalty" && (
+                                      <span className="text-amber-600 font-semibold">(пен.)</span>
+                                    )}
+                                    {goal.goal_type === "own_goal" && (
+                                      <span className="text-red-500 font-semibold">(автогол)</span>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteMatchGoal(goal.id)}
+                                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                    Видалити
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+
+                      {/* --- SECTION 2: CARDS --- */}
+                      <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          2. Картки (Жовті / Червоні)
+                        </h5>
+
+                        {/* Add Card Form */}
+                        <form onSubmit={handleAddMatchCard} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="card-player-name" className="text-slate-700 font-medium text-xs">
+                                Ім'я гравця
+                              </Label>
+                              <Input
+                                id="card-player-name"
+                                value={cardForm.player_name}
+                                onChange={(e) => setCardForm({ ...cardForm, player_name: e.target.value })}
+                                required
+                                placeholder="Ярмоленко Андрій"
+                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="card-team-name" className="text-slate-700 font-medium text-xs">
+                                Команда
+                              </Label>
+                              <Select
+                                value={cardForm.team_name}
+                                onValueChange={(value) => setCardForm({ ...cardForm, team_name: value })}
+                              >
+                                <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  <SelectItem value={match.home_team} className="text-slate-900 text-xs">
+                                    {match.home_team}
+                                  </SelectItem>
+                                  <SelectItem value={match.away_team} className="text-slate-900 text-xs">
+                                    {match.away_team}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="card-minute" className="text-slate-700 font-medium text-xs">
+                                Хвилина (1-120)
+                              </Label>
+                              <Input
+                                id="card-minute"
+                                type="number"
+                                min="1"
+                                max="120"
+                                placeholder="60"
+                                value={cardForm.minute}
+                                onChange={(e) => setCardForm({ ...cardForm, minute: e.target.value })}
+                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="card-type" className="text-slate-700 font-medium text-xs">
+                                Тип картки
+                              </Label>
+                              <Select
+                                value={cardForm.card_type}
+                                onValueChange={(value) =>
+                                  setCardForm({ ...cardForm, card_type: value as "yellow" | "red" | "yellow_red" })
+                                }
+                              >
+                                <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-slate-200">
+                                  <SelectItem value="yellow" className="text-slate-900 text-xs">
+                                    🟨 Жовта картка
+                                  </SelectItem>
+                                  <SelectItem value="red" className="text-slate-900 text-xs">
+                                    🟥 Червона картка
+                                  </SelectItem>
+                                  <SelectItem value="yellow_red" className="text-slate-900 text-xs">
+                                    🟨🟥 Друга жовта (червона)
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <Button
+                            type="submit"
+                            disabled={loading}
+                            size="sm"
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs h-9"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Додати картку
+                          </Button>
+                        </form>
+
+                        {/* Cards List */}
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold text-slate-600">Список доданих карток ({matchCards.length}):</div>
+                          {matchCards.length === 0 ? (
+                            <div className="text-xs text-slate-400 italic py-2">Карток ще не додано</div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {matchCards.map((card) => (
+                                <div
+                                  key={card.id}
+                                  className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {card.card_type === "yellow" && (
+                                      <span className="w-2.5 h-3.5 bg-amber-400 rounded-sm inline-block shadow-sm"></span>
+                                    )}
+                                    {card.card_type === "red" && (
+                                      <span className="w-2.5 h-3.5 bg-red-500 rounded-sm inline-block shadow-sm"></span>
+                                    )}
+                                    {card.card_type === "yellow_red" && (
+                                      <span className="flex gap-0.5">
+                                        <span className="w-2 h-3.5 bg-amber-400 rounded-sm inline-block"></span>
+                                        <span className="w-2 h-3.5 bg-red-500 rounded-sm inline-block"></span>
+                                      </span>
+                                    )}
+                                    <span className="font-bold text-slate-900">{card.player_name}</span>
+                                    <span className="text-slate-500">({card.team_name})</span>
+                                    {card.minute && <span className="font-bold text-slate-700">{card.minute}'</span>}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteMatchCard(card.id)}
+                                    className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                    Видалити
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                     </div>
                   ))
                 )}
@@ -2081,7 +2294,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                             </span>
                           </div>
                           <div className="text-[10px] text-slate-500 flex items-center justify-between">
-                            <span>{match.date} {match.match_time}</span>
+                            <span>{match.date} {formatTime(match.match_time)}</span>
                             <span className="font-semibold text-slate-600">
                               {match.is_finished ? `${match.home_score}:${match.away_score}` : "Не зіграно"}
                             </span>
@@ -2101,7 +2314,7 @@ export function AdminPanel({ onLogout, currentChampionshipId, onChampionshipChan
                             {selectedMatchForVoting.home_team} vs {selectedMatchForVoting.away_team}
                           </h4>
                           <p className="text-xs text-slate-500 mt-1">
-                            {selectedMatchForVoting.date} {selectedMatchForVoting.match_time && `· ${selectedMatchForVoting.match_time}`}
+                            {selectedMatchForVoting.date} {selectedMatchForVoting.match_time && `· ${formatTime(selectedMatchForVoting.match_time)}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

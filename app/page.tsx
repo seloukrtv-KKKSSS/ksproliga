@@ -17,6 +17,9 @@ import {
   Users,
   Vote,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
 } from "lucide-react"
 import {
   getTeams,
@@ -29,10 +32,13 @@ import {
   getChampionshipCandidates,
   incrementCandidateVotes,
   getMatchesGoals,
+  getMatchesCards,
+  formatTime,
+  sortChampionships,
 } from "@/lib/database"
 import { AdminPanel } from "@/components/admin-panel"
 import { CupTournament } from "@/components/cup-tournament"
-import type { Team, Match, Player, Championship, MatchGoal, MatchVoting, VotingCandidate } from "@/lib/supabase"
+import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate } from "@/lib/supabase"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
 
@@ -46,6 +52,9 @@ export default function KSLigaSite() {
   const [results, setResults] = useState<Match[]>([])
   const [scorers, setScorers] = useState<Player[]>([])
   const [matchGoals, setMatchGoals] = useState<{ [key: number]: MatchGoal[] }>({})
+  const [matchCards, setMatchCards] = useState<{ [key: number]: MatchCard[] }>({})
+  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<string>("table")
   const [loading, setLoading] = useState(true)
 
   const [currentChampionshipId, setCurrentChampionshipId] = useState<number | null>(null)
@@ -127,31 +136,47 @@ export default function KSLigaSite() {
       // Set current championship info
       const championship = championships.find((c) => c.id === championshipId)
       setCurrentChampionship(championship || null)
+      if (championship?.tournament_type === "cup" && activeTab === "table") {
+        setActiveTab("cup")
+      } else if (championship?.tournament_type === "league" && activeTab === "cup") {
+        setActiveTab("table")
+      }
 
-      // Load match goals for finished matches in one single query
+      // Load match goals and cards for finished matches in batch queries
       const finishedMatches = matchesData.filter((m) => m.is_finished)
       const finishedMatchIds = finishedMatches.map((m) => m.id)
       const goalsData: { [key: number]: MatchGoal[] } = {}
+      const cardsData: { [key: number]: MatchCard[] } = {}
 
       // Initialize all finished matches with empty arrays
       finishedMatches.forEach((m) => {
         goalsData[m.id] = []
+        cardsData[m.id] = []
       })
 
       if (finishedMatchIds.length > 0) {
         try {
-          const allGoals = await getMatchesGoals(finishedMatchIds)
+          const [allGoals, allCards] = await Promise.all([
+            getMatchesGoals(finishedMatchIds),
+            getMatchesCards(finishedMatchIds),
+          ])
           allGoals.forEach((goal) => {
             if (goalsData[goal.match_id]) {
               goalsData[goal.match_id].push(goal)
             }
           })
+          allCards.forEach((card) => {
+            if (cardsData[card.match_id]) {
+              cardsData[card.match_id].push(card)
+            }
+          })
         } catch (error) {
-          console.error("Error loading matches goals in batch:", error)
+          console.error("Error loading match events in batch:", error)
         }
       }
 
       setMatchGoals(goalsData)
+      setMatchCards(cardsData)
     } catch (error) {
       console.error("Error loading championship data:", error)
     } finally {
@@ -279,13 +304,17 @@ export default function KSLigaSite() {
                   <SelectValue placeholder="Оберіть чемпіонат" />
                 </SelectTrigger>
                 <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.12)]">
-                  {championships.map((championship) => (
+                  {sortChampionships(championships).map((championship) => (
                     <SelectItem
                       key={championship.id}
                       value={championship.id.toString()}
                       className="text-slate-900 hover:bg-white/30 focus:bg-white/30 text-xs font-medium cursor-pointer rounded-lg py-2"
                     >
-                      {championship.name} ({championship.season})
+                      <span className="flex items-center gap-1.5">
+                        <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
+                        <span>{championship.name} ({championship.season})</span>
+                        {championship.is_active && <span className="text-amber-500 font-bold text-[10px]">· Активний</span>}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -358,7 +387,8 @@ export default function KSLigaSite() {
               </div>
             ) : (
               <Tabs
-                defaultValue={currentChampionship?.tournament_type === "cup" ? "cup" : "table"}
+                value={activeTab}
+                onValueChange={setActiveTab}
                 className="w-full space-y-6"
               >
                 {/* iOS Liquid Glass Segmented Tab Bar */}
@@ -409,13 +439,6 @@ export default function KSLigaSite() {
                     >
                       <Vote className="h-4 w-4" />
                       <span className="hidden md:inline ml-1.5">Лев матчу</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="admin"
-                      className="ios-segment flex items-center justify-center"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span className="hidden md:inline ml-1.5">Налаштування</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -560,7 +583,7 @@ export default function KSLigaSite() {
                                   <div className="text-right border-l border-slate-100 pl-4 space-y-1 flex-shrink-0">
                                     <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5">
                                       <Clock className="h-3 w-3 text-slate-400" />
-                                      {match.match_time || "—"}
+                                      {formatTime(match.match_time) || "—"}
                                     </div>
                                     <div className="text-[10px] text-slate-500">
                                       {new Date(match.date).toLocaleDateString("uk-UA")}
@@ -597,7 +620,11 @@ export default function KSLigaSite() {
                           {results
                             .filter((m) => m.round === round)
                             .map((match) => (
-                              <Card key={match.id} className="liquid-glass-card overflow-hidden">
+                              <Card
+                                key={match.id}
+                                className="liquid-glass-card overflow-hidden transition-all duration-300 cursor-pointer"
+                                onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                              >
                                 <CardContent className="p-4 space-y-3">
                                   <div className="flex items-center justify-between">
                                     <div className="space-y-3 flex-1">
@@ -608,7 +635,16 @@ export default function KSLigaSite() {
                                           alt="Home Team"
                                           className="w-5 h-5 object-contain"
                                         />
-                                        <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.home_score < match.away_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
+                                        <span
+                                          className={`text-sm ${
+                                            match.home_score !== null &&
+                                            match.away_score !== null &&
+                                            match.home_score < match.away_score &&
+                                            !match.is_technical_defeat
+                                              ? "text-slate-400"
+                                              : "text-slate-900 font-semibold"
+                                          }`}
+                                        >
                                           {match.home_team}
                                         </span>
                                       </div>
@@ -619,13 +655,22 @@ export default function KSLigaSite() {
                                           alt="Away Team"
                                           className="w-5 h-5 object-contain"
                                         />
-                                        <span className={`text-sm ${match.home_score !== null && match.away_score !== null && match.away_score < match.home_score && !match.is_technical_defeat ? "text-slate-400" : "text-slate-900 font-semibold"}`}>
+                                        <span
+                                          className={`text-sm ${
+                                            match.home_score !== null &&
+                                            match.away_score !== null &&
+                                            match.away_score < match.home_score &&
+                                            !match.is_technical_defeat
+                                              ? "text-slate-400"
+                                              : "text-slate-900 font-semibold"
+                                          }`}
+                                        >
                                           {match.away_team}
                                         </span>
                                       </div>
                                     </div>
 
-                                    {/* Score */}
+                                    {/* Score & Time */}
                                     <div className="text-right pl-4 flex-shrink-0 flex flex-col justify-center items-end">
                                       <div className="text-base font-bold text-slate-900">
                                         {formatMatchResult(match)}
@@ -633,27 +678,104 @@ export default function KSLigaSite() {
                                           {formatPenaltyResult(match)}
                                         </span>
                                       </div>
-                                      <div className="text-[9px] text-slate-400 mt-1">
-                                        {new Date(match.date).toLocaleDateString("uk-UA")}
+                                      <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-end gap-1">
+                                        {match.match_time && <span>{formatTime(match.match_time)} ·</span>}
+                                        <span>{new Date(match.date).toLocaleDateString("uk-UA")}</span>
                                       </div>
                                     </div>
                                   </div>
 
-                                  {/* Goals Details if any */}
-                                  {matchGoals[match.id] && matchGoals[match.id].length > 0 && (
-                                    <div className="border-t border-slate-100 pt-3 text-xs text-slate-500 space-y-1">
-                                      {matchGoals[match.id].map((goal) => (
-                                        <div key={goal.id} className="flex justify-between items-center text-[11px]">
-                                          <div className="flex items-center gap-1.5">
-                                            <Target className="h-3 w-3 text-slate-400" />
-                                            <span>{goal.player_name}</span>
-                                            <span className="text-[10px] text-slate-400">({goal.team_name})</span>
-                                          </div>
-                                          <span className="font-medium text-slate-700">
-                                            {goal.minute}' {goal.goal_type === "penalty" ? "(пен.)" : goal.goal_type === "own_goal" ? "(авт.)" : ""}
-                                          </span>
+                                  {/* Toggle Expand Bar */}
+                                  <div className="border-t border-white/20 pt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                                    <span className="flex items-center gap-1.5">
+                                      <Target className="h-3.5 w-3.5 text-slate-400" />
+                                      Деталі матчу (голи та картки)
+                                    </span>
+                                    {expandedMatchId === match.id ? (
+                                      <ChevronUp className="h-4 w-4 text-slate-500" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                                    )}
+                                  </div>
+
+                                  {/* Expanded Match Details (Goals & Cards) */}
+                                  {expandedMatchId === match.id && (
+                                    <div
+                                      className="border-t border-white/30 pt-3 space-y-3 glass-animate-in text-xs"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* Goals Section */}
+                                      <div>
+                                        <div className="font-bold text-slate-800 text-[11px] mb-1.5 flex items-center gap-1.5">
+                                          <Target className="h-3.5 w-3.5 text-[var(--lg-blue)]" />
+                                          Забиті голи ({matchGoals[match.id]?.length || 0})
                                         </div>
-                                      ))}
+                                        {!matchGoals[match.id] || matchGoals[match.id].length === 0 ? (
+                                          <div className="text-[11px] text-slate-400 italic pl-5">Голи відсутні</div>
+                                        ) : (
+                                          <div className="space-y-1 pl-1">
+                                            {matchGoals[match.id].map((goal) => (
+                                              <div
+                                                key={goal.id}
+                                                className="flex justify-between items-center text-[11px] bg-white/20 px-2.5 py-1 rounded-md border border-white/25"
+                                              >
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="font-semibold text-slate-900">{goal.player_name}</span>
+                                                  <span className="text-[10px] text-slate-500">({goal.team_name})</span>
+                                                </div>
+                                                <span className="font-bold text-slate-700">
+                                                  {goal.minute ? `${goal.minute}' ` : ""}
+                                                  {goal.goal_type === "penalty"
+                                                    ? "(пен.)"
+                                                    : goal.goal_type === "own_goal"
+                                                      ? "(авт.)"
+                                                      : ""}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Cards Section */}
+                                      <div>
+                                        <div className="font-bold text-slate-800 text-[11px] mb-1.5 flex items-center gap-1.5">
+                                          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                                          Картки ({matchCards[match.id]?.length || 0})
+                                        </div>
+                                        {!matchCards[match.id] || matchCards[match.id].length === 0 ? (
+                                          <div className="text-[11px] text-slate-400 italic pl-5">Картки відсутні</div>
+                                        ) : (
+                                          <div className="space-y-1 pl-1">
+                                            {matchCards[match.id].map((card) => (
+                                              <div
+                                                key={card.id}
+                                                className="flex justify-between items-center text-[11px] bg-white/20 px-2.5 py-1 rounded-md border border-white/25"
+                                              >
+                                                <div className="flex items-center gap-1.5">
+                                                  {card.card_type === "yellow" && (
+                                                    <span className="w-2.5 h-3.5 bg-amber-400 rounded-sm inline-block shadow-sm"></span>
+                                                  )}
+                                                  {card.card_type === "red" && (
+                                                    <span className="w-2.5 h-3.5 bg-red-500 rounded-sm inline-block shadow-sm"></span>
+                                                  )}
+                                                  {card.card_type === "yellow_red" && (
+                                                    <span className="flex gap-0.5">
+                                                      <span className="w-2 h-3.5 bg-amber-400 rounded-sm inline-block"></span>
+                                                      <span className="w-2 h-3.5 bg-red-500 rounded-sm inline-block"></span>
+                                                    </span>
+                                                  )}
+                                                  <span className="font-semibold text-slate-900">{card.player_name}</span>
+                                                  <span className="text-[10px] text-slate-500">({card.team_name})</span>
+                                                </div>
+                                                <span className="font-bold text-slate-700">
+                                                  {card.minute ? `${card.minute}'` : ""}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
                                 </CardContent>
@@ -1059,8 +1181,24 @@ export default function KSLigaSite() {
       </main>
       
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-400 font-medium">
-        &copy; {new Date().getFullYear()} KS LIGA. All rights reserved.
+      <footer className="liquid-glass-header mt-16 py-8 border-t border-white/30 text-xs text-slate-500 font-medium">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            &copy; {new Date().getFullYear()} KS LIGA — Karpiuk Sport League. Всі права захищені.
+          </div>
+          <div>
+            <button
+              onClick={() => {
+                setActiveTab("admin")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className="text-xs text-slate-500 hover:text-slate-900 font-semibold inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/40 transition-all cursor-pointer border border-transparent hover:border-white/40"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              {isAdmin ? "Панель керування (Авторизовано)" : "Панель адміністратора"}
+            </button>
+          </div>
+        </div>
       </footer>
     </div>
   )
