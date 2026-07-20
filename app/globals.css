@@ -6,17 +6,6 @@
   .text-balance {
     text-wrap: balance;
   }
-
-  .pb-safe {
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
-  }
-  .pt-safe {
-    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
-  }
-  .px-safe {
-    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
-    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
-  }
 }
 
 /* ============================================================
