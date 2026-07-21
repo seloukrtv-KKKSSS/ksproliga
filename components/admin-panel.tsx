@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   Check,
   Key,
+  ShoppingBag,
 } from "lucide-react"
 import {
   getChampionships,
@@ -38,6 +39,10 @@ import {
   addOrganizer,
   updateOrganizer,
   deleteOrganizer,
+  getProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
   getTeams,
   addTeam,
   updateTeam,
@@ -67,7 +72,7 @@ import {
   deleteVotingCandidate,
   updateVotingCandidate,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product } from "@/lib/supabase"
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -97,7 +102,21 @@ export function AdminPanel({
   const [matches, setMatches] = useState<Match[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [organizers, setOrganizers] = useState<Organizer[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Product form state
+  const [productForm, setProductForm] = useState({
+    title: "",
+    description: "",
+    price: "",
+    old_price: "",
+    images: "",
+    badge: "ХІТ",
+    instagram_url: "https://www.instagram.com/ks_fan.shop/",
+    is_available: true,
+  })
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
   // Organizer form state
   const [organizerForm, setOrganizerForm] = useState<{
@@ -204,8 +223,12 @@ export function AdminPanel({
       setChampionships(filteredChampionships)
 
       if (isMainAdmin) {
-        const organizersData = await getOrganizers()
+        const [organizersData, productsData] = await Promise.all([
+          getOrganizers(),
+          getProducts(),
+        ])
         setOrganizers(organizersData)
+        setProducts(productsData)
       }
 
       if (currentChampionshipId && currentChampionshipId > 0) {
@@ -314,6 +337,76 @@ export function AdminPanel({
           : [...prev.championship_ids, champId],
       }
     })
+  }
+
+  // Product handlers
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!productForm.title.trim() || !productForm.price) {
+      alert("Вкажіть назву та ціну товару")
+      return
+    }
+
+    const imageArray = productForm.images
+      .split(/[\n,]+/)
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0)
+
+    const payload = {
+      title: productForm.title.trim(),
+      description: productForm.description.trim(),
+      price: parseFloat(productForm.price) || 0,
+      old_price: productForm.old_price ? parseFloat(productForm.old_price) || null : null,
+      images: imageArray.length > 0 ? imageArray : ["https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=800&auto=format&fit=crop&q=80"],
+      badge: productForm.badge.trim() || null,
+      instagram_url: productForm.instagram_url.trim() || "https://www.instagram.com/ks_fan.shop/",
+      is_available: productForm.is_available,
+    }
+
+    setLoading(true)
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, payload)
+        setEditingProduct(null)
+      } else {
+        await addProduct(payload)
+      }
+      setProductForm({
+        title: "",
+        description: "",
+        price: "",
+        old_price: "",
+        images: "",
+        badge: "ХІТ",
+        instagram_url: "https://www.instagram.com/ks_fan.shop/",
+        is_available: true,
+      })
+      await loadData()
+    } catch (error) {
+      console.error("Error saving product:", error)
+      alert(`Помилка: ${getErrorMessage(error)}`)
+    }
+    setLoading(false)
+  }
+
+  const handleDeleteProduct = async (id: number) => {
+    if (confirm("Ви впевнені, що хочете видалити цей товар з KS Shop?")) {
+      try {
+        await deleteProduct(id)
+        await loadData()
+      } catch (error) {
+        console.error("Error deleting product:", error)
+      }
+    }
+  }
+
+  const handleToggleProductAvailability = async (product: Product) => {
+    try {
+      await updateProduct(product.id, { is_available: !product.is_available })
+      await loadData()
+    } catch (error) {
+      console.error("Error toggling product availability:", error)
+    }
   }
 
   const handleMoveChampionship = async (championshipId: number, direction: "up" | "down") => {
@@ -871,10 +964,16 @@ export function AdminPanel({
             <span>Лев матчу</span>
           </TabsTrigger>
           {isMainAdmin && (
-            <TabsTrigger value="organizers" className="ios-segment">
-              <UserCheck className="h-3.5 w-3.5 mr-1" />
-              <span>Організатори</span>
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="organizers" className="ios-segment">
+                <UserCheck className="h-3.5 w-3.5 mr-1" />
+                <span>Організатори</span>
+              </TabsTrigger>
+              <TabsTrigger value="shop" className="ios-segment">
+                <ShoppingBag className="h-3.5 w-3.5 mr-1" />
+                <span>KS Shop</span>
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
 
@@ -2899,6 +2998,254 @@ export function AdminPanel({
                         variant="destructive"
                         onClick={() => handleDeleteOrganizer(org.id)}
                         className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        {isMainAdmin && (
+          <TabsContent value="shop" className="space-y-4">
+            <form onSubmit={handleProductSubmit} className="bg-white p-6 border border-slate-200 rounded-xl space-y-4 shadow-xs">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4 text-[var(--lg-blue)]" />
+                {editingProduct ? "Редагування товару KS Shop" : "Додавання нового товару в KS Shop"}
+              </h3>
+              
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="product-title" className="text-slate-700 font-semibold text-xs">
+                    Назва товару
+                  </Label>
+                  <Input
+                    id="product-title"
+                    value={productForm.title}
+                    onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
+                    placeholder="Наприклад: Офіційний М'яч KS LIGA Pro 2025"
+                    className="glass-input text-sm h-10 px-4"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="product-description" className="text-slate-700 font-semibold text-xs">
+                    Опис товару та характеристики
+                  </Label>
+                  <textarea
+                    id="product-description"
+                    rows={3}
+                    value={productForm.description}
+                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                    placeholder="Детальний опис товару, матеріали, розміри, особливості..."
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-price" className="text-slate-700 font-semibold text-xs">
+                    Ціна (грн)
+                  </Label>
+                  <Input
+                    id="product-price"
+                    type="number"
+                    step="0.01"
+                    value={productForm.price}
+                    onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                    placeholder="1490"
+                    className="glass-input text-sm h-10 px-4"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-old-price" className="text-slate-700 font-semibold text-xs">
+                    Стара ціна (грн, необов'язково для знижки)
+                  </Label>
+                  <Input
+                    id="product-old-price"
+                    type="number"
+                    step="0.01"
+                    value={productForm.old_price}
+                    onChange={(e) => setProductForm({ ...productForm, old_price: e.target.value })}
+                    placeholder="1800"
+                    className="glass-input text-sm h-10 px-4"
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="product-images" className="text-slate-700 font-semibold text-xs">
+                    Посилання на фотографії (URL через кому або з нового рядка)
+                  </Label>
+                  <textarea
+                    id="product-images"
+                    rows={2}
+                    value={productForm.images}
+                    onChange={(e) => setProductForm({ ...productForm, images: e.target.value })}
+                    placeholder="https://images.unsplash.com/photo-1, https://images.unsplash.com/photo-2"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-badge" className="text-slate-700 font-semibold text-xs">
+                    Бейдж (напр: ХІТ, НОВИНКА, ЗНИЖКА, ТОП)
+                  </Label>
+                  <Input
+                    id="product-badge"
+                    value={productForm.badge}
+                    onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })}
+                    placeholder="ХІТ"
+                    className="glass-input text-sm h-10 px-4"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="product-instagram" className="text-slate-700 font-semibold text-xs">
+                    Посилання для замовлення в Instagram
+                  </Label>
+                  <Input
+                    id="product-instagram"
+                    value={productForm.instagram_url}
+                    onChange={(e) => setProductForm({ ...productForm, instagram_url: e.target.value })}
+                    placeholder="https://www.instagram.com/ks_fan.shop/"
+                    className="glass-input text-sm h-10 px-4 font-mono text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2 flex items-center gap-3 pt-1">
+                  <input
+                    type="checkbox"
+                    id="product-available"
+                    checked={productForm.is_available}
+                    onChange={(e) => setProductForm({ ...productForm, is_available: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="product-available" className="text-slate-800 font-semibold text-xs cursor-pointer">
+                    Товар у наявності (показувати зелений бейдж "В наявності")
+                  </Label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" disabled={loading} className="ios-btn-primary text-xs font-bold h-10 px-6">
+                  {editingProduct ? "Зберегти зміни" : "Додати товар у магазин"}
+                </Button>
+                {editingProduct && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingProduct(null)
+                      setProductForm({
+                        title: "",
+                        description: "",
+                        price: "",
+                        old_price: "",
+                        images: "",
+                        badge: "ХІТ",
+                        instagram_url: "https://www.instagram.com/ks_fan.shop/",
+                        is_available: true,
+                      })
+                    }}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
+                  >
+                    Скасувати
+                  </Button>
+                )}
+              </div>
+            </form>
+
+            {/* List of products */}
+            <div className="space-y-3">
+              {products.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
+                  Немає доданих товарів. Додайте перший товар вище.
+                </div>
+              ) : (
+                products.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all"
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="w-16 h-16 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden">
+                        <img
+                          src={prod.images && prod.images.length > 0 ? prod.images[0] : "/placeholder.svg"}
+                          alt={prod.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 text-sm truncate">{prod.title}</span>
+                          {prod.badge && (
+                            <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                              {prod.badge}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                              prod.is_available
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-red-50 text-red-700 border-red-200"
+                            }`}
+                          >
+                            {prod.is_available ? "В наявності" : "Немає в наявності"}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600 font-semibold flex items-center gap-2">
+                          <span className="text-blue-600 font-extrabold text-sm">{prod.price} грн</span>
+                          {prod.old_price && (
+                            <span className="line-through text-slate-400 text-xs">{prod.old_price} грн</span>
+                          )}
+                          <span className="text-slate-300">|</span>
+                          <span className="text-slate-500 text-[11px] truncate max-w-[200px]">{prod.description}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleToggleProductAvailability(prod)}
+                        className={`text-xs h-9 px-3 ${
+                          prod.is_available ? "text-amber-700 border-amber-200 bg-amber-50" : "text-emerald-700 border-emerald-200 bg-emerald-50"
+                        }`}
+                      >
+                        {prod.is_available ? "Позначити як немає" : "Позначити в наявності"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingProduct(prod)
+                          setProductForm({
+                            title: prod.title,
+                            description: prod.description,
+                            price: prod.price.toString(),
+                            old_price: prod.old_price ? prod.old_price.toString() : "",
+                            images: prod.images ? prod.images.join("\n") : "",
+                            badge: prod.badge || "",
+                            instagram_url: prod.instagram_url || "https://www.instagram.com/ks_fan.shop/",
+                            is_available: prod.is_available,
+                          })
+                        }}
+                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-9 px-3"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteProduct(prod.id)}
+                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg h-9 px-3"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

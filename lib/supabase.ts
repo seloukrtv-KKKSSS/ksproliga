@@ -115,3 +115,18 @@ export interface Organizer {
   created_at: string
 }
 
+export interface Product {
+  id: number
+  title: string
+  description: string
+  price: number
+  old_price?: number | null
+  images: string[]
+  badge?: string | null
+  instagram_url?: string | null
+  is_available: boolean
+  sort_order?: number
+  created_at: string
+}
+
+

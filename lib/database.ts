@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product } from "./supabase"
 
 export function formatTime(timeStr?: string): string {
   if (!timeStr) return ""
@@ -340,6 +340,125 @@ export async function authenticateUser(password: string): Promise<
   }
 
   return null
+}
+
+// Products (KS Shop)
+const mockProducts: Product[] = [
+  {
+    id: 1,
+    title: 'Офіційний М"яч KS LIGA Pro 2025',
+    description: 'Професійний футбольний м"яч із термосклеєними панелями та сертифікатом FIFA Quality Pro. Чудове зчеплення з полем за будь-якої погоди.',
+    price: 1490,
+    old_price: 1800,
+    images: [
+      'https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&auto=format&fit=crop&q=80',
+    ],
+    badge: 'ХІТ',
+    instagram_url: 'https://www.instagram.com/ks_fan.shop/',
+    is_available: true,
+    sort_order: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    title: 'Ігрова Форма KS LIGA Official Kit',
+    description: 'Легка дихальна техніка тканини з технологією Dri-FIT. Сучасний ергономічний крій, стійкість до багаторазового прання.',
+    price: 1250,
+    old_price: 1500,
+    images: [
+      'https://images.unsplash.com/photo-1580086319619-3ed498161c77?w=800&auto=format&fit=crop&q=80',
+    ],
+    badge: 'НОВИНКА',
+    instagram_url: 'https://www.instagram.com/ks_fan.shop/',
+    is_available: true,
+    sort_order: 2,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    title: 'Фірмове Худі KS LIGA Black Edition',
+    description: 'Тепле та стильне худі з високоякісної бавовни з флісовим утепленням. Об"ємний капюшон та фірмова вишивка логотипу.',
+    price: 1650,
+    old_price: null,
+    images: [
+      'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80',
+    ],
+    badge: 'ТОП',
+    instagram_url: 'https://www.instagram.com/ks_fan.shop/',
+    is_available: true,
+    sort_order: 3,
+    created_at: new Date().toISOString(),
+  },
+]
+
+export async function getProducts(): Promise<Product[]> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(
+      [...mockProducts].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+    )
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("sort_order", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching products:", error)
+    return mockProducts
+  }
+
+  return data && data.length > 0 ? data : mockProducts
+}
+
+export async function addProduct(
+  product: Omit<Product, "id" | "created_at">
+): Promise<Product> {
+  if (shouldUseMockData()) {
+    const newProduct: Product = {
+      ...product,
+      id: Date.now(),
+      created_at: new Date().toISOString(),
+    }
+    mockProducts.push(newProduct)
+    return Promise.resolve(newProduct)
+  }
+
+  const { data, error } = await supabase.from("products").insert([product]).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateProduct(
+  id: number,
+  updates: Partial<Omit<Product, "id" | "created_at">>
+): Promise<Product> {
+  if (shouldUseMockData()) {
+    const index = mockProducts.findIndex((p) => p.id === id)
+    if (index !== -1) {
+      mockProducts[index] = { ...mockProducts[index], ...updates }
+      return Promise.resolve(mockProducts[index])
+    }
+    throw new Error("Product not found")
+  }
+
+  const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteProduct(id: number): Promise<void> {
+  if (shouldUseMockData()) {
+    const index = mockProducts.findIndex((p) => p.id === id)
+    if (index !== -1) {
+      mockProducts.splice(index, 1)
+    }
+    return Promise.resolve()
+  }
+
+  const { error } = await supabase.from("products").delete().eq("id", id)
+  if (error) throw error
 }
 
 // Teams
