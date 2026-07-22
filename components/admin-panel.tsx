@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -87,6 +87,7 @@ interface AdminPanelProps {
   isMainAdmin?: boolean
   allowedChampionshipIds?: number[] | "all"
   organizerName?: string
+  onDataChange?: () => void
 }
 
 export function AdminPanel({
@@ -96,6 +97,7 @@ export function AdminPanel({
   isMainAdmin = true,
   allowedChampionshipIds = "all",
   organizerName,
+  onDataChange,
 }: AdminPanelProps) {
   const [championships, setChampionships] = useState<Championship[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -209,6 +211,8 @@ export function AdminPanel({
 
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
 
+  const sortedChampionships = useMemo(() => sortChampionships(championships), [championships])
+
   useEffect(() => {
     loadData()
   }, [currentChampionshipId, isMainAdmin, JSON.stringify(allowedChampionshipIds)])
@@ -267,6 +271,7 @@ export function AdminPanel({
       }
       setChampionshipForm({ name: "", season: "", is_active: false, tournament_type: "league" })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving championship:", error)
     }
@@ -278,6 +283,7 @@ export function AdminPanel({
       try {
         await deleteChampionship(id)
         await loadData()
+        onDataChange?.()
         if (id === currentChampionshipId && championships.length > 1) {
           const remainingChampionships = championships.filter((c) => c.id !== id)
           if (remainingChampionships.length > 0) {
@@ -309,6 +315,7 @@ export function AdminPanel({
       }
       setOrganizerForm({ name: "", password: "", championship_ids: [] })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving organizer:", error)
       alert(`Помилка: ${getErrorMessage(error)}`)
@@ -321,6 +328,7 @@ export function AdminPanel({
       try {
         await deleteOrganizer(id)
         await loadData()
+        onDataChange?.()
       } catch (error) {
         console.error("Error deleting organizer:", error)
       }
@@ -382,6 +390,7 @@ export function AdminPanel({
         is_available: true,
       })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving product:", error)
       alert(`Помилка: ${getErrorMessage(error)}`)
@@ -394,6 +403,7 @@ export function AdminPanel({
       try {
         await deleteProduct(id)
         await loadData()
+        onDataChange?.()
       } catch (error) {
         console.error("Error deleting product:", error)
       }
@@ -404,6 +414,7 @@ export function AdminPanel({
     try {
       await updateProduct(product.id, { is_available: !product.is_available })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error toggling product availability:", error)
     }
@@ -459,6 +470,7 @@ export function AdminPanel({
       }
       setTeamForm({ name: "", logo: "" })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving team:", error)
       alert("Помилка при збереженні команди: " + getErrorMessage(error))
@@ -471,6 +483,7 @@ export function AdminPanel({
       try {
         await deleteTeam(id)
         await loadData()
+        onDataChange?.()
       } catch (error) {
         console.error("Error deleting team:", error)
       }
@@ -543,6 +556,7 @@ export function AdminPanel({
         finished_after_penalties: false,
       })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving match:", error)
       alert("Помилка при збереженні матчу: " + getErrorMessage(error))
@@ -555,6 +569,7 @@ export function AdminPanel({
       try {
         await deleteMatch(id)
         await loadData()
+        onDataChange?.()
       } catch (error) {
         console.error("Error deleting match:", error)
       }
@@ -864,6 +879,7 @@ export function AdminPanel({
       }
       setPlayerForm({ name: "", team: "", goals: 0 })
       await loadData()
+      onDataChange?.()
     } catch (error) {
       console.error("Error saving player:", error)
       alert("Помилка при збереженні гравця: " + getErrorMessage(error))
@@ -876,6 +892,7 @@ export function AdminPanel({
       try {
         await deletePlayer(id)
         await loadData()
+        onDataChange?.()
       } catch (error) {
         console.error("Error deleting player:", error)
       }
@@ -896,7 +913,7 @@ export function AdminPanel({
                 <SelectValue placeholder="Оберіть чемпіонат" />
               </SelectTrigger>
               <SelectContent className="bg-slate-900/95 backdrop-blur-md border-blue-400/30">
-                {sortChampionships(championships).map((championship) => (
+                {sortedChampionships.map((championship) => (
                   <SelectItem
                     key={championship.id}
                     value={championship.id.toString()}
@@ -1074,7 +1091,7 @@ export function AdminPanel({
                 Немає створених чемпіонатів. Створіть перший чемпіонат вище.
               </div>
             ) : (
-              sortChampionships(championships).map((championship, index, sortedArr) => (
+              sortedChampionships.map((championship, index, sortedArr) => (
                 <div
                   key={championship.id}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
@@ -1230,6 +1247,7 @@ export function AdminPanel({
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-10 h-10 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center p-1 shrink-0">
                           <img
+                            loading="lazy"
                             src={team.logo || "/placeholder.svg?height=32&width=32"}
                             alt={team.name}
                             className="w-full h-full object-contain"
@@ -3176,6 +3194,7 @@ export function AdminPanel({
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="w-16 h-16 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden">
                         <img
+                          loading="lazy"
                           src={prod.images && prod.images.length > 0 ? prod.images[0] : "/placeholder.svg"}
                           alt={prod.title}
                           className="w-full h-full object-cover"

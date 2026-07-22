@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,6 +84,49 @@ export default function KSLigaSite() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0)
+
+  // ===== MEMOIZED COMPUTATIONS =====
+  // O(1) team logo lookup via Map instead of O(N) .find() on every render
+  const teamLogoMap = useMemo(() => {
+    const map = new Map<string, string>()
+    teams.forEach((t) => map.set(t.name, t.logo || "/placeholder.svg?height=32&width=32"))
+    return map
+  }, [teams])
+
+  const getTeamLogo = useCallback(
+    (teamName: string): string => teamLogoMap.get(teamName) || "/placeholder.svg?height=32&width=32",
+    [teamLogoMap]
+  )
+
+  // Pre-sorted championships for dropdown
+  const sortedChampionshipsList = useMemo(() => sortChampionships(championships), [championships])
+
+  // Pre-grouped calendar rounds
+  const calendarRounds = useMemo(
+    () => [...new Set(calendar.map((m) => m.round))].sort((a, b) => a - b),
+    [calendar]
+  )
+
+  // Pre-grouped results rounds (reverse order)
+  const resultsRounds = useMemo(
+    () => [...new Set(results.map((m) => m.round))].sort((a, b) => b - a),
+    [results]
+  )
+
+  // Filtered votings — computed once, used in both empty-check and render
+  const filteredVotings = useMemo(() => {
+    return votings.filter((voting) => {
+      if (showArchive) return true
+      const now = new Date()
+      const startTime = voting.start_time ? new Date(voting.start_time) : null
+      const endTime = voting.end_time ? new Date(voting.end_time) : null
+      const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
+      return voting.is_active && isWithinTime
+    })
+  }, [votings, showArchive])
+
+  // All matches merged for voting match lookup
+  const allMatches = useMemo(() => [...calendar, ...results], [calendar, results])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -252,10 +295,24 @@ export default function KSLigaSite() {
     }
   }
 
-  const getTeamLogo = (teamName: string): string => {
-    const team = teams.find((t) => t.name === teamName)
-    return team?.logo || "/placeholder.svg?height=32&width=32"
-  }
+  // Callback for AdminPanel to notify that data changed
+  const handleDataChange = useCallback(async () => {
+    // Reload championship-specific data and products
+    if (currentChampionshipId) {
+      await loadDataForChampionship(currentChampionshipId)
+    }
+    // Also refresh products and championships list
+    try {
+      const [championshipsData, productsData] = await Promise.all([
+        getChampionships(),
+        getProducts(),
+      ])
+      setChampionships(championshipsData)
+      setProducts(productsData)
+    } catch (error) {
+      console.error("Error refreshing data after admin change:", error)
+    }
+  }, [currentChampionshipId])
 
   const handleLogin = async () => {
     setLoginError(null)
@@ -367,7 +424,7 @@ export default function KSLigaSite() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] max-w-[calc(100vw-2rem)] min-w-[220px]">
-                  {sortChampionships(championships).map((championship) => (
+                  {sortedChampionshipsList.map((championship) => (
                     <SelectItem
                       key={championship.id}
                       value={championship.id.toString()}
@@ -441,6 +498,7 @@ export default function KSLigaSite() {
                       setCurrentChampionshipId(id)
                       loadInitialData()
                     }}
+                    onDataChange={handleDataChange}
                     isMainAdmin={isMainAdmin}
                     allowedChampionshipIds={allowedChampionshipIds}
                     organizerName={organizerName}
@@ -594,6 +652,8 @@ export default function KSLigaSite() {
                                     src={getTeamLogo(team.name) || "/placeholder.svg"}
                                     alt={`${team.name} Logo`}
                                     className="w-full h-full object-contain"
+                                    loading="lazy"
+                                    decoding="async"
                                   />
                                 </div>
 
@@ -657,7 +717,7 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    [...new Set(calendar.map((m) => m.round))].sort((a, b) => a - b).map((round) => (
+                    calendarRounds.map((round) => (
                       <div key={round} className="space-y-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
                           {currentChampionship?.tournament_type === "cup"
@@ -678,6 +738,8 @@ export default function KSLigaSite() {
                                           src={getTeamLogo(match.home_team)}
                                           alt="Home Team"
                                           className="w-full h-full object-contain"
+                                          loading="lazy"
+                                          decoding="async"
                                         />
                                       </div>
                                       <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
@@ -725,7 +787,7 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    [...new Set(results.map((m) => m.round))].sort((a, b) => b - a).map((round) => (
+                    resultsRounds.map((round) => (
                       <div key={round} className="space-y-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
                           {currentChampionship?.tournament_type === "cup"
@@ -964,14 +1026,7 @@ export default function KSLigaSite() {
                     </div>
                   )}
 
-                  {votings.filter((voting) => {
-                    if (showArchive) return true
-                    const now = new Date()
-                    const startTime = voting.start_time ? new Date(voting.start_time) : null
-                    const endTime = voting.end_time ? new Date(voting.end_time) : null
-                    const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
-                    return voting.is_active && isWithinTime
-                  }).length === 0 ? (
+                  {filteredVotings.length === 0 ? (
                     <Card className="liquid-glass-card py-12 text-center">
                       <CardContent className="p-6">
                         <Crown className="h-12 w-12 mx-auto mb-3 text-slate-300" />
@@ -986,17 +1041,9 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    votings
-                      .filter((voting) => {
-                        if (showArchive) return true
-                        const now = new Date()
-                        const startTime = voting.start_time ? new Date(voting.start_time) : null
-                        const endTime = voting.end_time ? new Date(voting.end_time) : null
-                        const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
-                        return voting.is_active && isWithinTime
-                      })
+                    filteredVotings
                       .map((voting) => {
-                      const match = [...calendar, ...results].find((m) => m.id === voting.match_id)
+                      const match = allMatches.find((m) => m.id === voting.match_id)
                       if (!match) return null
                       const matchCandidates = candidates
                         .filter((c) => c.match_id === voting.match_id)
@@ -1019,7 +1066,7 @@ export default function KSLigaSite() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
-                                  <img src={getTeamLogo(match.home_team)} alt="" className="w-5 h-5 object-contain" />
+                                  <img src={getTeamLogo(match.home_team)} alt="" className="w-5 h-5 object-contain" loading="lazy" decoding="async" />
                                   <span className="text-sm font-semibold text-slate-900">{match.home_team}</span>
                                 </div>
                                 <span className="text-xs text-slate-400 font-medium">
@@ -1028,7 +1075,7 @@ export default function KSLigaSite() {
                                     : "vs"}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <img src={getTeamLogo(match.away_team)} alt="" className="w-5 h-5 object-contain" />
+                                  <img src={getTeamLogo(match.away_team)} alt="" className="w-5 h-5 object-contain" loading="lazy" decoding="async" />
                                   <span className="text-sm font-semibold text-slate-900">{match.away_team}</span>
                                 </div>
                               </div>
@@ -1069,7 +1116,7 @@ export default function KSLigaSite() {
                                   {/* Home Team Candidates */}
                                   <div className="space-y-3">
                                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                                      <img src={getTeamLogo(match.home_team)} alt="" className="w-4 h-4 object-contain" />
+                                      <img src={getTeamLogo(match.home_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
                                       <span>{match.home_team} (Господарі)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.home_team).length === 0 ? (
@@ -1103,7 +1150,7 @@ export default function KSLigaSite() {
                                   {/* Away Team Candidates */}
                                   <div className="space-y-3">
                                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                                      <img src={getTeamLogo(match.away_team)} alt="" className="w-4 h-4 object-contain" />
+                                      <img src={getTeamLogo(match.away_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
                                       <span>{match.away_team} (Гості)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.away_team).length === 0 ? (
@@ -1180,7 +1227,7 @@ export default function KSLigaSite() {
                                                   {candidate.player_name}
                                                 </div>
                                                 <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                                                  <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3 h-3 object-contain" />
+                                                  <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3 h-3 object-contain" loading="lazy" decoding="async" />
                                                   {candidate.team_name}
                                                 </div>
                                               </div>
@@ -1284,6 +1331,8 @@ export default function KSLigaSite() {
                                 src={product.images && product.images.length > 0 ? product.images[0] : "/placeholder.svg"}
                                 alt={product.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                loading="lazy"
+                                decoding="async"
                               />
                               
                               {/* Badges Overlay */}
@@ -1394,6 +1443,8 @@ export default function KSLigaSite() {
                                 src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
                                 alt={selectedProduct.title}
                                 className="w-full h-full object-contain"
+                                loading="lazy"
+                                decoding="async"
                               />
 
                               {/* Navigation arrows for images */}
@@ -1426,7 +1477,7 @@ export default function KSLigaSite() {
                                       selectedImageIndex === idx ? "border-blue-600 scale-105" : "border-slate-200 opacity-60 hover:opacity-100"
                                     }`}
                                   >
-                                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                   </button>
                                 ))}
                               </div>
@@ -1527,6 +1578,7 @@ export default function KSLigaSite() {
                           onChampionshipChange={(id) => {
                             setCurrentChampionshipId(id)
                           }}
+                          onDataChange={handleDataChange}
                           isMainAdmin={isMainAdmin}
                           allowedChampionshipIds={allowedChampionshipIds}
                           organizerName={organizerName}

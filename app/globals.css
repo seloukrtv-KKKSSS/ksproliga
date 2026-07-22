@@ -474,3 +474,21 @@ input:checked + .ios-switch-slider:before {
 body {
   text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.3);
 }
+
+/* ============================================================
+   TAB CONTENT TRANSITIONS — Smooth app-like tab switching
+   ============================================================ */
+@keyframes tabFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-state="active"][role="tabpanel"] {
+  animation: tabFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
