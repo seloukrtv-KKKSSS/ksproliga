@@ -26,6 +26,9 @@ import {
   ChevronRight,
   X,
   ExternalLink,
+  Sparkles,
+  Award,
+  Flame,
 } from "lucide-react"
 import {
   getTeams,
@@ -1111,31 +1114,57 @@ export default function KSLigaSite() {
 
                 {/* Lion of the Match Tab */}
                 <TabsContent value="lion" className="outline-none space-y-6">
-                  {votings.length > 0 && (
-                    <div className="flex justify-end">
-                      <label className="flex items-center gap-3 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-xl px-4 py-2.5 shadow-sm hover:bg-white transition-all">
-                        <div className="relative inline-flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={showArchive}
-                            onChange={(e) => setShowArchive(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#34c759]"></div>
+                  {/* Hero Glass Banner for Lion of the Match */}
+                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-yellow-500/15 backdrop-blur-2xl border border-amber-400/30 p-4 sm:p-6 shadow-md">
+                    <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 p-0.5 shadow-lg shadow-amber-500/30 shrink-0 flex items-center justify-center">
+                          <div className="w-full h-full bg-slate-950/20 rounded-[14px] flex items-center justify-center text-xl">
+                            🦁
+                          </div>
                         </div>
-                        <span>Архів голосувань</span>
-                      </label>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Лев Матчу</span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-900 border border-amber-400/30">
+                              <Vote className="h-3 w-3 text-amber-600 animate-pulse" /> Голосування
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-medium mt-0.5">
+                            Обирай MVP матчу серед номінантів. Твій голос визначає переможця!
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Apple Segmented Archive Control */}
+                      {votings.length > 0 && (
+                        <div className="w-full sm:w-auto flex justify-end shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setShowArchive(!showArchive)}
+                            className={`w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-2xl transition-all shadow-xs border select-none active:scale-[0.97] ${
+                              showArchive
+                                ? "bg-slate-900 text-white border-slate-800 shadow-md"
+                                : "bg-white/80 backdrop-blur-md text-slate-700 border-slate-200/80 hover:bg-white"
+                            }`}
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                            <span>{showArchive ? "Показати активні" : "Архів голосувань"}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   {filteredVotings.length === 0 ? (
                     <Card className="liquid-glass-card py-12 text-center">
                       <CardContent className="p-6">
-                        <Crown className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                        <div className="text-base font-semibold text-slate-900">
+                        <Crown className="h-12 w-12 mx-auto mb-3 text-amber-400" />
+                        <div className="text-base font-bold text-slate-900">
                           {showArchive ? "Голосувань ще немає" : "Немає активних голосувань"}
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">
+                        <div className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                           {showArchive 
                             ? "Адміністратор ще не створив голосування за Лева матчу." 
                             : "Увімкніть архів, щоб переглянути результати минулих матчів."}
@@ -1143,8 +1172,7 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    filteredVotings
-                      .map((voting) => {
+                    filteredVotings.map((voting) => {
                       const match = allMatches.find((m) => m.id === voting.match_id)
                       if (!match) return null
                       const matchCandidates = candidates
@@ -1162,186 +1190,283 @@ export default function KSLigaSite() {
                       const canVote = isActive && isWithinTime && !hasVoted
 
                       return (
-                        <Card key={voting.match_id} className="liquid-glass-card overflow-hidden">
-                          {/* Match Header */}
-                          <div className="border-b border-slate-200/50 px-6 py-4 bg-white/40">
+                        <Card key={voting.match_id} className="liquid-glass-card overflow-hidden border border-slate-200/80 shadow-md">
+                          {/* Match Header Bar */}
+                          <div className="border-b border-slate-200/60 p-4 sm:p-5 bg-white/40 backdrop-blur-md flex flex-col gap-3">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <img src={getTeamLogo(match.home_team)} alt="" className="w-5 h-5 object-contain" loading="lazy" decoding="async" />
-                                  <span className="text-sm font-semibold text-slate-900">{match.home_team}</span>
-                                </div>
-                                <span className="text-xs text-slate-400 font-medium">
-                                  {match.is_finished
-                                    ? `${match.home_score} — ${match.away_score}`
-                                    : "vs"}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <img src={getTeamLogo(match.away_team)} alt="" className="w-5 h-5 object-contain" loading="lazy" decoding="async" />
-                                  <span className="text-sm font-semibold text-slate-900">{match.away_team}</span>
-                                </div>
-                              </div>
+                              <span className="text-[11px] font-bold text-slate-500 tracking-wide uppercase flex items-center gap-1.5">
+                                <Award className="h-3.5 w-3.5 text-amber-500" />
+                                {currentChampionship?.tournament_type === "cup"
+                                  ? match.cup_stage || `Раунд ${match.round}`
+                                  : `Тур ${match.round}`}
+                              </span>
                               <Badge
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
                                   isActive && isWithinTime
-                                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                    ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30"
                                     : "bg-slate-100 text-slate-600 border-slate-200"
                                 }`}
                               >
-                                {isActive && isWithinTime ? "Голосування відкрите" : "Голосування закрите"}
+                                {isActive && isWithinTime ? "🟢 Голосування відкрите" : "🔒 Голосування закрите"}
                               </Badge>
                             </div>
+
+                            {/* Teams Row */}
+                            <div className="flex items-center justify-between bg-white/70 backdrop-blur-md border border-slate-200/80 rounded-2xl p-3 shadow-2xs">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shrink-0 flex items-center justify-center shadow-2xs">
+                                  <img src={getTeamLogo(match.home_team)} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                                </div>
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
+                              </div>
+
+                              <div className="px-3 py-1 bg-slate-900 text-white text-xs font-black rounded-xl shadow-xs shrink-0 mx-2">
+                                {match.is_finished ? `${match.home_score} : ${match.away_score}` : "VS"}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
+                                <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
+                                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shrink-0 flex items-center justify-center shadow-2xs">
+                                  <img src={getTeamLogo(match.away_team)} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Time info */}
                             {(startTime || endTime) && (
-                              <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-400">
-                                <Clock className="h-3 w-3" />
+                              <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-500">
+                                <Clock className="h-3 w-3 text-slate-400 shrink-0" />
                                 {startTime && <span>Початок: {startTime.toLocaleString("uk-UA")}</span>}
-                                {endTime && <span>Кінець: {endTime.toLocaleString("uk-UA")}</span>}
+                                {endTime && <span>Закриття: {endTime.toLocaleString("uk-UA")}</span>}
                               </div>
                             )}
                           </div>
 
-                          <CardContent className="p-6">
+                          <CardContent className="p-4 sm:p-6">
                             {matchCandidates.length === 0 ? (
-                              <div className="text-center py-6">
+                              <div className="text-center py-8">
                                 <Users className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                                <div className="text-sm text-slate-500">Кандидатів ще не додано</div>
+                                <div className="text-sm font-semibold text-slate-500">Кандидатів ще не додано</div>
                               </div>
                             ) : canVote ? (
                               /* Active Voting UI */
-                              <div className="space-y-6">
-                                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                  Оберіть найкращого гравця матчу
+                              <div className="space-y-5">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                                    <Vote className="h-4 w-4 text-blue-600" />
+                                    <span>Оберіть вашого номінанта:</span>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-slate-400">Торкніться для вибору</span>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   {/* Home Team Candidates */}
-                                  <div className="space-y-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
+                                  <div className="space-y-2.5">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 pb-2 border-b border-slate-100">
                                       <img src={getTeamLogo(match.home_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
                                       <span>{match.home_team} (Господарі)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.home_team).length === 0 ? (
-                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-100 rounded-lg">Гравців не додано</div>
+                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-200 rounded-2xl bg-white/40">Гравців не додано</div>
                                     ) : (
                                       <div className="flex flex-col gap-2">
                                         {matchCandidates
                                           .filter((c) => c.team_name === match.home_team)
-                                          .map((candidate) => (
-                                            <button
-                                              key={candidate.id}
-                                              onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                              className={`p-3 rounded-xl border text-left text-xs font-semibold ios-active-scale ${
-                                                selectedCandidate[voting.match_id] === candidate.id
-                                                  ? "bg-[var(--lg-blue)] text-white border-transparent shadow-[0_4px_14px_rgba(0,122,255,0.3)]"
-                                                  : "bg-white/12 border-white/25 text-slate-800 hover:bg-white/22"
-                                              }`}
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <span>{candidate.player_name}</span>
-                                                {selectedCandidate[voting.match_id] === candidate.id && (
-                                                  <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
-                                                )}
-                                              </div>
-                                            </button>
-                                          ))}
+                                          .map((candidate) => {
+                                            const isSelected = selectedCandidate[voting.match_id] === candidate.id
+                                            return (
+                                              <button
+                                                type="button"
+                                                key={candidate.id}
+                                                onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
+                                                className={`relative w-full text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+                                                  isSelected
+                                                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40"
+                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-blue-300 hover:bg-white shadow-2xs"
+                                                }`}
+                                              >
+                                                <div className="flex items-center justify-between gap-3">
+                                                  <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                                                      isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
+                                                    }`}>
+                                                      🎽
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                      <div className="font-extrabold text-xs sm:text-sm truncate">{candidate.player_name}</div>
+                                                      <div className={`text-[10px] font-medium truncate ${isSelected ? "text-blue-100" : "text-slate-500"}`}>
+                                                        {candidate.team_name}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+
+                                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-transform ${
+                                                    isSelected ? "bg-white border-white text-blue-600 scale-110 shadow-xs" : "border-slate-300 bg-white"
+                                                  }`}>
+                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-blue-600 text-white" />}
+                                                  </div>
+                                                </div>
+                                              </button>
+                                            )
+                                          })}
                                       </div>
                                     )}
                                   </div>
 
                                   {/* Away Team Candidates */}
-                                  <div className="space-y-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 pb-1.5 border-b border-slate-100">
+                                  <div className="space-y-2.5">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 pb-2 border-b border-slate-100">
                                       <img src={getTeamLogo(match.away_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
                                       <span>{match.away_team} (Гості)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.away_team).length === 0 ? (
-                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-100 rounded-lg">Гравців не додано</div>
+                                      <div className="text-xs text-slate-400 py-4 text-center border border-dashed border-slate-200 rounded-2xl bg-white/40">Гравців не додано</div>
                                     ) : (
                                       <div className="flex flex-col gap-2">
                                         {matchCandidates
                                           .filter((c) => c.team_name === match.away_team)
-                                          .map((candidate) => (
-                                            <button
-                                              key={candidate.id}
-                                              onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
-                                              className={`p-3 rounded-xl border text-left text-xs font-semibold ios-active-scale ${
-                                                selectedCandidate[voting.match_id] === candidate.id
-                                                  ? "bg-[var(--lg-blue)] text-white border-transparent shadow-[0_4px_14px_rgba(0,122,255,0.3)]"
-                                                  : "bg-white/12 border-white/25 text-slate-800 hover:bg-white/22"
-                                              }`}
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <span>{candidate.player_name}</span>
-                                                {selectedCandidate[voting.match_id] === candidate.id && (
-                                                  <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
-                                                )}
-                                              </div>
-                                            </button>
-                                          ))}
+                                          .map((candidate) => {
+                                            const isSelected = selectedCandidate[voting.match_id] === candidate.id
+                                            return (
+                                              <button
+                                                type="button"
+                                                key={candidate.id}
+                                                onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
+                                                className={`relative w-full text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+                                                  isSelected
+                                                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40"
+                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-blue-300 hover:bg-white shadow-2xs"
+                                                }`}
+                                              >
+                                                <div className="flex items-center justify-between gap-3">
+                                                  <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                                                      isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
+                                                    }`}>
+                                                      🎽
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                      <div className="font-extrabold text-xs sm:text-sm truncate">{candidate.player_name}</div>
+                                                      <div className={`text-[10px] font-medium truncate ${isSelected ? "text-blue-100" : "text-slate-500"}`}>
+                                                        {candidate.team_name}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+
+                                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-transform ${
+                                                    isSelected ? "bg-white border-white text-blue-600 scale-110 shadow-xs" : "border-slate-300 bg-white"
+                                                  }`}>
+                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-blue-600 text-white" />}
+                                                  </div>
+                                                </div>
+                                              </button>
+                                            )
+                                          })}
                                       </div>
                                     )}
                                   </div>
                                 </div>
 
+                                {/* Mobile Action Button */}
                                 <Button
+                                  type="button"
                                   onClick={() => handleVoteSubmit(voting.match_id)}
                                   disabled={!selectedCandidate[voting.match_id] || loading}
-                                  className="w-full ios-btn-primary text-xs font-bold h-10 ios-active-scale disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                                  className={`w-full h-12 rounded-2xl text-xs sm:text-sm font-extrabold shadow-md transition-all active:scale-[0.98] ${
+                                    selectedCandidate[voting.match_id]
+                                      ? "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-amber-500/30 hover:opacity-95 cursor-pointer"
+                                      : "bg-slate-200 text-slate-400 border border-slate-300/50 cursor-not-allowed opacity-70"
+                                  }`}
                                 >
                                   <Vote className="h-4 w-4 mr-2" />
-                                  Проголосувати
+                                  {selectedCandidate[voting.match_id] ? "ПІДТВЕРДИТИ ГОЛОС 🗳️" : "ОБЕРІТЬ ГРАВЦЯ ДЛЯ ГОЛОСУВАННЯ"}
                                 </Button>
                               </div>
                             ) : (
                               /* Results UI (closed or already voted) */
                               <div className="space-y-4">
-                                {hasVoted && isActive && (
-                                  <div className="text-center text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg py-2 px-3 font-medium">
-                                    ✓ Ви вже проголосували у цьому матчі
+                                {hasVoted && (
+                                  <div className="flex items-center gap-3 p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-800 text-xs font-bold backdrop-blur-md shadow-2xs">
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    <span>Дякуємо! Ваш голос успішно зараховано в загальну статистику.</span>
                                   </div>
                                 )}
 
-                                {/* TOP-3 Winners */}
                                 {matchCandidates.length > 0 && (
                                   <div className="space-y-3">
-                                    {matchCandidates.slice(0, 3).map((candidate, index) => {
+                                    {/* 1st Place - Golden Spotlight Winner */}
+                                    {matchCandidates.slice(0, 1).map((candidate) => {
                                       const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
-                                      const medals = ["🥇", "🥈", "🥉"]
-                                      const bgStyles = [
-                                        "bg-amber-50 border-amber-200",
-                                        "bg-slate-50 border-slate-200",
-                                        "bg-orange-50 border-orange-200",
-                                      ]
-                                      const barColors = ["bg-amber-400", "bg-slate-400", "bg-orange-400"]
-
                                       return (
                                         <div
                                           key={candidate.id}
-                                          className={`p-4 rounded-xl border ${bgStyles[index]} transition-all`}
+                                          className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-amber-600/20 border border-amber-400/40 backdrop-blur-xl shadow-md space-y-3"
                                         >
-                                          <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-3">
-                                              <span className="text-xl">{medals[index]}</span>
-                                              <div>
-                                                <div className="text-sm font-bold text-slate-900">
-                                                  {index === 0 && "Лев матчу — "}
-                                                  {candidate.player_name}
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-xl shadow-sm shrink-0">
+                                                🥇
+                                              </div>
+                                              <div className="min-w-0">
+                                                <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                                                  <Crown className="h-3 w-3 text-amber-600" /> ЛЕВ МАТЧУ — 1 МІСЦЕ
                                                 </div>
-                                                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                                <div className="text-sm font-black text-slate-900 truncate">{candidate.player_name}</div>
+                                                <div className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5 mt-0.5 truncate">
+                                                  <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" decoding="async" />
+                                                  {candidate.team_name}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="text-right shrink-0 ml-2">
+                                              <div className="text-base font-black text-amber-900">{percentage}%</div>
+                                              <div className="text-[10px] font-bold text-amber-700/80">{candidate.votes} голосів</div>
+                                            </div>
+                                          </div>
+
+                                          {/* Glowing Amber Progress Bar */}
+                                          <div className="w-full bg-white/70 backdrop-blur-md rounded-full h-2.5 overflow-hidden p-0.5 border border-amber-300/40">
+                                            <div
+                                              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400 shadow-xs transition-all duration-700"
+                                              style={{ width: `${percentage}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+
+                                    {/* 2nd & 3rd Place */}
+                                    {matchCandidates.slice(1, 3).map((candidate, index) => {
+                                      const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
+                                      const medals = ["🥈", "🥉"]
+                                      const borderStyles = ["border-slate-300/60", "border-orange-300/60"]
+                                      const barGradients = [
+                                        "bg-gradient-to-r from-slate-400 to-slate-500",
+                                        "bg-gradient-to-r from-orange-400 to-amber-600"
+                                      ]
+
+                                      return (
+                                        <div key={candidate.id} className={`p-3.5 rounded-2xl bg-white/70 backdrop-blur-md border ${borderStyles[index]} shadow-2xs space-y-2`}>
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                              <span className="text-lg shrink-0">{medals[index]}</span>
+                                              <div className="min-w-0">
+                                                <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{candidate.player_name}</div>
+                                                <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
                                                   <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3 h-3 object-contain" loading="lazy" decoding="async" />
                                                   {candidate.team_name}
                                                 </div>
                                               </div>
                                             </div>
-                                            <div className="text-right">
-                                              <div className="text-sm font-bold text-slate-900">{percentage}%</div>
-                                              <div className="text-[10px] text-slate-500">{candidate.votes} голосів</div>
+                                            <div className="text-right shrink-0 ml-2">
+                                              <div className="text-xs font-bold text-slate-900">{percentage}%</div>
+                                              <div className="text-[10px] text-slate-400">{candidate.votes} гол.</div>
                                             </div>
                                           </div>
-                                          <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden">
+
+                                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                                             <div
-                                              className={`h-full rounded-full ${barColors[index]} transition-all duration-500`}
+                                              className={`h-full rounded-full ${barGradients[index]} transition-all duration-500`}
                                               style={{ width: `${percentage}%` }}
                                             />
                                           </div>
@@ -1351,19 +1476,19 @@ export default function KSLigaSite() {
 
                                     {/* Rest of candidates */}
                                     {matchCandidates.length > 3 && (
-                                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                                      <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white/60 backdrop-blur-md shadow-2xs">
                                         {matchCandidates.slice(3).map((candidate, index) => {
                                           const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
                                           return (
-                                            <div key={candidate.id} className="p-3 flex items-center justify-between bg-white">
-                                              <div className="flex items-center gap-3">
-                                                <span className="text-xs text-slate-400 font-bold w-6 text-center">{index + 4}</span>
-                                                <div>
-                                                  <div className="text-sm font-medium text-slate-700">{candidate.player_name}</div>
-                                                  <div className="text-[10px] text-slate-400">{candidate.team_name}</div>
+                                            <div key={candidate.id} className="p-3 flex items-center justify-between hover:bg-white/80 transition-colors">
+                                              <div className="flex items-center gap-3 min-w-0">
+                                                <span className="text-xs text-slate-400 font-extrabold w-5 text-center shrink-0">{index + 4}</span>
+                                                <div className="min-w-0">
+                                                  <div className="text-xs font-bold text-slate-800 truncate">{candidate.player_name}</div>
+                                                  <div className="text-[10px] text-slate-400 truncate">{candidate.team_name}</div>
                                                 </div>
                                               </div>
-                                              <div className="text-xs text-slate-500 font-medium">{percentage}% ({candidate.votes})</div>
+                                              <div className="text-xs text-slate-600 font-bold shrink-0">{percentage}% <span className="text-[10px] font-normal text-slate-400">({candidate.votes})</span></div>
                                             </div>
                                           )
                                         })}
@@ -1371,8 +1496,9 @@ export default function KSLigaSite() {
                                     )}
 
                                     {totalVotes > 0 && (
-                                      <div className="text-center text-[11px] text-slate-400 mt-2">
-                                        Всього голосів: {totalVotes}
+                                      <div className="text-center text-[11px] font-semibold text-slate-400 mt-3 flex items-center justify-center gap-1.5">
+                                        <Users className="h-3.5 w-3.5 text-slate-400" />
+                                        <span>Всього в голосуванні взяли участь: <strong className="text-slate-700">{totalVotes}</strong> вболівальників</span>
                                       </div>
                                     )}
                                   </div>
