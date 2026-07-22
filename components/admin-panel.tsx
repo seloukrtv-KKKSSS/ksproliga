@@ -212,6 +212,10 @@ export function AdminPanel({
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
 
   const sortedChampionships = useMemo(() => sortChampionships(championships), [championships])
+  const sortedMatches = useMemo(
+    () => [...matches].sort((a, b) => (b.round || 0) - (a.round || 0)),
+    [matches]
+  )
 
   useEffect(() => {
     loadData()
@@ -243,7 +247,7 @@ export function AdminPanel({
           getChampionshipVotings(currentChampionshipId),
         ])
         setTeams(teamsData)
-        setMatches(matchesData)
+        setMatches([...matchesData].sort((a, b) => (b.round || 0) - (a.round || 0)))
         setPlayers(playersData)
         setChampionshipVotings(votingsData)
       } else {
@@ -1621,12 +1625,12 @@ export function AdminPanel({
               </form>
 
           <div className="space-y-3">
-            {matches.length === 0 ? (
+            {sortedMatches.length === 0 ? (
               <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
                 Немає матчів. Додайте перший матч вище.
               </div>
             ) : (
-              matches.map((match) => (
+              sortedMatches.map((match) => (
                 <div
                   key={match.id}
                   className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
