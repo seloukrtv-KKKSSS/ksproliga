@@ -77,7 +77,26 @@ import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoti
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
 const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : String(error)
+  if (!error) return "Невідома помилка"
+  if (error instanceof Error) return error.message
+  if (typeof error === "object" && error !== null) {
+    const errObj = error as Record<string, any>
+    if (typeof errObj.message === "string" && errObj.message.trim() !== "") {
+      return errObj.message
+    }
+    if (typeof errObj.details === "string" && errObj.details.trim() !== "") {
+      return errObj.details
+    }
+    if (typeof errObj.hint === "string" && errObj.hint.trim() !== "") {
+      return errObj.hint
+    }
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return String(error)
+    }
+  }
+  return String(error)
 }
 
 interface AdminPanelProps {
