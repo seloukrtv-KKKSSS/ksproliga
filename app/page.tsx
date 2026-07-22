@@ -147,6 +147,31 @@ export default function KSLigaSite() {
   }, [])
 
 
+  // Real-time background sync for Lion of the Match votes and window focus
+  useEffect(() => {
+    if (!currentChampionshipId) return
+
+    // Auto-poll voting data every 8 seconds silently so live votes update automatically
+    const pollInterval = setInterval(() => {
+      loadVotingData()
+    }, 8000)
+
+    // Silently refresh data when user returns to the browser tab/app
+    const handleWindowFocus = () => {
+      loadVotingData()
+      if (currentChampionshipId) {
+        loadDataForChampionship(currentChampionshipId)
+      }
+    }
+
+    window.addEventListener("focus", handleWindowFocus)
+
+    return () => {
+      clearInterval(pollInterval)
+      window.removeEventListener("focus", handleWindowFocus)
+    }
+  }, [currentChampionshipId, activeTab])
+
   // Load initial data (championships list)
   useEffect(() => {
     loadInitialData()
@@ -277,36 +302,49 @@ export default function KSLigaSite() {
       return
     }
 
-    try {
-      setLoading(true)
-      await incrementCandidateVotes(candidateId)
-      
-      // Store in localStorage
-      localStorage.setItem(`ksliga_voted_${matchId}`, "true")
-      setVotedMatches((prev) => [...prev, matchId])
+    // 1. Optimistic UI update immediately (0ms delay, no screen freezing)
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === candidateId ? { ...c, votes: (c.votes || 0) + 1 } : c))
+    )
+    setVotedMatches((prev) => [...prev, matchId])
 
-      // Reload voting data
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`ksliga_voted_${matchId}`, "true")
+      }
+    } catch (e) {
+      console.warn("Could not write to localStorage:", e)
+    }
+
+    try {
+      // 2. Perform DB write in background
+      await incrementCandidateVotes(candidateId)
+      // 3. Silent background refresh of latest data from server
       await loadVotingData()
-      alert("Дякуємо за ваш голос!")
     } catch (error) {
       console.error("Error submitting vote:", error)
       alert("Помилка при голосуванні: " + (error instanceof Error ? error.message : String(error)))
-    } finally {
-      setLoading(false)
+      // Rollback optimistic vote if DB fails
+      setCandidates((prev) =>
+        prev.map((c) => (c.id === candidateId ? { ...c, votes: Math.max(0, (c.votes || 0) - 1) } : c))
+      )
+      setVotedMatches((prev) => prev.filter((id) => id !== matchId))
     }
   }
 
   const handleGoalsUpdated = async () => {
     if (currentChampionshipId) {
       await loadDataForChampionship(currentChampionshipId)
+      await loadVotingData()
     }
   }
 
   // Callback for AdminPanel to notify that data changed
   const handleDataChange = useCallback(async () => {
-    // Reload championship-specific data and products
+    // Reload championship-specific data, products, and votings without F5 page reload
     if (currentChampionshipId) {
       await loadDataForChampionship(currentChampionshipId)
+      await loadVotingData()
     }
     // Also refresh products and championships list
     try {
