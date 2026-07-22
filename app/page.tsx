@@ -85,6 +85,10 @@ export default function KSLigaSite() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0)
 
+  // Round Spoiler states
+  const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
+  const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
+
   // ===== MEMOIZED COMPUTATIONS =====
   // O(1) team logo lookup via Map instead of O(N) .find() on every render
   const teamLogoMap = useMemo(() => {
@@ -717,62 +721,88 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    calendarRounds.map((round) => (
-                      <div key={round} className="space-y-3">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
-                          {currentChampionship?.tournament_type === "cup"
-                            ? calendar.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
-                            : `Тур ${round}`}
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {calendar
-                            .filter((m) => m.round === round)
-                            .map((match) => (
-                              <Card key={match.id} className="liquid-glass-card overflow-hidden">
-                                <CardContent className="p-4 flex items-center justify-between gap-4">
-                                  <div className="flex-1 space-y-3">
-                                    {/* Team 1 */}
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                        <img
-                                          src={getTeamLogo(match.home_team)}
-                                          alt="Home Team"
-                                          className="w-full h-full object-contain"
-                                          loading="lazy"
-                                          decoding="async"
-                                        />
-                                      </div>
-                                      <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
-                                    </div>
-                                    {/* Team 2 */}
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                        <img
-                                          src={getTeamLogo(match.away_team)}
-                                          alt="Away Team"
-                                          className="w-full h-full object-contain"
-                                        />
-                                      </div>
-                                      <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
-                                    </div>
-                                  </div>
+                    calendarRounds.map((round) => {
+                      const isCollapsed = collapsedCalendarRounds[round]
+                      const roundMatches = calendar.filter((m) => m.round === round)
+                      const roundTitle = currentChampionship?.tournament_type === "cup"
+                        ? calendar.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                        : `Тур ${round}`
 
-                                  {/* Date & Time */}
-                                  <div className="text-right border-l border-slate-100 pl-4 space-y-1 flex-shrink-0">
-                                    <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5">
-                                      <Clock className="h-3 w-3 text-slate-400" />
-                                      {formatTime(match.match_time) || "—"}
+                      return (
+                        <div key={round} className="space-y-3">
+                          {/* Round Spoiler Header */}
+                          <button
+                            type="button"
+                            onClick={() => setCollapsedCalendarRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-2xs shrink-0"></span>
+                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                                {roundTitle}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60 shrink-0">
+                                {roundMatches.length} {roundMatches.length === 1 ? "матч" : "матчів"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold">
+                              <span className="hidden min-[400px]:inline">{isCollapsed ? "Розгорнути" : "Згорнути"}</span>
+                              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </div>
+                          </button>
+
+                          {/* Matches Grid (Shown when not collapsed) */}
+                          {!isCollapsed && (
+                            <div className="grid gap-3 sm:grid-cols-2 glass-animate-in">
+                              {roundMatches.map((match) => (
+                                <Card key={match.id} className="liquid-glass-card overflow-hidden">
+                                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                                    <div className="flex-1 space-y-3">
+                                      {/* Team 1 */}
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                          <img
+                                            src={getTeamLogo(match.home_team)}
+                                            alt="Home Team"
+                                            className="w-full h-full object-contain"
+                                            loading="lazy"
+                                            decoding="async"
+                                          />
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
+                                      </div>
+                                      {/* Team 2 */}
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                          <img
+                                            src={getTeamLogo(match.away_team)}
+                                            alt="Away Team"
+                                            className="w-full h-full object-contain"
+                                          />
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
+                                      </div>
                                     </div>
-                                    <div className="text-[10px] text-slate-500">
-                                      {new Date(match.date).toLocaleDateString("uk-UA")}
+
+                                    {/* Date & Time */}
+                                    <div className="text-right border-l border-slate-100 pl-4 space-y-1 flex-shrink-0">
+                                      <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5">
+                                        <Clock className="h-3 w-3 text-slate-400" />
+                                        {formatTime(match.match_time) || "—"}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500">
+                                        {new Date(match.date).toLocaleDateString("uk-UA")}
+                                      </div>
                                     </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </TabsContent>
 
@@ -787,17 +817,41 @@ export default function KSLigaSite() {
                       </CardContent>
                     </Card>
                   ) : (
-                    resultsRounds.map((round) => (
-                      <div key={round} className="space-y-3">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-1">
-                          {currentChampionship?.tournament_type === "cup"
-                            ? results.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
-                            : `Тур ${round}`}
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {results
-                            .filter((m) => m.round === round)
-                            .map((match) => {
+                    resultsRounds.map((round) => {
+                      const isCollapsed = collapsedResultsRounds[round]
+                      const roundMatches = results.filter((m) => m.round === round)
+                      const roundTitle = currentChampionship?.tournament_type === "cup"
+                        ? results.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                        : `Тур ${round}`
+
+                      return (
+                        <div key={round} className="space-y-3">
+                          {/* Round Spoiler Header */}
+                          <button
+                            type="button"
+                            onClick={() => setCollapsedResultsRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs shrink-0"></span>
+                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                                {roundTitle}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60 shrink-0">
+                                {roundMatches.length} {roundMatches.length === 1 ? "матч" : "матчів"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold">
+                              <span className="hidden min-[400px]:inline">{isCollapsed ? "Розгорнути" : "Згорнути"}</span>
+                              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </div>
+                          </button>
+
+                          {/* Matches Grid (Shown when not collapsed) */}
+                          {!isCollapsed && (
+                            <div className="grid gap-3 sm:grid-cols-2 glass-animate-in">
+                          {roundMatches.map((match) => {
                               const matchGoalList = matchGoals[match.id] || []
                               const matchCardList = matchCards[match.id] || []
 
@@ -992,10 +1046,12 @@ export default function KSLigaSite() {
                               )
                             })}
                         </div>
-                      </div>
-                    ))
-                  )}
-                </TabsContent>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </TabsContent>
 
                 {/* Scorers Tab */}
                 <TabsContent value="scorers" className="outline-none space-y-2">

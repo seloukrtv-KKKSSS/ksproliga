@@ -211,10 +211,16 @@ export function AdminPanel({
 
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
 
+  const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<{ [round: number]: boolean }>({})
+
   const sortedChampionships = useMemo(() => sortChampionships(championships), [championships])
   const sortedMatches = useMemo(
     () => [...matches].sort((a, b) => (b.round || 0) - (a.round || 0)),
     [matches]
+  )
+  const adminMatchRounds = useMemo(
+    () => [...new Set(sortedMatches.map((m) => m.round))].sort((a, b) => b - a),
+    [sortedMatches]
   )
 
   useEffect(() => {
@@ -1630,11 +1636,43 @@ export function AdminPanel({
                 Немає матчів. Додайте перший матч вище.
               </div>
             ) : (
-              sortedMatches.map((match) => (
-                <div
-                  key={match.id}
-                  className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
-                >
+              adminMatchRounds.map((round) => {
+                const isCollapsed = collapsedAdminRounds[round]
+                const roundMatches = sortedMatches.filter((m) => m.round === round)
+                const roundTitle = currentChampionship?.tournament_type === "cup"
+                  ? sortedMatches.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                  : `Тур ${round}`
+
+                return (
+                  <div key={round} className="space-y-3">
+                    {/* Round Spoiler Header */}
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedAdminRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
+                      className="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 transition-all cursor-pointer select-none font-bold text-slate-800 text-xs sm:text-sm"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></span>
+                        <span>{roundTitle}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                          {roundMatches.length} {roundMatches.length === 1 ? "матч" : "матчі(в)"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-slate-500 text-xs font-semibold">
+                        <span>{isCollapsed ? "Розгорнути" : "Згорнути"}</span>
+                        {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      </div>
+                    </button>
+
+                    {/* Matches List (when not collapsed) */}
+                    {!isCollapsed && (
+                      <div className="space-y-3">
+                        {roundMatches.map((match) => (
+                          <div
+                            key={match.id}
+                            className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all"
+                          >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                     <div className="flex-1">
                       <div className="font-bold text-slate-900 text-base mb-1.5">
@@ -2339,11 +2377,16 @@ export function AdminPanel({
                       </div>
                     </div>
                   )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    })
+  )}
+  </div>
+</>
           )}
         </TabsContent>
 
