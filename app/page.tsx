@@ -643,9 +643,9 @@ export default function KSLigaSite() {
                         </CardContent>
                       </Card>
                     ) : (
-                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden divide-y divide-slate-150">
+                      <div className="bg-white/50 backdrop-blur-2xl border border-white/70 shadow-lg shadow-black/5 rounded-3xl overflow-hidden divide-y divide-slate-200/50">
                         {/* Table Header Legend (Mobile & Desktop) */}
-                        <div className="bg-slate-100/90 px-3 sm:px-4 py-2 border-b border-slate-200/90 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                        <div className="bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="w-7 sm:w-8 text-center shrink-0">#</span>
                             <span className="truncate">Команда</span>
@@ -670,19 +670,19 @@ export default function KSLigaSite() {
 
                         {table.map((team, index) => {
                           const position = index + 1
-                          let posBadgeClass = "bg-slate-100 text-slate-500 font-bold"
+                          let posBadgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200/60"
                           if (position === 1) {
-                            posBadgeClass = "bg-[#FACC15] text-slate-900 font-extrabold shadow-xs"
+                            posBadgeClass = "bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 font-black shadow-xs border border-amber-400"
                           } else if (position === 2) {
-                            posBadgeClass = "bg-[#CBD5E1] text-slate-800 font-extrabold"
+                            posBadgeClass = "bg-gradient-to-tr from-slate-200 to-slate-300 text-slate-900 font-bold border border-slate-300"
                           } else if (position === 3) {
-                            posBadgeClass = "bg-[#D97706] text-white font-extrabold shadow-xs"
+                            posBadgeClass = "bg-gradient-to-tr from-amber-600 to-amber-700 text-white font-bold border border-amber-600 shadow-xs"
                           }
 
                           return (
                             <div
                               key={index}
-                              className="flex items-center justify-between px-3 sm:px-4 py-3 hover:bg-slate-50/80 transition-colors gap-2"
+                              className="flex items-center justify-between px-3 sm:px-4 py-3 hover:bg-white/60 transition-all gap-2"
                             >
                               {/* Left side: Position, Logo, Team Name (Truncates smoothly without shifting stats) */}
                               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden mr-1">
@@ -892,7 +892,7 @@ export default function KSLigaSite() {
                           {/* Matches Grid (Shown when not collapsed) */}
                           {!isCollapsed && (
                             <div className="grid gap-3 sm:grid-cols-2 glass-animate-in">
-                          {roundMatches.map((match) => {
+                              {roundMatches.map((match) => {
                               const matchGoalList = matchGoals[match.id] || []
                               const matchCardList = matchCards[match.id] || []
 
@@ -901,6 +901,14 @@ export default function KSLigaSite() {
 
                               const homeCards = matchCardList.filter((c) => c.team_name === match.home_team)
                               const awayCards = matchCardList.filter((c) => c.team_name === match.away_team)
+
+                              const isHomeWinner = match.is_technical_defeat
+                                ? match.technical_winner === match.home_team
+                                : (match.home_score !== null && match.away_score !== null && match.home_score > match.away_score) || (match.penalty_winner === match.home_team)
+
+                              const isAwayWinner = match.is_technical_defeat
+                                ? match.technical_winner === match.away_team
+                                : (match.home_score !== null && match.away_score !== null && match.away_score > match.home_score) || (match.penalty_winner === match.away_team)
 
                               return (
                                 <Card
@@ -912,7 +920,11 @@ export default function KSLigaSite() {
                                     <div className="flex items-center justify-between gap-2">
                                       {/* Home Team */}
                                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-2xs flex items-center justify-center shrink-0 p-0.5">
+                                        <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${
+                                          isHomeWinner
+                                            ? "border-2 border-blue-600 ring-2 ring-blue-400/30 shadow-md scale-105"
+                                            : "border border-slate-200 shadow-2xs opacity-85"
+                                        }`}>
                                           <img
                                             src={getTeamLogo(match.home_team)}
                                             alt="Home Team"
@@ -921,7 +933,14 @@ export default function KSLigaSite() {
                                             decoding="async"
                                           />
                                         </div>
-                                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                                        <span className={`text-xs sm:text-sm truncate transition-colors ${
+                                          isHomeWinner
+                                            ? "font-black text-blue-700 dark:text-blue-400 tracking-tight drop-shadow-2xs"
+                                            : isAwayWinner
+                                            ? "font-semibold text-slate-500 opacity-80"
+                                            : "font-extrabold text-slate-900"
+                                        }`}>
+                                          {isHomeWinner && <span className="mr-0.5">👑</span>}
                                           {match.home_team}
                                         </span>
                                       </div>
@@ -940,10 +959,21 @@ export default function KSLigaSite() {
 
                                       {/* Away Team */}
                                       <div className="flex items-center justify-end gap-2 flex-1 min-w-0 text-right">
-                                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                                        <span className={`text-xs sm:text-sm truncate transition-colors ${
+                                          isAwayWinner
+                                            ? "font-black text-blue-700 dark:text-blue-400 tracking-tight drop-shadow-2xs"
+                                            : isHomeWinner
+                                            ? "font-semibold text-slate-500 opacity-80"
+                                            : "font-extrabold text-slate-900"
+                                        }`}>
                                           {match.away_team}
+                                          {isAwayWinner && <span className="ml-0.5">👑</span>}
                                         </span>
-                                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-2xs flex items-center justify-center shrink-0 p-0.5">
+                                        <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${
+                                          isAwayWinner
+                                            ? "border-2 border-blue-600 ring-2 ring-blue-400/30 shadow-md scale-105"
+                                            : "border border-slate-200 shadow-2xs opacity-85"
+                                        }`}>
                                           <img
                                             src={getTeamLogo(match.away_team)}
                                             alt="Away Team"
