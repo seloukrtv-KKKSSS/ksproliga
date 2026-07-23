@@ -1,0 +1,25 @@
+{
+  "name": "KS LIGA — Karpiuk Sport League",
+  "short_name": "KS LIGA",
+  "description": "Офіційний сайт KS LIGA — турнірна таблиця, календар, результати матчів та статистика гравців.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/images/ks-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/ks-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

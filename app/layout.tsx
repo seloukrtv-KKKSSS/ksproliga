@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   title: 'KS LIGA — Karpiuk Sport League',
   description: 'Офіційний сайт KS LIGA — турнірна таблиця, календар, результати матчів та статистика гравців.',
   keywords: 'KS LIGA, футбол, ліга, турнір, матчі, результати',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'KS LIGA',
+  },
   icons: {
     icon: [
       { url: '/images/ks-logo.png', sizes: '32x32', type: 'image/png' },
@@ -39,6 +45,11 @@ export default function RootLayout({
   return (
     <html lang="uk" className={GeistSans.variable}>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="KS LIGA" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/ks-logo.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/images/ks-logo.png" />
         <link rel="apple-touch-icon" href="/images/ks-logo.png" />
