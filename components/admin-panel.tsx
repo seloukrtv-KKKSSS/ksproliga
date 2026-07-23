@@ -18,6 +18,7 @@ import {
   Target,
   Clock,
   Trophy,
+  Crown,
   AlertTriangle,
   Crosshair,
   Star,
@@ -948,9 +949,8 @@ export function AdminPanel({
                     value={championship.id.toString()}
                     className="text-white hover:bg-slate-800/30"
                   >
-                    {championship.tournament_type === "league" ? "🏆 " : "👑 "}
                     {championship.name} ({championship.season})
-                    {championship.is_active ? " ⭐" : ""}
+                    {championship.is_active ? " (Активний)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1127,7 +1127,11 @@ export function AdminPanel({
                 >
                   <div className="flex-1">
                     <div className="font-bold text-slate-900 text-base flex items-center gap-2">
-                      <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
+                      {championship.tournament_type === "league" ? (
+                        <Trophy className="h-4 w-4 text-[#007AFF]" />
+                      ) : (
+                        <Crown className="h-4 w-4 text-[#007AFF]" />
+                      )}
                       <span>{championship.name}</span>
                     </div>
                     <div className="text-xs text-slate-500 font-medium mt-1">
@@ -1848,37 +1852,37 @@ export function AdminPanel({
                             <button
                               type="button"
                               onClick={() => applyPreset("match24", match)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              📅 Матч +24г
+                              Матч +24г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("match48", match)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              📅 Матч +48г
+                              Матч +48г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("now24", match)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              ⚡ Зараз +24г
+                              Зараз +24г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("now48", match)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              ⚡ Зараз +48г
+                              Зараз +48г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("clear", match)}
                               className="text-[10px] font-medium text-red-650 hover:bg-red-50 px-2 py-1 rounded transition-all bg-transparent ml-auto"
                             >
-                              ❌ Очистити
+                              Очистити
                             </button>
                           </div>
                           <div className="flex gap-2">
@@ -2692,37 +2696,37 @@ export function AdminPanel({
                             <button
                               type="button"
                               onClick={() => applyPreset("match24", selectedMatchForVoting)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              📅 Матч +24г
+                              Матч +24г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("match48", selectedMatchForVoting)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              📅 Матч +48г
+                              Матч +48г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("now24", selectedMatchForVoting)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              ⚡ Зараз +24г
+                              Зараз +24г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("now48", selectedMatchForVoting)}
-                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-sm px-2 py-1 rounded transition-all bg-transparent"
+                              className="text-[10px] font-medium text-slate-700 hover:bg-white hover:shadow-xs px-2 py-1 rounded transition-all bg-transparent"
                             >
-                              ⚡ Зараз +48г
+                              Зараз +48г
                             </button>
                             <button
                               type="button"
                               onClick={() => applyPreset("clear", selectedMatchForVoting)}
                               className="text-[10px] font-medium text-red-650 hover:bg-red-50 px-2 py-1 rounded transition-all bg-transparent ml-auto"
                             >
-                              ❌ Очистити
+                              Очистити
                             </button>
                           </div>
                           <Button
@@ -2987,8 +2991,7 @@ export function AdminPanel({
                           <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 bg-white"}`}>
                             {isChecked && <Check className="h-3 w-3" />}
                           </div>
-                          <span className="text-xs truncate">
-                            {champ.tournament_type === "league" ? "🏆 " : "👑 "}
+                          <span className="text-xs truncate font-medium">
                             {champ.name} ({champ.season})
                           </span>
                         </div>
@@ -3054,7 +3057,7 @@ export function AdminPanel({
                             const c = championships.find((ch) => ch.id === cid)
                             return (
                               <span key={cid} className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {c ? `${c.tournament_type === "league" ? "🏆" : "👑"} ${c.name}` : `Турнір #${cid}`}
+                                {c ? c.name : `Турнір #${cid}`}
                               </span>
                             )
                           })

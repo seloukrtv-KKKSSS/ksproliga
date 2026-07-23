@@ -15,6 +15,7 @@ import {
   Zap,
   Crown,
   Users,
+  User,
   Vote,
   CheckCircle2,
   ChevronDown,
@@ -460,7 +461,13 @@ export default function KSLigaSite() {
                       if (!active) return "Оберіть чемпіонат"
                       return (
                         <span className="flex items-center gap-1.5 truncate">
-                          <span className="shrink-0">{active.tournament_type === "league" ? "🏆" : "👑"}</span>
+                          <span className="shrink-0">
+                            {active.tournament_type === "league" ? (
+                              <Trophy className="h-3.5 w-3.5 text-[#007AFF]" />
+                            ) : (
+                              <Crown className="h-3.5 w-3.5 text-[#007AFF]" />
+                            )}
+                          </span>
                           <span className="truncate max-w-[110px] min-[400px]:max-w-[160px] sm:max-w-[200px] font-bold text-slate-900">{active.name}</span>
                           <span className="text-slate-500 text-[10px] hidden sm:inline shrink-0">({active.season})</span>
                         </span>
@@ -477,7 +484,13 @@ export default function KSLigaSite() {
                     >
                       <span className="flex items-center justify-between gap-2 w-full">
                         <span className="flex items-center gap-1.5 truncate">
-                          <span>{championship.tournament_type === "league" ? "🏆" : "👑"}</span>
+                          <span className="shrink-0">
+                            {championship.tournament_type === "league" ? (
+                              <Trophy className="h-3.5 w-3.5 text-[#007AFF]" />
+                            ) : (
+                              <Crown className="h-3.5 w-3.5 text-[#007AFF]" />
+                            )}
+                          </span>
                           <span className="font-semibold text-slate-900 truncate">{championship.name}</span>
                           <span className="text-slate-500 text-[10px]">({championship.season})</span>
                         </span>
@@ -922,7 +935,7 @@ export default function KSLigaSite() {
                                       <div className="flex items-center gap-2 flex-1 min-w-0">
                                         <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${
                                           isHomeWinner
-                                            ? "border-2 border-blue-600 ring-2 ring-blue-400/30 shadow-md scale-105"
+                                            ? "border-2 border-[#007AFF] ring-2 ring-[#007AFF]/20 shadow-xs scale-105"
                                             : "border border-slate-200 shadow-2xs opacity-85"
                                         }`}>
                                           <img
@@ -933,21 +946,21 @@ export default function KSLigaSite() {
                                             decoding="async"
                                           />
                                         </div>
-                                        <span className={`text-xs sm:text-sm truncate transition-colors ${
+                                        <span className={`text-xs sm:text-sm truncate transition-colors flex items-center gap-1 ${
                                           isHomeWinner
-                                            ? "font-black text-blue-700 dark:text-blue-400 tracking-tight drop-shadow-2xs"
+                                            ? "font-black text-[#007AFF] tracking-tight"
                                             : isAwayWinner
                                             ? "font-semibold text-slate-500 opacity-80"
                                             : "font-extrabold text-slate-900"
                                         }`}>
-                                          {isHomeWinner && <span className="mr-0.5">👑</span>}
-                                          {match.home_team}
+                                          {isHomeWinner && <Crown className="h-3.5 w-3.5 text-[#007AFF] shrink-0" />}
+                                          <span className="truncate">{match.home_team}</span>
                                         </span>
                                       </div>
 
                                       {/* Highlighted Score Badge */}
                                       <div className="flex flex-col items-center shrink-0 px-1.5">
-                                        <span className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs sm:text-sm shadow-xs tracking-tight">
+                                        <span className="px-2.5 py-1 rounded-xl bg-[#007AFF] text-white font-black text-xs sm:text-sm shadow-xs tracking-tight">
                                           {formatMatchResult(match)}
                                         </span>
                                         {formatPenaltyResult(match) && (
@@ -959,19 +972,19 @@ export default function KSLigaSite() {
 
                                       {/* Away Team */}
                                       <div className="flex items-center justify-end gap-2 flex-1 min-w-0 text-right">
-                                        <span className={`text-xs sm:text-sm truncate transition-colors ${
+                                        <span className={`text-xs sm:text-sm truncate transition-colors flex items-center justify-end gap-1 ${
                                           isAwayWinner
-                                            ? "font-black text-blue-700 dark:text-blue-400 tracking-tight drop-shadow-2xs"
+                                            ? "font-black text-[#007AFF] tracking-tight"
                                             : isHomeWinner
                                             ? "font-semibold text-slate-500 opacity-80"
                                             : "font-extrabold text-slate-900"
                                         }`}>
-                                          {match.away_team}
-                                          {isAwayWinner && <span className="ml-0.5">👑</span>}
+                                          <span className="truncate">{match.away_team}</span>
+                                          {isAwayWinner && <Crown className="h-3.5 w-3.5 text-[#007AFF] shrink-0" />}
                                         </span>
                                         <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${
                                           isAwayWinner
-                                            ? "border-2 border-blue-600 ring-2 ring-blue-400/30 shadow-md scale-105"
+                                            ? "border-2 border-[#007AFF] ring-2 ring-[#007AFF]/20 shadow-xs scale-105"
                                             : "border border-slate-200 shadow-2xs opacity-85"
                                         }`}>
                                           <img
@@ -1010,7 +1023,7 @@ export default function KSLigaSite() {
                                         {/* Goals Section (Two Columns) */}
                                         <div className="space-y-1.5">
                                           <div className="font-bold text-slate-700 text-[10px] uppercase tracking-wider flex items-center gap-1">
-                                            <Target className="h-3.5 w-3.5 text-blue-600" />
+                                            <Target className="h-3.5 w-3.5 text-[#007AFF]" />
                                             <span>Автори голів ({matchGoalList.length})</span>
                                           </div>
 
@@ -1025,7 +1038,7 @@ export default function KSLigaSite() {
                                               ) : (
                                                 homeGoals.map((g) => (
                                                   <div key={g.id} className="text-[10px] font-semibold text-slate-800 flex items-center gap-1 truncate">
-                                                    <span className="text-[9px] text-blue-600 font-extrabold shrink-0">{g.minute ? `${g.minute}'` : "⚽"}</span>
+                                                    <span className="text-[9px] text-[#007AFF] font-extrabold shrink-0">{g.minute ? `${g.minute}'` : "'"}</span>
                                                     <span className="truncate">{g.player_name}</span>
                                                     {g.goal_type === "penalty" && <span className="text-[8px] text-amber-600 font-bold shrink-0">(пен)</span>}
                                                     {g.goal_type === "own_goal" && <span className="text-[8px] text-red-500 font-bold shrink-0">(авт)</span>}
@@ -1047,7 +1060,7 @@ export default function KSLigaSite() {
                                                     {g.goal_type === "penalty" && <span className="text-[8px] text-amber-600 font-bold shrink-0">(пен)</span>}
                                                     {g.goal_type === "own_goal" && <span className="text-[8px] text-red-500 font-bold shrink-0">(авт)</span>}
                                                     <span className="truncate">{g.player_name}</span>
-                                                    <span className="text-[9px] text-blue-600 font-extrabold shrink-0">{g.minute ? `${g.minute}'` : "⚽"}</span>
+                                                    <span className="text-[9px] text-[#007AFF] font-extrabold shrink-0">{g.minute ? `${g.minute}'` : "'"}</span>
                                                   </div>
                                                 ))
                                               )}
@@ -1183,20 +1196,17 @@ export default function KSLigaSite() {
                 {/* Lion of the Match Tab */}
                 <TabsContent value="lion" className="outline-none space-y-6">
                   {/* Hero Glass Banner for Lion of the Match */}
-                  <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-yellow-500/15 backdrop-blur-2xl border border-amber-400/30 p-4 sm:p-6 shadow-md">
-                    <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+                  <div className="relative overflow-hidden rounded-3xl bg-white/60 backdrop-blur-2xl border border-slate-200/80 p-4 sm:p-6 shadow-sm">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 p-0.5 shadow-lg shadow-amber-500/30 shrink-0 flex items-center justify-center">
-                          <div className="w-full h-full bg-slate-950/20 rounded-[14px] flex items-center justify-center text-xl">
-                            🦁
-                          </div>
+                        <div className="w-11 h-11 rounded-2xl bg-[#007AFF]/10 border border-[#007AFF]/20 text-[#007AFF] shrink-0 flex items-center justify-center">
+                          <Award className="h-5 w-5" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Лев Матчу</span>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-900 border border-amber-400/30">
-                              <Vote className="h-3 w-3 text-amber-600 animate-pulse" /> Голосування
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
+                              Голосування
                             </span>
                           </div>
                           <p className="text-xs text-slate-600 font-medium mt-0.5">
@@ -1217,7 +1227,7 @@ export default function KSLigaSite() {
                                 : "bg-white/80 backdrop-blur-md text-slate-700 border-slate-200/80 hover:bg-white"
                             }`}
                           >
-                            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                            <Sparkles className="h-3.5 w-3.5 text-[#007AFF]" />
                             <span>{showArchive ? "Показати активні" : "Архів голосувань"}</span>
                           </button>
                         </div>
@@ -1275,7 +1285,8 @@ export default function KSLigaSite() {
                                     : "bg-slate-100 text-slate-600 border-slate-200"
                                 }`}
                               >
-                                {isActive && isWithinTime ? "🟢 Голосування відкрите" : "🔒 Голосування закрите"}
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive && isWithinTime ? "bg-emerald-500" : "bg-slate-400"}`} />
+                                {isActive && isWithinTime ? "Голосування відкрите" : "Голосування закрите"}
                               </Badge>
                             </div>
 
@@ -1321,7 +1332,7 @@ export default function KSLigaSite() {
                               <div className="space-y-5">
                                 <div className="flex items-center justify-between">
                                   <div className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                                    <Vote className="h-4 w-4 text-blue-600" />
+                                    <Vote className="h-4 w-4 text-[#007AFF]" />
                                     <span>Оберіть вашого номінанта:</span>
                                   </div>
                                   <span className="text-[10px] font-bold text-slate-400">Торкніться для вибору</span>
@@ -1349,8 +1360,8 @@ export default function KSLigaSite() {
                                                 onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
                                                 className={`relative w-full text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
                                                   isSelected
-                                                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40"
-                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-blue-300 hover:bg-white shadow-2xs"
+                                                    ? "bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-[#007AFF]/20"
+                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-[#007AFF]/50 hover:bg-white shadow-2xs"
                                                 }`}
                                               >
                                                 <div className="flex items-center justify-between gap-3">
@@ -1358,7 +1369,7 @@ export default function KSLigaSite() {
                                                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
                                                       isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
                                                     }`}>
-                                                      🎽
+                                                      <User className="h-4 w-4" />
                                                     </div>
                                                     <div className="min-w-0">
                                                       <div className="font-extrabold text-xs sm:text-sm truncate">{candidate.player_name}</div>
@@ -1369,9 +1380,9 @@ export default function KSLigaSite() {
                                                   </div>
 
                                                   <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-transform ${
-                                                    isSelected ? "bg-white border-white text-blue-600 scale-110 shadow-xs" : "border-slate-300 bg-white"
+                                                    isSelected ? "bg-white border-white text-[#007AFF] scale-110 shadow-xs" : "border-slate-300 bg-white"
                                                   }`}>
-                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-blue-600 text-white" />}
+                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-[#007AFF] text-white" />}
                                                   </div>
                                                 </div>
                                               </button>
@@ -1402,8 +1413,8 @@ export default function KSLigaSite() {
                                                 onClick={() => setSelectedCandidate((prev) => ({ ...prev, [voting.match_id]: candidate.id }))}
                                                 className={`relative w-full text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
                                                   isSelected
-                                                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-500/25 ring-2 ring-blue-400/40"
-                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-blue-300 hover:bg-white shadow-2xs"
+                                                    ? "bg-[#007AFF] text-white border-[#007AFF] shadow-md shadow-[#007AFF]/20"
+                                                    : "bg-white/80 backdrop-blur-md border-slate-200/90 text-slate-900 hover:border-[#007AFF]/50 hover:bg-white shadow-2xs"
                                                 }`}
                                               >
                                                 <div className="flex items-center justify-between gap-3">
@@ -1411,7 +1422,7 @@ export default function KSLigaSite() {
                                                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
                                                       isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
                                                     }`}>
-                                                      🎽
+                                                      <User className="h-4 w-4" />
                                                     </div>
                                                     <div className="min-w-0">
                                                       <div className="font-extrabold text-xs sm:text-sm truncate">{candidate.player_name}</div>
@@ -1422,9 +1433,9 @@ export default function KSLigaSite() {
                                                   </div>
 
                                                   <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-transform ${
-                                                    isSelected ? "bg-white border-white text-blue-600 scale-110 shadow-xs" : "border-slate-300 bg-white"
+                                                    isSelected ? "bg-white border-white text-[#007AFF] scale-110 shadow-xs" : "border-slate-300 bg-white"
                                                   }`}>
-                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-blue-600 text-white" />}
+                                                    {isSelected && <CheckCircle2 className="h-4 w-4 fill-[#007AFF] text-white" />}
                                                   </div>
                                                 </div>
                                               </button>
@@ -1442,12 +1453,12 @@ export default function KSLigaSite() {
                                   disabled={!selectedCandidate[voting.match_id] || loading}
                                   className={`w-full h-12 rounded-2xl text-xs sm:text-sm font-extrabold shadow-md transition-all active:scale-[0.98] ${
                                     selectedCandidate[voting.match_id]
-                                      ? "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-amber-500/30 hover:opacity-95 cursor-pointer"
+                                      ? "bg-[#007AFF] hover:bg-[#0062cc] text-white shadow-md shadow-[#007AFF]/25 cursor-pointer"
                                       : "bg-slate-200 text-slate-400 border border-slate-300/50 cursor-not-allowed opacity-70"
                                   }`}
                                 >
                                   <Vote className="h-4 w-4 mr-2" />
-                                  {selectedCandidate[voting.match_id] ? "ПІДТВЕРДИТИ ГОЛОС 🗳️" : "ОБЕРІТЬ ГРАВЦЯ ДЛЯ ГОЛОСУВАННЯ"}
+                                  {selectedCandidate[voting.match_id] ? "ПІДТВЕРДИТИ ГОЛОС" : "ОБЕРІТЬ ГРАВЦЯ ДЛЯ ГОЛОСУВАННЯ"}
                                 </Button>
                               </div>
                             ) : (
@@ -1462,22 +1473,22 @@ export default function KSLigaSite() {
 
                                 {matchCandidates.length > 0 && (
                                   <div className="space-y-3">
-                                    {/* 1st Place - Golden Spotlight Winner */}
+                                    {/* 1st Place - Winner */}
                                     {matchCandidates.slice(0, 1).map((candidate) => {
                                       const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
                                       return (
                                         <div
                                           key={candidate.id}
-                                          className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-amber-600/20 border border-amber-400/40 backdrop-blur-xl shadow-md space-y-3"
+                                          className="relative overflow-hidden p-4 rounded-2xl bg-white/80 backdrop-blur-xl border border-slate-200/90 shadow-sm space-y-3"
                                         >
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3 min-w-0">
-                                              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-xl shadow-sm shrink-0">
-                                                🥇
+                                              <div className="w-8 h-8 rounded-xl bg-[#007AFF] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                                                1
                                               </div>
                                               <div className="min-w-0">
-                                                <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                                                  <Crown className="h-3 w-3 text-amber-600" /> ЛЕВ МАТЧУ — 1 МІСЦЕ
+                                                <div className="text-[10px] font-black uppercase tracking-wider text-[#007AFF] flex items-center gap-1">
+                                                  <Award className="h-3 w-3 text-[#007AFF]" /> ЛЕВ МАТЧУ — 1 МІСЦЕ
                                                 </div>
                                                 <div className="text-sm font-black text-slate-900 truncate">{candidate.player_name}</div>
                                                 <div className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5 mt-0.5 truncate">
@@ -1487,15 +1498,15 @@ export default function KSLigaSite() {
                                               </div>
                                             </div>
                                             <div className="text-right shrink-0 ml-2">
-                                              <div className="text-base font-black text-amber-900">{percentage}%</div>
-                                              <div className="text-[10px] font-bold text-amber-700/80">{candidate.votes} голосів</div>
+                                              <div className="text-base font-black text-slate-900">{percentage}%</div>
+                                              <div className="text-[10px] font-bold text-slate-500">{candidate.votes} голосів</div>
                                             </div>
                                           </div>
 
-                                          {/* Glowing Amber Progress Bar */}
-                                          <div className="w-full bg-white/70 backdrop-blur-md rounded-full h-2.5 overflow-hidden p-0.5 border border-amber-300/40">
+                                          {/* Blue Progress Bar */}
+                                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden p-0.5 border border-slate-200/60">
                                             <div
-                                              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-400 shadow-xs transition-all duration-700"
+                                              className="h-full rounded-full bg-[#007AFF] transition-all duration-700"
                                               style={{ width: `${percentage}%` }}
                                             />
                                           </div>
@@ -1506,18 +1517,14 @@ export default function KSLigaSite() {
                                     {/* 2nd & 3rd Place */}
                                     {matchCandidates.slice(1, 3).map((candidate, index) => {
                                       const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
-                                      const medals = ["🥈", "🥉"]
-                                      const borderStyles = ["border-slate-300/60", "border-orange-300/60"]
-                                      const barGradients = [
-                                        "bg-gradient-to-r from-slate-400 to-slate-500",
-                                        "bg-gradient-to-r from-orange-400 to-amber-600"
-                                      ]
 
                                       return (
-                                        <div key={candidate.id} className={`p-3.5 rounded-2xl bg-white/70 backdrop-blur-md border ${borderStyles[index]} shadow-2xs space-y-2`}>
+                                        <div key={candidate.id} className="p-3.5 rounded-2xl bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-2xs space-y-2">
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3 min-w-0">
-                                              <span className="text-lg shrink-0">{medals[index]}</span>
+                                              <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0">
+                                                {index + 2}
+                                              </div>
                                               <div className="min-w-0">
                                                 <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{candidate.player_name}</div>
                                                 <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
@@ -1534,7 +1541,7 @@ export default function KSLigaSite() {
 
                                           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                                             <div
-                                              className={`h-full rounded-full ${barGradients[index]} transition-all duration-500`}
+                                              className="h-full rounded-full bg-slate-400 transition-all duration-500"
                                               style={{ width: `${percentage}%` }}
                                             />
                                           </div>
