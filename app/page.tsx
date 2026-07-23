@@ -438,7 +438,7 @@ export default function KSLigaSite() {
           {/* Logo & Title */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div className="w-9 h-9 sm:w-11 sm:h-11 liquid-glass-card !rounded-[12px] sm:!rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
-              <img src="/images/ks-logo.png" alt="KS Logo" className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
+              <img src="/images/ks-logo.png" alt="KS Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-tight">
