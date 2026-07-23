@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'KS LIGA',
   },
   icons: {
@@ -48,7 +48,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="KS LIGA" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/ks-logo.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/images/ks-logo.png" />

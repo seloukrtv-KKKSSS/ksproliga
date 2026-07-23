@@ -510,7 +510,7 @@ export default function KSLigaSite() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-16 sm:pt-20 md:py-8 md:pt-24 pb-24 md:pb-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:py-8 md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))] pb-24 md:pb-8 space-y-6">
         {/* No championships state */}
         {championships.length === 0 && (
           <div className="max-w-md mx-auto text-center py-12 px-4 space-y-6">
