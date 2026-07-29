@@ -127,6 +127,9 @@ export interface Product {
   instagram_url?: string | null
   is_available: boolean
   sort_order?: number
+  is_official?: boolean
+  is_approved?: boolean
+  author_name?: string
   created_at: string
 }
 

@@ -93,6 +93,7 @@ export default function KSLigaSite() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0)
   const [imageZoomed, setImageZoomed] = useState(false)
+  const [shopSubTab, setShopSubTab] = useState<"official" | "announcements">("official")
 
   // Round Spoiler states
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
@@ -1677,35 +1678,84 @@ export default function KSLigaSite() {
                     <div className="relative z-10 space-y-2 max-w-2xl">
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold">
                         <ShoppingBag className="h-3.5 w-3.5" />
-                        Офіційний фан-шоп KS LIGA
+                        Офіційний фан-шоп та Оголошення KS LIGA
                       </div>
                       <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                        Екіпірування та атрибутика
+                        {shopSubTab === "official" ? "Офіційне екіпірування та атрибутика" : "Оголошення від організаторів"}
                       </h2>
                       <p className="text-xs sm:text-sm text-blue-100/80">
-                        Обирайте фірмові м'ячі, ігрову форму, худі та аксесуари. Оформлення замовлень здійснюється через офіційний Instagram сторінку <span className="font-bold text-white">@ks_fan.shop</span>.
+                        {shopSubTab === "official"
+                          ? "Обирайте фірмові м'ячі, ігрову форму, худі та аксесуари. Оформлення замовлень здійснюється через офіційний Instagram @ks_fan.shop."
+                          : "Обирайте оголошення про продаж та обмін екіпірування від організаторів та команд."}
                       </p>
                     </div>
                   </div>
 
-                  {/* Products Grid */}
-                  {products.length === 0 ? (
-                    <Card className="liquid-glass-card overflow-hidden">
-                      <CardContent className="p-12 text-center">
-                        <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                        <div className="text-base font-semibold text-slate-900">Наразі немає добавлених товарів</div>
-                        <div className="text-xs text-slate-500 mt-1">Завітайте пізніше або зверніться до адміністратора.</div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-                      {products.map((product) => {
-                        const hasDiscount = product.old_price && product.old_price > product.price
-                        const discountPercent = hasDiscount
-                          ? Math.round(((product.old_price! - product.price) / product.old_price!) * 100)
-                          : 0
+                  {/* Sub-tabs: Official vs Announcements */}
+                  <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setShopSubTab("official")}
+                      className={`flex-1 py-2 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+                        shopSubTab === "official"
+                          ? "bg-white text-blue-600 shadow-sm border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Офіційний магазин
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShopSubTab("announcements")}
+                      className={`flex-1 py-2 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+                        shopSubTab === "announcements"
+                          ? "bg-white text-purple-600 shadow-sm border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Оголошення
+                    </button>
+                  </div>
 
-                        return (
+                  {/* Products Grid */}
+                  {(() => {
+                    const displayedProducts = products.filter((p) => {
+                      if (shopSubTab === "official") {
+                        return p.is_official !== false && p.is_approved !== false
+                      } else {
+                        return p.is_official === false && p.is_approved === true
+                      }
+                    })
+
+                    if (displayedProducts.length === 0) {
+                      return (
+                        <Card className="liquid-glass-card overflow-hidden">
+                          <CardContent className="p-12 text-center">
+                            <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                            <div className="text-base font-semibold text-slate-900">
+                              {shopSubTab === "official"
+                                ? "Наразі немає добавлених товарів в офіційному магазині"
+                                : "Наразі немає опублікованих оголошень"}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {shopSubTab === "official"
+                                ? "Завітайте пізніше або зверніться до адміністратора."
+                                : "Організатори можуть додати нові оголошення через панель керування."}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    }
+
+                    return (
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                        {displayedProducts.map((product) => {
+                          const hasDiscount = product.old_price && product.old_price > product.price
+                          const discountPercent = hasDiscount
+                            ? Math.round(((product.old_price! - product.price) / product.old_price!) * 100)
+                            : 0
+
+                          return (
                           <div
                             key={product.id}
                             className="group bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300 flex flex-col overflow-hidden"
@@ -1806,7 +1856,8 @@ export default function KSLigaSite() {
                         )
                       })}
                     </div>
-                  )}
+                  )
+                })()}
 
                   {/* Product Detail Modal — Integrated Liquid Glass Design */}
                   {selectedProduct && (
@@ -1922,6 +1973,11 @@ export default function KSLigaSite() {
                           {/* Badges & Title */}
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                                selectedProduct.is_official !== false ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-purple-100 text-purple-800 border border-purple-200'
+                              }`}>
+                                {selectedProduct.is_official !== false ? 'Офіційний KS Shop' : `Оголошення (${selectedProduct.author_name || 'Організатор'})`}
+                              </span>
                               {selectedProduct.badge && (
                                 <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-2xs border border-amber-300 uppercase tracking-wider">
                                   {selectedProduct.badge}

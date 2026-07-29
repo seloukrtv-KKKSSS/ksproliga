@@ -147,8 +147,11 @@ export function AdminPanel({
     badge: "ХІТ",
     instagram_url: "https://www.instagram.com/ks_fan.shop/",
     is_available: true,
+    is_official: true,
+    author_name: "",
   })
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [adminShopFilter, setAdminShopFilter] = useState<"all" | "official" | "pending" | "approved_announcements">("all")
 
   // Organizer form state
   const [organizerForm, setOrganizerForm] = useState<{
@@ -279,15 +282,15 @@ export function AdminPanel({
 
       const [organizersData, productsData, analyticsData, logsData] = await Promise.all([
         isMainAdmin ? getOrganizers() : Promise.resolve([]),
-        isMainAdmin ? getProducts() : Promise.resolve([]),
+        getProducts(),
         getUserAnalytics(analyticsPeriod),
         getOrganizerLogs(),
       ])
 
       if (isMainAdmin) {
         setOrganizers(organizersData)
-        setProducts(productsData)
       }
+      setProducts(productsData)
       setUserAnalytics(analyticsData)
       setOrganizerLogs(logsData)
 
@@ -416,6 +419,12 @@ export function AdminPanel({
       .map((url) => url.trim())
       .filter((url) => url.length > 0)
 
+    const isOfficial = isMainAdmin ? productForm.is_official : false
+    const isApproved = isMainAdmin ? true : false
+    const author = isMainAdmin
+      ? (productForm.author_name.trim() || (isOfficial ? "KS LIGA" : "Адміністратор"))
+      : (organizerName || "Організатор")
+
     const payload = {
       title: productForm.title.trim(),
       description: productForm.description.trim(),
@@ -425,15 +434,25 @@ export function AdminPanel({
       badge: productForm.badge.trim() || null,
       instagram_url: productForm.instagram_url.trim() || "https://www.instagram.com/ks_fan.shop/",
       is_available: productForm.is_available,
+      is_official: isOfficial,
+      is_approved: isApproved,
+      author_name: author,
     }
 
     setLoading(true)
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.id, payload)
+        await logOrganizerAction(organizerName || "Адміністратор", "edit_product", `Оновлено позицію/оголошення: ${productForm.title.trim()}`)
         setEditingProduct(null)
       } else {
         await addProduct(payload)
+        if (isMainAdmin) {
+          await logOrganizerAction(organizerName || "Адміністратор", "add_product", `Додано нову позицію: ${productForm.title.trim()}`)
+        } else {
+          await logOrganizerAction(organizerName || "Організатор", "add_announcement", `Подано нове оголошення на затвердження: ${productForm.title.trim()}`)
+          alert("Дякуємо! Ваше оголошення успішно відправлено на перевірку головному адміністратору. Воно з'явиться на сайті одразу після затвердження.")
+        }
       }
       setProductForm({
         title: "",
@@ -444,6 +463,8 @@ export function AdminPanel({
         badge: "ХІТ",
         instagram_url: "https://www.instagram.com/ks_fan.shop/",
         is_available: true,
+        is_official: true,
+        author_name: "",
       })
       await loadData()
       onDataChange?.()
@@ -452,6 +473,21 @@ export function AdminPanel({
       alert(`Помилка: ${getErrorMessage(error)}`)
     }
     setLoading(false)
+  }
+
+  const handleApproveProduct = async (product: Product) => {
+    try {
+      setLoading(true)
+      await updateProduct(product.id, { is_approved: true })
+      await logOrganizerAction(organizerName || "Адміністратор", "approve_announcement", `Затверджено оголошення: ${product.title}`)
+      await loadData()
+      onDataChange?.()
+    } catch (error) {
+      console.error("Error approving announcement:", error)
+      alert("Помилка при затвердженні: " + getErrorMessage(error))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDeleteProduct = async (id: number) => {
@@ -1074,17 +1110,19 @@ export function AdminPanel({
             <span>Логи дій</span>
           </TabsTrigger>
           {isMainAdmin && (
-            <>
-              <TabsTrigger value="organizers" className="ios-segment">
-                <UserCheck className="h-3.5 w-3.5 mr-1" />
-                <span>Організатори</span>
-              </TabsTrigger>
-              <TabsTrigger value="shop" className="ios-segment">
-                <ShoppingBag className="h-3.5 w-3.5 mr-1" />
-                <span>KS Shop</span>
-              </TabsTrigger>
-            </>
+            <TabsTrigger value="organizers" className="ios-segment">
+              <UserCheck className="h-3.5 w-3.5 mr-1" />
+              <span>Організатори</span>
+            </TabsTrigger>
           )}
+
+          <TabsTrigger value="shop" className="ios-segment relative">
+            <ShoppingBag className="h-3.5 w-3.5 mr-1 text-blue-600" />
+            <span>{isMainAdmin ? "Магазин та Оголошення" : "Оголошення"}</span>
+            {isMainAdmin && products.some((p) => p.is_approved === false) && (
+              <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1 animate-pulse" />
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="championships" className="space-y-4">
@@ -3178,254 +3216,407 @@ export function AdminPanel({
           </TabsContent>
         )}
 
-        {isMainAdmin && (
-          <TabsContent value="shop" className="space-y-4">
-            <form onSubmit={handleProductSubmit} className="bg-white p-6 border border-slate-200 rounded-xl space-y-4 shadow-xs">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-[var(--lg-blue)]" />
-                {editingProduct ? "Редагування товару KS Shop" : "Додавання нового товару в KS Shop"}
-              </h3>
-              
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="product-title" className="text-slate-700 font-semibold text-xs">
-                    Назва товару
-                  </Label>
-                  <Input
-                    id="product-title"
-                    value={productForm.title}
-                    onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
-                    placeholder="Наприклад: Офіційний М'яч KS LIGA Pro 2025"
-                    className="glass-input text-sm h-10 px-4"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="product-description" className="text-slate-700 font-semibold text-xs">
-                    Опис товару та характеристики
-                  </Label>
-                  <textarea
-                    id="product-description"
-                    rows={3}
-                    value={productForm.description}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    placeholder="Детальний опис товару, матеріали, розміри, особливості..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-price" className="text-slate-700 font-semibold text-xs">
-                    Ціна (грн)
-                  </Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    step="0.01"
-                    value={productForm.price}
-                    onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                    placeholder="1490"
-                    className="glass-input text-sm h-10 px-4"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-old-price" className="text-slate-700 font-semibold text-xs">
-                    Стара ціна (грн, необов'язково для знижки)
-                  </Label>
-                  <Input
-                    id="product-old-price"
-                    type="number"
-                    step="0.01"
-                    value={productForm.old_price}
-                    onChange={(e) => setProductForm({ ...productForm, old_price: e.target.value })}
-                    placeholder="1800"
-                    className="glass-input text-sm h-10 px-4"
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="product-images" className="text-slate-700 font-semibold text-xs">
-                    Посилання на фотографії (URL через кому або з нового рядка)
-                  </Label>
-                  <textarea
-                    id="product-images"
-                    rows={2}
-                    value={productForm.images}
-                    onChange={(e) => setProductForm({ ...productForm, images: e.target.value })}
-                    placeholder="https://images.unsplash.com/photo-1, https://images.unsplash.com/photo-2"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-badge" className="text-slate-700 font-semibold text-xs">
-                    Бейдж (напр: ХІТ, НОВИНКА, ЗНИЖКА, ТОП)
-                  </Label>
-                  <Input
-                    id="product-badge"
-                    value={productForm.badge}
-                    onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })}
-                    placeholder="ХІТ"
-                    className="glass-input text-sm h-10 px-4"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-instagram" className="text-slate-700 font-semibold text-xs">
-                    Посилання для замовлення в Instagram
-                  </Label>
-                  <Input
-                    id="product-instagram"
-                    value={productForm.instagram_url}
-                    onChange={(e) => setProductForm({ ...productForm, instagram_url: e.target.value })}
-                    placeholder="https://www.instagram.com/ks_fan.shop/"
-                    className="glass-input text-sm h-10 px-4 font-mono text-xs"
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2 flex items-center gap-3 pt-1">
-                  <input
-                    type="checkbox"
-                    id="product-available"
-                    checked={productForm.is_available}
-                    onChange={(e) => setProductForm({ ...productForm, is_available: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <Label htmlFor="product-available" className="text-slate-800 font-semibold text-xs cursor-pointer">
-                    Товар у наявності (показувати зелений бейдж "В наявності")
-                  </Label>
-                </div>
+        <TabsContent value="shop" className="space-y-4">
+          {!isMainAdmin && (
+            <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-blue-900 leading-relaxed">
+                <span className="font-extrabold block text-sm mb-0.5">Подача оголошення на сайт</span>
+                Заповніть форму нижче, щоб подати оголошення. Після відправки ваше оголошення пройде перевірку головним адміністратором і буде публічно відображено у розділі <span className="font-bold">«Оголошення»</span> на сайті.
               </div>
+            </div>
+          )}
 
-              <div className="flex gap-3 pt-2">
-                <Button type="submit" disabled={loading} className="ios-btn-primary text-xs font-bold h-10 px-6">
-                  {editingProduct ? "Зберегти зміни" : "Додати товар у магазин"}
-                </Button>
-                {editingProduct && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingProduct(null)
-                      setProductForm({
-                        title: "",
-                        description: "",
-                        price: "",
-                        old_price: "",
-                        images: "",
-                        badge: "ХІТ",
-                        instagram_url: "https://www.instagram.com/ks_fan.shop/",
-                        is_available: true,
-                      })
-                    }}
-                    className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
-                  >
-                    Скасувати
-                  </Button>
-                )}
-              </div>
-            </form>
-
-            {/* List of products */}
-            <div className="space-y-3">
-              {products.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
-                  Немає доданих товарів. Додайте перший товар вище.
-                </div>
-              ) : (
-                products.map((prod) => (
-                  <div
-                    key={prod.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all"
-                  >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-16 h-16 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden">
-                        <img
-                          loading="lazy"
-                          src={prod.images && prod.images.length > 0 ? prod.images[0] : "/placeholder.svg"}
-                          alt={prod.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-900 text-sm truncate">{prod.title}</span>
-                          {prod.badge && (
-                            <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
-                              {prod.badge}
-                            </span>
-                          )}
-                          <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                              prod.is_available
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-red-50 text-red-700 border-red-200"
-                            }`}
-                          >
-                            {prod.is_available ? "В наявності" : "Немає в наявності"}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-600 font-semibold flex items-center gap-2">
-                          <span className="text-blue-600 font-extrabold text-sm">{prod.price} грн</span>
-                          {prod.old_price && (
-                            <span className="line-through text-slate-400 text-xs">{prod.old_price} грн</span>
-                          )}
-                          <span className="text-slate-300">|</span>
-                          <span className="text-slate-500 text-[11px] truncate max-w-[200px]">{prod.description}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleProductAvailability(prod)}
-                        className={`text-xs h-9 px-3 ${
-                          prod.is_available ? "text-amber-700 border-amber-200 bg-amber-50" : "text-emerald-700 border-emerald-200 bg-emerald-50"
-                        }`}
-                      >
-                        {prod.is_available ? "Позначити як немає" : "Позначити в наявності"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingProduct(prod)
-                          setProductForm({
-                            title: prod.title,
-                            description: prod.description,
-                            price: prod.price.toString(),
-                            old_price: prod.old_price ? prod.old_price.toString() : "",
-                            images: prod.images ? prod.images.join("\n") : "",
-                            badge: prod.badge || "",
-                            instagram_url: prod.instagram_url || "https://www.instagram.com/ks_fan.shop/",
-                            is_available: prod.is_available,
-                          })
-                        }}
-                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-9 px-3"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteProduct(prod.id)}
-                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg h-9 px-3"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+          <form onSubmit={handleProductSubmit} className="bg-white p-4 sm:p-6 border border-slate-200 rounded-xl space-y-4 shadow-xs">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-[var(--lg-blue)]" />
+              {isMainAdmin
+                ? editingProduct
+                  ? "Редагування позиції в магазині / оголошеннях"
+                  : "Додавання нового товару або оголошення"
+                : "Подати нове оголошення"}
+            </h3>
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              {isMainAdmin && (
+                <div className="space-y-2 sm:col-span-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                  <Label className="text-slate-800 font-extrabold text-xs">
+                    Тип публікації
+                  </Label>
+                  <div className="flex items-center gap-4 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                      <input
+                        type="radio"
+                        name="product_type"
+                        checked={productForm.is_official === true}
+                        onChange={() => setProductForm({ ...productForm, is_official: true })}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Офіційний товар KS Shop (Тільки Адмін)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                      <input
+                        type="radio"
+                        name="product_type"
+                        checked={productForm.is_official === false}
+                        onChange={() => setProductForm({ ...productForm, is_official: false })}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Оголошення від користувача / організатора</span>
+                    </label>
                   </div>
-                ))
+                </div>
+              )}
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="product-title" className="text-slate-700 font-semibold text-xs">
+                  {isMainAdmin ? "Назва товару / оголошення" : "Заголовок оголошення"}
+                </Label>
+                <Input
+                  id="product-title"
+                  value={productForm.title}
+                  onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
+                  placeholder={isMainAdmin ? "Наприклад: Офіційний М'яч KS LIGA Pro 2025" : "Наприклад: Продам комплекти футбольної форми / буци"}
+                  className="glass-input text-sm h-10 px-4"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="product-description" className="text-slate-700 font-semibold text-xs">
+                  Опис та деталі
+                </Label>
+                <textarea
+                  id="product-description"
+                  rows={3}
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  placeholder="Детальний опис, стан, розміри, характеристики..."
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product-price" className="text-slate-700 font-semibold text-xs">
+                  Ціна (грн)
+                </Label>
+                <Input
+                  id="product-price"
+                  type="number"
+                  step="0.01"
+                  value={productForm.price}
+                  onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                  placeholder="1490"
+                  className="glass-input text-sm h-10 px-4"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product-old-price" className="text-slate-700 font-semibold text-xs">
+                  Стара ціна (грн, необов'язково)
+                </Label>
+                <Input
+                  id="product-old-price"
+                  type="number"
+                  step="0.01"
+                  value={productForm.old_price}
+                  onChange={(e) => setProductForm({ ...productForm, old_price: e.target.value })}
+                  placeholder="1800"
+                  className="glass-input text-sm h-10 px-4"
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="product-images" className="text-slate-700 font-semibold text-xs">
+                  Посилання на фотографії (URL через кому або з нового рядка)
+                </Label>
+                <textarea
+                  id="product-images"
+                  rows={2}
+                  value={productForm.images}
+                  onChange={(e) => setProductForm({ ...productForm, images: e.target.value })}
+                  placeholder="https://images.unsplash.com/photo-1, https://images.unsplash.com/photo-2"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product-badge" className="text-slate-700 font-semibold text-xs">
+                  Бейдж (напр: ХІТ, НОВИНКА, ЗНИЖКА, ТОП)
+                </Label>
+                <Input
+                  id="product-badge"
+                  value={productForm.badge}
+                  onChange={(e) => setProductForm({ ...productForm, badge: e.target.value })}
+                  placeholder="ХІТ"
+                  className="glass-input text-sm h-10 px-4"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product-instagram" className="text-slate-700 font-semibold text-xs">
+                  Посилання для контакту / Instagram / телефон
+                </Label>
+                <Input
+                  id="product-instagram"
+                  value={productForm.instagram_url}
+                  onChange={(e) => setProductForm({ ...productForm, instagram_url: e.target.value })}
+                  placeholder="https://www.instagram.com/ks_fan.shop/"
+                  className="glass-input text-sm h-10 px-4 font-mono text-xs"
+                />
+              </div>
+
+              {isMainAdmin && (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="product-author" className="text-slate-700 font-semibold text-xs">
+                    Автор / Джерело (напр: KS LIGA, Організатор)
+                  </Label>
+                  <Input
+                    id="product-author"
+                    value={productForm.author_name}
+                    onChange={(e) => setProductForm({ ...productForm, author_name: e.target.value })}
+                    placeholder="KS LIGA"
+                    className="glass-input text-sm h-10 px-4"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2 sm:col-span-2 flex items-center gap-3 pt-1">
+                <input
+                  type="checkbox"
+                  id="product-available"
+                  checked={productForm.is_available}
+                  onChange={(e) => setProductForm({ ...productForm, is_available: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <Label htmlFor="product-available" className="text-slate-800 font-semibold text-xs cursor-pointer">
+                  Товар у наявності (показувати зелений бейдж "В наявності")
+                </Label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={loading} className="ios-btn-primary text-xs font-bold h-10 px-6">
+                {editingProduct
+                  ? "Зберегти зміни"
+                  : isMainAdmin
+                  ? "Додати позицію"
+                  : "Надіслати оголошення на перевірку"}
+              </Button>
+              {editingProduct && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingProduct(null)
+                    setProductForm({
+                      title: "",
+                      description: "",
+                      price: "",
+                      old_price: "",
+                      images: "",
+                      badge: "ХІТ",
+                      instagram_url: "https://www.instagram.com/ks_fan.shop/",
+                      is_available: true,
+                      is_official: true,
+                      author_name: "",
+                    })
+                  }}
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
+                >
+                  Скасувати
+                </Button>
               )}
             </div>
-          </TabsContent>
-        )}
+          </form>
+
+          {/* Admin Filter Bar */}
+          {isMainAdmin && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-2 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setAdminShopFilter("all")}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  adminShopFilter === "all" ? "bg-slate-900 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Всі ({products.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminShopFilter("pending")}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  adminShopFilter === "pending" ? "bg-amber-600 text-white shadow-xs" : "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100"
+                }`}
+              >
+                <span>На затвердження</span>
+                {products.filter((p) => p.is_approved === false).length > 0 && (
+                  <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                    {products.filter((p) => p.is_approved === false).length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminShopFilter("official")}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  adminShopFilter === "official" ? "bg-blue-600 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Офіційний магазин ({products.filter((p) => p.is_official !== false).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminShopFilter("approved_announcements")}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  adminShopFilter === "approved_announcements" ? "bg-purple-600 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Затверджені оголошення ({products.filter((p) => p.is_official === false && p.is_approved === true).length})
+              </button>
+            </div>
+          )}
+
+          {/* List of products & announcements */}
+          <div className="space-y-3">
+            {(() => {
+              const filteredList = products.filter((prod) => {
+                if (!isMainAdmin) {
+                  // Organizers see items they submitted or all announcements
+                  return true
+                }
+                if (adminShopFilter === "official") return prod.is_official !== false
+                if (adminShopFilter === "pending") return prod.is_approved === false
+                if (adminShopFilter === "approved_announcements") return prod.is_official === false && prod.is_approved === true
+                return true
+              })
+
+              if (filteredList.length === 0) {
+                return (
+                  <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl text-xs font-medium">
+                    Немає позицій у цьому розділі.
+                  </div>
+                )
+              }
+
+              return filteredList.map((prod) => (
+                <div
+                  key={prod.id}
+                  className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border rounded-xl shadow-xs transition-all ${
+                    prod.is_approved === false ? "border-amber-300 bg-amber-50/30" : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-16 h-16 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden relative">
+                      <img
+                        loading="lazy"
+                        src={prod.images && prod.images.length > 0 ? prod.images[0] : "/placeholder.svg"}
+                        alt={prod.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900 text-sm truncate">{prod.title}</span>
+
+                        {/* Official vs Announcement Badge */}
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                          prod.is_official !== false
+                            ? "bg-blue-100 text-blue-800 border-blue-200"
+                            : "bg-purple-100 text-purple-800 border-purple-200"
+                        }`}>
+                          {prod.is_official !== false ? "Офіційний KS Shop" : "Оголошення"}
+                        </span>
+
+                        {/* Approval Status Badge */}
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                          prod.is_approved === false
+                            ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse"
+                            : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        }`}>
+                          {prod.is_approved === false ? "На затвердженні" : "Опубліковано"}
+                        </span>
+
+                        {prod.badge && (
+                          <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                            {prod.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-slate-600 font-semibold flex items-center gap-2 flex-wrap">
+                        <span className="text-blue-600 font-extrabold text-sm">{prod.price} грн</span>
+                        {prod.old_price && (
+                          <span className="line-through text-slate-400 text-xs">{prod.old_price} грн</span>
+                        )}
+                        <span className="text-slate-300">|</span>
+                        <span className="text-slate-500 text-[11px]">Додав: <strong className="text-slate-800">{prod.author_name || "Організатор"}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end flex-wrap">
+                    {/* Approve Button for Admin */}
+                    {isMainAdmin && prod.is_approved === false && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleApproveProduct(prod)}
+                        disabled={loading}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-9 px-3.5 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Check className="h-4 w-4" />
+                        <span>Схвалити</span>
+                      </Button>
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleProductAvailability(prod)}
+                      className={`text-xs h-9 px-3 ${
+                        prod.is_available ? "text-amber-700 border-amber-200 bg-amber-50" : "text-emerald-700 border-emerald-200 bg-emerald-50"
+                      }`}
+                    >
+                      {prod.is_available ? "Немає в наявності" : "В наявності"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingProduct(prod)
+                        setProductForm({
+                          title: prod.title,
+                          description: prod.description,
+                          price: prod.price.toString(),
+                          old_price: prod.old_price ? prod.old_price.toString() : "",
+                          images: prod.images ? prod.images.join("\n") : "",
+                          badge: prod.badge || "",
+                          instagram_url: prod.instagram_url || "https://www.instagram.com/ks_fan.shop/",
+                          is_available: prod.is_available,
+                          is_official: prod.is_official !== false,
+                          author_name: prod.author_name || "",
+                        })
+                      }}
+                      className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-9 px-3"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteProduct(prod.id)}
+                      className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg h-9 px-3"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            })()}
+          </div>
+        </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">

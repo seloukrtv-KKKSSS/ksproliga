@@ -357,6 +357,9 @@ const mockProducts: Product[] = [
     badge: 'ХІТ',
     instagram_url: 'https://www.instagram.com/ks_fan.shop/',
     is_available: true,
+    is_official: true,
+    is_approved: true,
+    author_name: 'KS LIGA',
     sort_order: 1,
     created_at: new Date().toISOString(),
   },
@@ -372,6 +375,9 @@ const mockProducts: Product[] = [
     badge: 'НОВИНКА',
     instagram_url: 'https://www.instagram.com/ks_fan.shop/',
     is_available: true,
+    is_official: true,
+    is_approved: true,
+    author_name: 'KS LIGA',
     sort_order: 2,
     created_at: new Date().toISOString(),
   },
@@ -387,6 +393,9 @@ const mockProducts: Product[] = [
     badge: 'ТОП',
     instagram_url: 'https://www.instagram.com/ks_fan.shop/',
     is_available: true,
+    is_official: true,
+    is_approved: true,
+    author_name: 'KS LIGA',
     sort_order: 3,
     created_at: new Date().toISOString(),
   },
@@ -459,6 +468,10 @@ export async function deleteProduct(id: number): Promise<void> {
 
   const { error } = await supabase.from("products").delete().eq("id", id)
   if (error) throw error
+}
+
+export async function approveProduct(id: number): Promise<Product> {
+  return updateProduct(id, { is_approved: true })
 }
 
 // Teams
