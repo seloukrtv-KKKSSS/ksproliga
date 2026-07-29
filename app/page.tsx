@@ -32,6 +32,10 @@ import {
   Sparkles,
   Award,
   Flame,
+  Search,
+  Filter,
+  ShieldCheck,
+  Truck,
 } from "lucide-react"
 import {
   getTeams,
@@ -94,6 +98,8 @@ export default function KSLigaSite() {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0)
   const [imageZoomed, setImageZoomed] = useState(false)
   const [shopSubTab, setShopSubTab] = useState<"official" | "announcements">("official")
+  const [shopSearchQuery, setShopSearchQuery] = useState("")
+  const [shopAvailabilityFilter, setShopAvailabilityFilter] = useState<"all" | "available" | "discount">("all")
 
   // Lock body scroll when product detail view is open
   useEffect(() => {
@@ -1692,53 +1698,121 @@ export default function KSLigaSite() {
                 {/* KS Shop Tab */}
                 <TabsContent value="shop" className="outline-none space-y-6">
                   {/* Shop Banner / Header */}
-                  <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(circle_at_center,white_0%,transparent_100%)] pointer-events-none" />
-                    <div className="relative z-10 space-y-2 max-w-2xl">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold">
-                        <ShoppingBag className="h-3.5 w-3.5" />
-                        Офіційний фан-шоп та Оголошення KS LIGA
+                  <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-blue-900/40">
+                    <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="relative z-10 space-y-3 max-w-3xl">
+                      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold tracking-wide backdrop-blur-md">
+                        <ShoppingBag className="h-4 w-4 text-blue-400" />
+                        <span>KS FAN SHOP & ОГОЛОШЕННЯ</span>
                       </div>
-                      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                        {shopSubTab === "official" ? "Офіційне екіпірування та атрибутика" : "Оголошення від організаторів"}
+                      <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white leading-tight">
+                        {shopSubTab === "official" ? "Офіційний онлайн-магазин KS LIGA" : "Оголошення від організаторів"}
                       </h2>
-                      <p className="text-xs sm:text-sm text-blue-100/80">
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
                         {shopSubTab === "official"
-                          ? "Обирайте фірмові м'ячі, ігрову форму, худі та аксесуари. Оформлення замовлень здійснюється через офіційний Instagram @ks_fan.shop."
-                          : "Обирайте оголошення про продаж та обмін екіпірування від організаторів та команд."}
+                          ? "Фірмове футбольне екіпірування, м'ячі, ігрові форми та фан-атрибутика. Швидке замовлення в один клік через Instagram @ks_fan.shop."
+                          : "Майданчик оголошень про продаж та обмін футбольного екіпірування від офіційних організаторів та команд."}
                       </p>
+
+                      {/* Feature Chips */}
+                      <div className="flex items-center gap-2 sm:gap-4 pt-1 flex-wrap text-[11px] sm:text-xs font-semibold text-slate-300">
+                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                          <Truck className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Доставка по Україні</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                          <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
+                          <span>100% Перевірена якість</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Sub-tabs: Official vs Announcements */}
-                  <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 max-w-md">
-                    <button
-                      type="button"
-                      onClick={() => setShopSubTab("official")}
-                      className={`flex-1 py-2 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
-                        shopSubTab === "official"
-                          ? "bg-white text-blue-600 shadow-sm border border-slate-200"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Офіційний магазин
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShopSubTab("announcements")}
-                      className={`flex-1 py-2 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
-                        shopSubTab === "announcements"
-                          ? "bg-white text-purple-600 shadow-sm border border-slate-200"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Оголошення
-                    </button>
+                  {/* Navigation, Search & Filters Bar */}
+                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                    {/* Sub-tabs Switcher */}
+                    {(() => {
+                      const officialCount = products.filter((p) => p.is_official !== false && p.is_approved !== false).length
+                      const announcementCount = products.filter((p) => p.is_official === false && p.is_approved === true).length
+
+                      return (
+                        <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => setShopSubTab("official")}
+                            className={`flex-1 sm:flex-initial py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                              shopSubTab === "official"
+                                ? "bg-white text-blue-600 shadow-xs border border-slate-200/80"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            <span>Офіційний магазин</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${shopSubTab === "official" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
+                              {officialCount}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShopSubTab("announcements")}
+                            className={`flex-1 sm:flex-initial py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                              shopSubTab === "announcements"
+                                ? "bg-white text-purple-600 shadow-xs border border-slate-200/80"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            <span>Оголошення</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${shopSubTab === "announcements" ? "bg-purple-100 text-purple-700" : "bg-slate-200 text-slate-600"}`}>
+                              {announcementCount}
+                            </span>
+                          </button>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Search & Filter Inputs */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:max-w-md">
+                      {/* Search Bar */}
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          type="text"
+                          placeholder="Пошук товарів..."
+                          value={shopSearchQuery}
+                          onChange={(e) => setShopSearchQuery(e.target.value)}
+                          className="pl-9 pr-8 h-9 text-xs sm:text-sm bg-slate-50 border-slate-200 rounded-xl focus:bg-white transition-colors"
+                        />
+                        {shopSearchQuery && (
+                          <button
+                            onClick={() => setShopSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Quick Filter Pill */}
+                      <button
+                        onClick={() => {
+                          setShopAvailabilityFilter(prev => prev === "all" ? "available" : prev === "available" ? "discount" : "all")
+                        }}
+                        className={`h-9 px-3 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                          shopAvailabilityFilter !== "all"
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Filter className="h-3.5 w-3.5" />
+                        <span className="hidden xs:inline">
+                          {shopAvailabilityFilter === "all" ? "Всі" : shopAvailabilityFilter === "available" ? "В наявності" : "Знижки"}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Products Grid */}
                   {(() => {
-                    const displayedProducts = products.filter((p) => {
+                    let displayedProducts = products.filter((p) => {
                       if (shopSubTab === "official") {
                         return p.is_official !== false && p.is_approved !== false
                       } else {
@@ -1746,28 +1820,57 @@ export default function KSLigaSite() {
                       }
                     })
 
+                    // Apply Search Filter
+                    if (shopSearchQuery.trim()) {
+                      const q = shopSearchQuery.toLowerCase()
+                      displayedProducts = displayedProducts.filter(
+                        (p) => p.title.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q))
+                      )
+                    }
+
+                    // Apply Availability / Discount Filter
+                    if (shopAvailabilityFilter === "available") {
+                      displayedProducts = displayedProducts.filter((p) => p.is_available)
+                    } else if (shopAvailabilityFilter === "discount") {
+                      displayedProducts = displayedProducts.filter((p) => p.old_price && p.old_price > p.price)
+                    }
+
                     if (displayedProducts.length === 0) {
                       return (
                         <Card className="liquid-glass-card overflow-hidden">
-                          <CardContent className="p-12 text-center">
-                            <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                            <div className="text-base font-semibold text-slate-900">
-                              {shopSubTab === "official"
+                          <CardContent className="p-10 sm:p-14 text-center space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                              <ShoppingBag className="h-6 w-6" />
+                            </div>
+                            <div className="text-base font-bold text-slate-900">
+                              {shopSearchQuery
+                                ? `За запитом "${shopSearchQuery}" нічого не знайдено`
+                                : shopSubTab === "official"
                                 ? "Наразі немає добавлених товарів в офіційному магазині"
                                 : "Наразі немає опублікованих оголошень"}
                             </div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              {shopSubTab === "official"
+                            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                              {shopSearchQuery
+                                ? "Спробуйте змінити пошуковий запит або скинути фільтри."
+                                : shopSubTab === "official"
                                 ? "Завітайте пізніше або зверніться до адміністратора."
                                 : "Організатори можуть додати нові оголошення через панель керування."}
-                            </div>
+                            </p>
+                            {shopSearchQuery && (
+                              <button
+                                onClick={() => setShopSearchQuery("")}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline pt-1 cursor-pointer"
+                              >
+                                Скинути пошук
+                              </button>
+                            )}
                           </CardContent>
                         </Card>
                       )
                     }
 
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
                         {displayedProducts.map((product) => {
                           const hasDiscount = product.old_price && product.old_price > product.price
                           const discountPercent = hasDiscount
@@ -1777,9 +1880,9 @@ export default function KSLigaSite() {
                           return (
                           <div
                             key={product.id}
-                            className="group bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300 flex flex-col overflow-hidden"
+                            className="group bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between overflow-hidden hover:-translate-y-1"
                           >
-                            {/* Product Image — Fixed Square */}
+                            {/* Product Image Box */}
                             <div
                               className="relative aspect-[4/3] bg-slate-50 overflow-hidden cursor-pointer"
                               onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
@@ -1792,70 +1895,75 @@ export default function KSLigaSite() {
                                 decoding="async"
                               />
                               
-                              {/* Badges Overlay */}
-                              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 items-start">
+                              {/* Overlay Badges */}
+                              <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start z-10">
                                 {product.badge && (
-                                  <span className="text-[9px] sm:text-[11px] font-extrabold px-1.5 sm:px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-sm border border-amber-300 uppercase tracking-wider">
+                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-sm border border-amber-300 uppercase tracking-wider">
                                     {product.badge}
                                   </span>
                                 )}
                                 {hasDiscount && (
-                                  <span className="text-[9px] sm:text-[11px] font-extrabold px-1.5 sm:px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-sm border border-red-500">
+                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white shadow-sm border border-red-500">
                                     -{discountPercent}%
                                   </span>
                                 )}
                               </div>
 
-                              <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
-                                <span className={`text-[8px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm backdrop-blur-md ${
+                              <div className="absolute top-2.5 right-2.5 z-10">
+                                <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-md flex items-center gap-1 ${
                                   product.is_available
-                                    ? "bg-emerald-500/90 text-white border border-emerald-400/50"
-                                    : "bg-red-500/90 text-white border border-red-400/50"
+                                    ? "bg-emerald-600/90 text-white border border-emerald-400/50"
+                                    : "bg-red-600/90 text-white border border-red-400/50"
                                 }`}>
-                                  {product.is_available ? "В наявності" : "Продано"}
+                                  <span className={`w-1.5 h-1.5 rounded-full ${product.is_available ? "bg-white animate-pulse" : "bg-white/70"}`} />
+                                  <span>{product.is_available ? "В наявності" : "Продано"}</span>
                                 </span>
                               </div>
 
                               {/* Multi-photo indicator */}
                               {product.images && product.images.length > 1 && (
-                                <div className="absolute bottom-2 right-2 bg-slate-900/70 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md backdrop-blur-xs">
+                                <div className="absolute bottom-2 right-2 bg-slate-900/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
                                   {product.images.length} фото
                                 </div>
                               )}
                             </div>
 
-                            {/* Product Info */}
-                            <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between gap-2 sm:gap-3">
-                              <div className="space-y-1">
+                            {/* Product Details */}
+                            <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                              <div className="space-y-1.5">
+                                {product.is_official === false && (
+                                  <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">
+                                    Оголошення · {product.author_name || "Організатор"}
+                                  </div>
+                                )}
                                 <h3
                                   onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
-                                  className="font-extrabold text-slate-900 text-[13px] sm:text-base group-hover:text-blue-600 transition-colors line-clamp-2 cursor-pointer leading-tight"
+                                  className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-1 cursor-pointer leading-snug"
                                 >
                                   {product.title}
                                 </h3>
-                                <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1 leading-snug">
+                                <p className="text-xs text-slate-500 line-clamp-1 leading-relaxed">
                                   {product.description}
                                 </p>
                               </div>
 
-                              {/* Price & Buttons */}
-                              <div className="pt-2 border-t border-slate-100 space-y-2 sm:space-y-2.5">
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="text-base sm:text-lg font-extrabold text-blue-600">
-                                    {product.price} грн
+                              {/* Price & Action Buttons */}
+                              <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-lg sm:text-xl font-black text-blue-600">
+                                    {product.price} ₴
                                   </span>
                                   {product.old_price && (
-                                    <span className="text-[10px] sm:text-xs font-semibold text-slate-400 line-through">
-                                      {product.old_price} грн
+                                    <span className="text-xs font-semibold text-slate-400 line-through">
+                                      {product.old_price} ₴
                                     </span>
                                   )}
                                 </div>
 
-                                {/* Buttons — Stacked vertically for mobile */}
-                                <div className="flex flex-col gap-1.5">
+                                <div className="grid grid-cols-2 gap-2">
                                   <button
                                     onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setImageZoomed(false); }}
-                                    className="w-full text-[11px] sm:text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 h-8 sm:h-9 rounded-xl transition-colors bg-white cursor-pointer"
+                                    className="w-full text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 h-9 rounded-xl transition-colors bg-white cursor-pointer active:scale-[0.98]"
                                   >
                                     Детальніше
                                   </button>
@@ -1863,7 +1971,7 @@ export default function KSLigaSite() {
                                     href={product.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-full flex items-center justify-center gap-1 text-[11px] sm:text-xs font-bold text-white bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-90 transition-opacity h-8 sm:h-9 rounded-xl shadow-xs"
+                                    className="w-full flex items-center justify-center gap-1 text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 transition-all h-9 rounded-xl shadow-xs active:scale-[0.98]"
                                   >
                                     <span>Замовити</span>
                                     <ExternalLink className="h-3 w-3" />
