@@ -167,7 +167,7 @@ export function AdminPanel({
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null)
 
   // Team form state
-  const [teamForm, setTeamForm] = useState({ name: "", logo: "" })
+  const [teamForm, setTeamForm] = useState({ name: "", logo: "", city: "" })
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
 
   // Match form state
@@ -489,6 +489,7 @@ export function AdminPanel({
       const teamData = {
         name: teamForm.name,
         logo: teamForm.logo,
+        city: teamForm.city,
         championship_id: currentChampionshipId,
       }
 
@@ -498,7 +499,7 @@ export function AdminPanel({
       } else {
         await addTeam(teamData)
       }
-      setTeamForm({ name: "", logo: "" })
+      setTeamForm({ name: "", logo: "", city: "" })
       await loadData()
       onDataChange?.()
     } catch (error) {
@@ -1215,16 +1216,29 @@ export function AdminPanel({
                 onSubmit={handleTeamSubmit}
                 className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="team-name" className="text-slate-700 font-semibold text-xs">
-                      Назва команди
+                      Назва команди *
                     </Label>
                     <Input
                       id="team-name"
                       value={teamForm.name}
                       onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
                       required
+                      placeholder="наприклад: ФК Динамо"
+                      className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="team-city" className="text-slate-700 font-semibold text-xs">
+                      Місто команди
+                    </Label>
+                    <Input
+                      id="team-city"
+                      value={teamForm.city}
+                      onChange={(e) => setTeamForm({ ...teamForm, city: e.target.value })}
+                      placeholder="наприклад: Київ"
                       className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
@@ -1256,7 +1270,7 @@ export function AdminPanel({
                       variant="outline"
                       onClick={() => {
                         setEditingTeam(null)
-                        setTeamForm({ name: "", logo: "" })
+                        setTeamForm({ name: "", logo: "", city: "" })
                       }}
                       className="bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200 rounded-lg h-10 px-4"
                     >
@@ -1286,7 +1300,12 @@ export function AdminPanel({
                             className="w-full h-full object-contain"
                           />
                         </div>
-                        <span className="font-bold text-slate-900 text-base">{team.name}</span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-base">{team.name}</span>
+                          {team.city && (
+                            <span className="text-xs font-medium text-slate-500">{team.city}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
                         <Button
@@ -1294,7 +1313,7 @@ export function AdminPanel({
                           variant="outline"
                           onClick={() => {
                             setEditingTeam(team)
-                            setTeamForm({ name: team.name, logo: team.logo || "" })
+                            setTeamForm({ name: team.name, logo: team.logo || "", city: team.city || "" })
                           }}
                           className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >

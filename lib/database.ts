@@ -828,6 +828,7 @@ export async function calculateLeagueTable(championshipId?: number) {
 
   const table = teams.map((team) => ({
     name: team.name,
+    city: team.city,
     games: 0,
     wins: 0,
     draws: 0,

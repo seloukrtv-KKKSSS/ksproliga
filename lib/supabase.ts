@@ -36,6 +36,7 @@ export interface Team {
   id: number
   name: string
   logo?: string
+  city?: string
   championship_id: number
   created_at: string
 }

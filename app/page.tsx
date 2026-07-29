@@ -715,9 +715,16 @@ export default function KSLigaSite() {
                                   />
                                 </div>
 
-                                <span className="font-bold text-slate-900 text-xs min-[380px]:text-sm sm:text-base truncate min-w-0 flex-1">
-                                  {team.name}
-                                </span>
+                                <div className="flex flex-col min-w-0 flex-1 justify-center">
+                                  <span className="font-bold text-slate-900 text-xs min-[380px]:text-sm sm:text-base truncate leading-snug">
+                                    {team.name}
+                                  </span>
+                                  {team.city && (
+                                    <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate leading-none mt-0.5">
+                                      {team.city}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Right side: Stats & Points (Completely locked column positions) */}
