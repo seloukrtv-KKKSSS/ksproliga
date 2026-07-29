@@ -1161,7 +1161,14 @@ export async function getChampionshipCandidates(championshipId: number): Promise
 export async function recordUserAnalytics(sessionId: string, activeTab: string, durationSeconds: number): Promise<void> {
   if (shouldUseMockData()) return
   try {
-    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
+    let userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
+    if (typeof window !== "undefined") {
+      const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true
+      if (isStandalone) {
+        userAgent = `${userAgent} (PWA Standalone App)`
+      }
+    }
+
     await supabase.from("user_analytics").insert([{
       session_id: sessionId,
       active_tab: activeTab,

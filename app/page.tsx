@@ -95,35 +95,70 @@ export default function KSLigaSite() {
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
   const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
 
-  // Session tracking & User Analytics
+  // Session tracking & User Analytics (Mobile PWA Standalone & Browser Compatible)
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    let sessionId = sessionStorage.getItem("ks_session_id")
-    if (!sessionId) {
-      sessionId = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36)
-      sessionStorage.setItem("ks_session_id", sessionId)
+    // Persistent session ID with 30-min idle timeout (works across PWA restarts)
+    const SESSION_KEY = "ks_pwa_session_id"
+    const LAST_ACTIVE_KEY = "ks_pwa_last_active"
+    const now = Date.now()
+
+    let sessionId = localStorage.getItem(SESSION_KEY)
+    const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
+
+    if (!sessionId || !lastActive || now - Number.parseInt(lastActive, 10) > 30 * 60 * 1000) {
+      sessionId = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + now.toString(36)
+      localStorage.setItem(SESSION_KEY, sessionId)
     }
+    localStorage.setItem(LAST_ACTIVE_KEY, now.toString())
 
     const tabStartTime = Date.now()
     const currentTab = activeTab
 
-    const flushTabDuration = () => {
-      const elapsedSeconds = (Date.now() - tabStartTime) / 1000
-      if (elapsedSeconds >= 1.5 && sessionId) {
-        recordUserAnalytics(sessionId, currentTab, elapsedSeconds)
+    // Instant Pageview Ping (Ensures visits to PWA standalone apps are logged immediately)
+    recordUserAnalytics(sessionId, currentTab, 1)
+
+    let accumulatedSeconds = 0
+
+    const sendDurationUpdate = () => {
+      const elapsed = Math.round((Date.now() - tabStartTime) / 1000)
+      const diff = elapsed - accumulatedSeconds
+      if (diff >= 2 && sessionId) {
+        accumulatedSeconds = elapsed
+        recordUserAnalytics(sessionId, currentTab, diff)
+      }
+    }
+
+    // Periodic Heartbeat every 15s for long sessions
+    const heartbeatInterval = setInterval(() => {
+      localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
+      sendDurationUpdate()
+    }, 15000)
+
+    // Handle Mobile PWA Background / App Switch / Lock Screen events
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        sendDurationUpdate()
+      } else if (document.visibilityState === "visible") {
+        localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
       }
     }
 
     const handleUnload = () => {
-      flushTabDuration()
+      sendDurationUpdate()
     }
 
+    document.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("beforeunload", handleUnload)
+    window.addEventListener("pagehide", handleUnload)
 
     return () => {
-      flushTabDuration()
+      sendDurationUpdate()
+      clearInterval(heartbeatInterval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("beforeunload", handleUnload)
+      window.removeEventListener("pagehide", handleUnload)
     }
   }, [activeTab])
 
