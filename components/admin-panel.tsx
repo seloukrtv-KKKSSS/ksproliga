@@ -29,6 +29,12 @@ import {
   Check,
   Key,
   ShoppingBag,
+  BarChart3,
+  Activity,
+  Eye,
+  Hourglass,
+  Search,
+  Filter,
 } from "lucide-react"
 import {
   getChampionships,
@@ -72,8 +78,11 @@ import {
   addVotingCandidate,
   deleteVotingCandidate,
   updateVotingCandidate,
+  getUserAnalytics,
+  getOrganizerLogs,
+  logOrganizerAction,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog } from "@/lib/supabase"
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -233,6 +242,13 @@ export function AdminPanel({
 
   const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<{ [round: number]: boolean }>({})
 
+  // Analytics & Logs states
+  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics[]>([])
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<"24h" | "7d" | "30d">("24h")
+  const [organizerLogs, setOrganizerLogs] = useState<OrganizerLog[]>([])
+  const [logsSearchTerm, setLogsSearchTerm] = useState("")
+  const [logsFilterOrganizer, setLogsFilterOrganizer] = useState("all")
+
   const sortedChampionships = useMemo(() => sortChampionships(championships), [championships])
   const sortedMatches = useMemo(
     () => [...matches].sort((a, b) => (b.round || 0) - (a.round || 0)),
@@ -247,6 +263,10 @@ export function AdminPanel({
     loadData()
   }, [currentChampionshipId, isMainAdmin, JSON.stringify(allowedChampionshipIds)])
 
+  useEffect(() => {
+    getUserAnalytics(analyticsPeriod).then(setUserAnalytics)
+  }, [analyticsPeriod])
+
   const loadData = async () => {
     try {
       const championshipsData = await getChampionships()
@@ -256,14 +276,19 @@ export function AdminPanel({
 
       setChampionships(filteredChampionships)
 
+      const [organizersData, productsData, analyticsData, logsData] = await Promise.all([
+        isMainAdmin ? getOrganizers() : Promise.resolve([]),
+        isMainAdmin ? getProducts() : Promise.resolve([]),
+        getUserAnalytics(analyticsPeriod),
+        getOrganizerLogs(),
+      ])
+
       if (isMainAdmin) {
-        const [organizersData, productsData] = await Promise.all([
-          getOrganizers(),
-          getProducts(),
-        ])
         setOrganizers(organizersData)
         setProducts(productsData)
       }
+      setUserAnalytics(analyticsData)
+      setOrganizerLogs(logsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
         const [teamsData, matchesData, playersData, votingsData] = await Promise.all([
@@ -495,9 +520,11 @@ export function AdminPanel({
 
       if (editingTeam) {
         await updateTeam(editingTeam.id, teamData)
+        await logOrganizerAction(organizerName || "Адміністратор", "update_team", `Оновлено команду "${teamForm.name}"${teamForm.city ? ` (${teamForm.city})` : ""}`)
         setEditingTeam(null)
       } else {
         await addTeam(teamData)
+        await logOrganizerAction(organizerName || "Адміністратор", "create_team", `Створено команду "${teamForm.name}"${teamForm.city ? ` (${teamForm.city})` : ""}`)
       }
       setTeamForm({ name: "", logo: "", city: "" })
       await loadData()
@@ -513,6 +540,7 @@ export function AdminPanel({
     if (confirm("Ви впевнені, що хочете видалити цю команду?")) {
       try {
         await deleteTeam(id)
+        await logOrganizerAction(organizerName || "Адміністратор", "delete_team", `Видалено команду ID #${id}`)
         await loadData()
         onDataChange?.()
       } catch (error) {
@@ -564,9 +592,11 @@ export function AdminPanel({
 
       if (editingMatch) {
         await updateMatch(editingMatch.id, matchData)
+        await logOrganizerAction(organizerName || "Адміністратор", "update_match", `Оновлено матч: ${matchForm.home_team} — ${matchForm.away_team} (Тур ${matchForm.round})`)
         setEditingMatch(null)
       } else {
         await addMatch(matchData)
+        await logOrganizerAction(organizerName || "Адміністратор", "create_match", `Створено матч: ${matchForm.home_team} — ${matchForm.away_team} (Тур ${matchForm.round})`)
       }
 
       setMatchForm({
@@ -599,6 +629,7 @@ export function AdminPanel({
     if (confirm("Ви впевнені, що хочете видалити цей матч?")) {
       try {
         await deleteMatch(id)
+        await logOrganizerAction(organizerName || "Адміністратор", "delete_match", `Видалено матч ID #${id}`)
         await loadData()
         onDataChange?.()
       } catch (error) {
@@ -631,6 +662,7 @@ export function AdminPanel({
         minute: goalForm.minute ? Number.parseInt(goalForm.minute) : undefined,
         goal_type: goalForm.goal_type,
       })
+      await logOrganizerAction(organizerName || "Адміністратор", "add_goal", `Додано гол: ${goalForm.player_name} (${goalForm.team_name}${goalForm.minute ? `, ${goalForm.minute}'` : ""})`)
 
       setGoalForm({
         player_name: "",
@@ -650,6 +682,7 @@ export function AdminPanel({
     if (confirm("Ви впевнені, що хочете видалити цей гол?")) {
       try {
         await deleteMatchGoal(goalId)
+        await logOrganizerAction(organizerName || "Адміністратор", "delete_goal", `Видалено гол ID #${goalId}`)
         if (selectedMatchForGoals) {
           await loadMatchEvents(selectedMatchForGoals.id)
         }
@@ -672,6 +705,7 @@ export function AdminPanel({
         minute: cardForm.minute ? Number.parseInt(cardForm.minute) : undefined,
         card_type: cardForm.card_type,
       })
+      await logOrganizerAction(organizerName || "Адміністратор", "add_card", `Додано картку (${cardForm.card_type === "yellow" ? "жовта" : "червона"}): ${cardForm.player_name} (${cardForm.team_name}${cardForm.minute ? `, ${cardForm.minute}'` : ""})`)
 
       setCardForm({
         player_name: "",
@@ -691,6 +725,7 @@ export function AdminPanel({
     if (confirm("Ви впевнені, що хочете видалити цю картку?")) {
       try {
         await deleteMatchCard(cardId)
+        await logOrganizerAction(organizerName || "Адміністратор", "delete_card", `Видалено картку ID #${cardId}`)
         if (selectedMatchForGoals) {
           await loadMatchEvents(selectedMatchForGoals.id)
         }
@@ -1009,6 +1044,14 @@ export function AdminPanel({
           >
             <Star className="h-3.5 w-3.5 mr-1" />
             <span>Лев матчу</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="ios-segment">
+            <BarChart3 className="h-3.5 w-3.5 mr-1" />
+            <span>Аналітика</span>
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="ios-segment">
+            <Activity className="h-3.5 w-3.5 mr-1" />
+            <span>Логи дій</span>
           </TabsTrigger>
           {isMainAdmin && (
             <>
@@ -3363,6 +3406,338 @@ export function AdminPanel({
             </div>
           </TabsContent>
         )}
+
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+                Статистика відвідувань сайту
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Відстеження унікальних сесій, переглядів сторінок та часу на сайті
+              </p>
+            </div>
+
+            {/* Timeframe Selector */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <Button
+                size="sm"
+                variant={analyticsPeriod === "24h" ? "default" : "ghost"}
+                onClick={() => setAnalyticsPeriod("24h")}
+                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "24h" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                24 години
+              </Button>
+              <Button
+                size="sm"
+                variant={analyticsPeriod === "7d" ? "default" : "ghost"}
+                onClick={() => setAnalyticsPeriod("7d")}
+                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "7d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                7 днів
+              </Button>
+              <Button
+                size="sm"
+                variant={analyticsPeriod === "30d" ? "default" : "ghost"}
+                onClick={() => setAnalyticsPeriod("30d")}
+                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "30d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+              >
+                30 днів
+              </Button>
+            </div>
+          </div>
+
+          {/* Metric Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Unique Visitors */}
+            <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Унікальні сесії
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <span className="text-3xl font-black text-slate-900">
+                  {new Set(userAnalytics.map((a) => a.session_id)).size}
+                </span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  користувачів за {analyticsPeriod === "24h" ? "24г" : analyticsPeriod === "7d" ? "тиждень" : "місяць"}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Total Page Views */}
+            <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Переглядів сторінок
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Eye className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <span className="text-3xl font-black text-slate-900">
+                  {userAnalytics.length}
+                </span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  переходів між розділами
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Avg Time Spent */}
+            <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Сер. час на розділі
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Hourglass className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <span className="text-3xl font-black text-slate-900">
+                  {(() => {
+                    if (!userAnalytics.length) return "0с"
+                    const avgSec = Math.round(
+                      userAnalytics.reduce((acc, a) => acc + (a.duration_seconds || 0), 0) / userAnalytics.length
+                    )
+                    if (avgSec < 60) return `${avgSec}с`
+                    const min = Math.floor(avgSec / 60)
+                    const sec = avgSec % 60
+                    return `${min}хв ${sec}с`
+                  })()}
+                </span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  на кожну вкладку
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Top Section */}
+            <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Найпопулярніший розділ
+                </span>
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-bold text-slate-900 truncate block">
+                  {(() => {
+                    if (!userAnalytics.length) return "—"
+                    const counts: { [key: string]: number } = {}
+                    userAnalytics.forEach((a) => {
+                      counts[a.active_tab] = (counts[a.active_tab] || 0) + 1
+                    })
+                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+                    const topKey = sorted[0]?.[0] || "table"
+                    const names: { [key: string]: string } = {
+                      table: "Турнірна таблиця",
+                      calendar: "Календар матчів",
+                      results: "Результати",
+                      scorers: "Бомбардири",
+                      lion: "Лев матчу",
+                      admin: "Адмінка",
+                      shop: "KS Shop",
+                    }
+                    return names[topKey] || topKey
+                  })()}
+                </span>
+                <span className="text-xs text-slate-400 block mt-0.5">
+                  найбільше переглядів
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Breakdown Table */}
+          <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4">
+            <h4 className="font-bold text-slate-900 text-base">Розподіл за розділами сайту</h4>
+            <div className="space-y-3">
+              {(() => {
+                const map: { [key: string]: { views: number; time: number } } = {}
+                userAnalytics.forEach((a) => {
+                  if (!map[a.active_tab]) map[a.active_tab] = { views: 0, time: 0 }
+                  map[a.active_tab].views += 1
+                  map[a.active_tab].time += a.duration_seconds || 0
+                })
+                const entries = Object.entries(map).sort((a, b) => b[1].views - a[1].views)
+                const totalViews = userAnalytics.length || 1
+
+                const sectionNames: { [key: string]: string } = {
+                  table: "Турнірна таблиця",
+                  calendar: "Календар матчів",
+                  results: "Результати матчів",
+                  scorers: "Бомбардири",
+                  lion: "Голосування (Лев матчу)",
+                  admin: "Адмін-панель",
+                  shop: "Магазин KS Shop",
+                }
+
+                if (entries.length === 0) {
+                  return <div className="text-sm text-slate-500 py-4 text-center">Немає даних відвідувань за вибраний період</div>
+                }
+
+                return entries.map(([tabKey, stats]) => {
+                  const percent = Math.round((stats.views / totalViews) * 100)
+                  const avgSec = Math.round(stats.time / (stats.views || 1))
+                  const timeFormatted = avgSec < 60 ? `${avgSec}с` : `${Math.floor(avgSec / 60)}хв ${avgSec % 60}с`
+
+                  return (
+                    <div key={tabKey} className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-slate-900">{sectionNames[tabKey] || tabKey}</span>
+                        <div className="flex items-center gap-3 text-slate-500">
+                          <span>{stats.views} переглядів ({percent}%)</span>
+                          <span>•</span>
+                          <span>Сер. час: {timeFormatted}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-600" />
+                Журнал дій організаторів
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Повний лог усіх змін, створень та видалень на сайті
+              </p>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-48">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <Input
+                  value={logsSearchTerm}
+                  onChange={(e) => setLogsSearchTerm(e.target.value)}
+                  placeholder="Пошук у логах..."
+                  className="pl-9 bg-slate-50 border-slate-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+
+              <Select value={logsFilterOrganizer} onValueChange={setLogsFilterOrganizer}>
+                <SelectTrigger className="w-full sm:w-44 bg-slate-50 border-slate-200 rounded-xl h-9 text-xs text-slate-900">
+                  <SelectValue placeholder="Всі організатори" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Всі організатори</SelectItem>
+                  {Array.from(new Set(organizerLogs.map((l) => l.organizer_name))).map((org) => (
+                    <SelectItem key={org} value={org}>
+                      {org}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Logs List */}
+          <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
+            {(() => {
+              const filtered = organizerLogs.filter((log) => {
+                const matchSearch =
+                  !logsSearchTerm ||
+                  log.description.toLowerCase().includes(logsSearchTerm.toLowerCase()) ||
+                  log.organizer_name.toLowerCase().includes(logsSearchTerm.toLowerCase())
+                const matchOrg = logsFilterOrganizer === "all" || log.organizer_name === logsFilterOrganizer
+                return matchSearch && matchOrg
+              })
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-12 text-slate-500 text-sm">
+                    Журнал порожній або за запитом нічого не знайдено.
+                  </div>
+                )
+              }
+
+              const getActionBadge = (actionType: string) => {
+                if (actionType.startsWith("create")) {
+                  return "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }
+                if (actionType.startsWith("update")) {
+                  return "bg-blue-50 text-blue-700 border-blue-200"
+                }
+                if (actionType.startsWith("delete")) {
+                  return "bg-red-50 text-red-700 border-red-200"
+                }
+                if (actionType === "login") {
+                  return "bg-purple-50 text-purple-700 border-purple-200"
+                }
+                return "bg-slate-100 text-slate-700 border-slate-200"
+              }
+
+              return filtered.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl hover:border-slate-300 transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5">
+                      {log.organizer_name.includes("Головний") ? (
+                        <Crown className="w-4 h-4" />
+                      ) : (
+                        <UserCheck className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {log.organizer_name}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getActionBadge(
+                            log.action_type
+                          )}`}
+                        >
+                          {log.action_type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 font-medium mt-1">
+                        {log.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] text-slate-400 font-mono shrink-0 self-end sm:self-center">
+                    {new Date(log.created_at).toLocaleString("uk-UA", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </span>
+                </div>
+              ))
+            })()}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   )

@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog } from "./supabase"
 
 export function formatTime(timeStr?: string): string {
   if (!timeStr) return ""
@@ -1150,6 +1150,86 @@ export async function getChampionshipCandidates(championshipId: number): Promise
     return data || []
   } catch (error) {
     console.warn("Database error getting championship candidates:", error)
+    return []
+  }
+}
+
+// ============================================================
+// USER ANALYTICS & ORGANIZER AUDIT LOGGING
+// ============================================================
+
+export async function recordUserAnalytics(sessionId: string, activeTab: string, durationSeconds: number): Promise<void> {
+  if (shouldUseMockData()) return
+  try {
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
+    await supabase.from("user_analytics").insert([{
+      session_id: sessionId,
+      active_tab: activeTab,
+      duration_seconds: Math.max(1, Math.round(durationSeconds)),
+      user_agent: userAgent
+    }])
+  } catch (error) {
+    console.error("Error recording user analytics:", error)
+  }
+}
+
+export async function getUserAnalytics(period: "24h" | "7d" | "30d" = "24h"): Promise<UserAnalytics[]> {
+  if (shouldUseMockData()) return []
+  try {
+    const now = new Date()
+    let cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    if (period === "7d") {
+      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    } else if (period === "30d") {
+      cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    }
+
+    const { data, error } = await supabase
+      .from("user_analytics")
+      .select("*")
+      .gte("created_at", cutoff.toISOString())
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Error fetching user analytics:", error)
+    return []
+  }
+}
+
+export async function logOrganizerAction(
+  organizerName: string,
+  actionType: string,
+  description: string,
+  details?: any
+): Promise<void> {
+  if (shouldUseMockData()) return
+  try {
+    await supabase.from("organizer_logs").insert([{
+      organizer_name: organizerName || "Адміністратор",
+      action_type: actionType,
+      description,
+      details: details ? JSON.stringify(details) : null
+    }])
+  } catch (error) {
+    console.error("Error logging organizer action:", error)
+  }
+}
+
+export async function getOrganizerLogs(): Promise<OrganizerLog[]> {
+  if (shouldUseMockData()) return []
+  try {
+    const { data, error } = await supabase
+      .from("organizer_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Error fetching organizer logs:", error)
     return []
   }
 }

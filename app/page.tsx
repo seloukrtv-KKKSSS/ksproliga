@@ -47,6 +47,8 @@ import {
   sortChampionships,
   authenticateUser,
   getProducts,
+  recordUserAnalytics,
+  logOrganizerAction,
 } from "@/lib/database"
 import { AdminPanel } from "@/components/admin-panel"
 import { CupTournament } from "@/components/cup-tournament"
@@ -92,6 +94,38 @@ export default function KSLigaSite() {
   // Round Spoiler states
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
   const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
+
+  // Session tracking & User Analytics
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    let sessionId = sessionStorage.getItem("ks_session_id")
+    if (!sessionId) {
+      sessionId = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36)
+      sessionStorage.setItem("ks_session_id", sessionId)
+    }
+
+    const tabStartTime = Date.now()
+    const currentTab = activeTab
+
+    const flushTabDuration = () => {
+      const elapsedSeconds = (Date.now() - tabStartTime) / 1000
+      if (elapsedSeconds >= 1.5 && sessionId) {
+        recordUserAnalytics(sessionId, currentTab, elapsedSeconds)
+      }
+    }
+
+    const handleUnload = () => {
+      flushTabDuration()
+    }
+
+    window.addEventListener("beforeunload", handleUnload)
+
+    return () => {
+      flushTabDuration()
+      window.removeEventListener("beforeunload", handleUnload)
+    }
+  }, [activeTab])
 
   // ===== MEMOIZED COMPUTATIONS =====
   // O(1) team logo lookup via Map instead of O(N) .find() on every render
@@ -367,6 +401,9 @@ export default function KSLigaSite() {
     const authResult = await authenticateUser(adminPassword)
     if (authResult) {
       setIsAdmin(true)
+      const name = authResult.type === "main" ? "Головний адміністратор" : authResult.organizer.name
+      logOrganizerAction(name, "login", "Успішний вхід в систему адміністрування")
+
       if (authResult.type === "main") {
         setIsMainAdmin(true)
         setAllowedChampionshipIds("all")
@@ -476,7 +513,7 @@ export default function KSLigaSite() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] max-w-[calc(100vw-2rem)] min-w-[220px]">
-                  {sortedChampionshipsList.map((championship) => (
+                  {sortedChampionshipsList.map((championship: Championship) => (
                     <SelectItem
                       key={championship.id}
                       value={championship.id.toString()}
