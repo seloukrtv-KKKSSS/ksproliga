@@ -1764,7 +1764,7 @@ export default function KSLigaSite() {
                                 >
                                   {product.title}
                                 </h3>
-                                <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-2 leading-relaxed hidden min-[420px]:block">
+                                <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1 leading-snug">
                                   {product.description}
                                 </p>
                               </div>
@@ -1785,7 +1785,7 @@ export default function KSLigaSite() {
                                 {/* Buttons — Stacked vertically for mobile */}
                                 <div className="flex flex-col gap-1.5">
                                   <button
-                                    onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
+                                    onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setImageZoomed(false); }}
                                     className="w-full text-[11px] sm:text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 h-8 sm:h-9 rounded-xl transition-colors bg-white cursor-pointer"
                                   >
                                     Детальніше
@@ -1808,204 +1808,179 @@ export default function KSLigaSite() {
                     </div>
                   )}
 
-                  {/* Full-Screen Product Detail Page */}
+                  {/* Product Detail Modal — Integrated Liquid Glass Design */}
                   {selectedProduct && (
-                    <div className="fixed inset-0 z-[60] bg-white flex flex-col" style={{ animation: 'slideUpProduct 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
-                      {/* Top Bar */}
-                      <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-slate-100 safe-area-top">
-                        <button
-                          onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
-                          className="flex items-center gap-1.5 text-[var(--lg-blue)] font-semibold text-sm cursor-pointer hover:opacity-70 transition-opacity"
-                        >
-                          <ChevronLeft className="h-5 w-5" />
-                          <span>KS Shop</span>
-                        </button>
-                        <h3 className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-slate-900 max-w-[50%] truncate">
-                          {selectedProduct.title}
-                        </h3>
-                        <button
-                          onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
-                          className="p-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-                        >
-                          <X className="h-5 w-5 text-slate-500" />
-                        </button>
-                      </div>
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+                      onClick={(e) => { if (e.target === e.currentTarget) { setSelectedProduct(null); setImageZoomed(false); } }}
+                    >
+                      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-slate-200/90">
+                        {/* Modal Header */}
+                        <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <ShoppingBag className="w-4 h-4 text-blue-600 shrink-0" />
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                              {selectedProduct.title}
+                            </h3>
+                          </div>
+                          <button
+                            onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
+                            className="p-1.5 rounded-full hover:bg-slate-200/70 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+                          >
+                            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </button>
+                        </div>
 
-                      {/* Scrollable Content */}
-                      <div className="flex-1 overflow-y-auto">
-                        <div className="max-w-4xl mx-auto w-full">
-                          {/* Desktop: Two columns | Mobile: Stacked */}
-                          <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:p-6">
-
-                            {/* Left Column — Image Gallery */}
-                            <div className="lg:sticky lg:top-0 lg:self-start">
-                              {/* Main Image with Zoom */}
-                              <div
-                                className={`relative bg-slate-50 overflow-hidden cursor-zoom-in lg:rounded-2xl lg:border lg:border-slate-200 ${
-                                  imageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+                        {/* Modal Scrollable Body */}
+                        <div className="overflow-y-auto p-4 sm:p-6 space-y-5 flex-1 scrollbar-none">
+                          {/* Image Gallery with Interactive Zoom */}
+                          <div className="space-y-3">
+                            <div
+                              className={`relative bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/80 transition-all ${
+                                imageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+                              }`}
+                              onClick={() => setImageZoomed(!imageZoomed)}
+                              style={{ aspectRatio: imageZoomed ? 'auto' : '4/3' }}
+                            >
+                              <img
+                                src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
+                                alt={selectedProduct.title}
+                                className={`w-full transition-transform duration-300 ease-out ${
+                                  imageZoomed ? 'scale-[2.2] origin-center' : 'h-full object-contain'
                                 }`}
-                                onClick={() => setImageZoomed(!imageZoomed)}
-                                style={{ aspectRatio: imageZoomed ? 'auto' : '1' }}
-                              >
-                                <img
-                                  src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
-                                  alt={selectedProduct.title}
-                                  className={`w-full transition-transform duration-300 ease-out ${
-                                    imageZoomed
-                                      ? 'scale-[2] origin-center'
-                                      : 'h-full object-contain'
-                                  }`}
-                                  loading="lazy"
-                                  decoding="async"
-                                  draggable={false}
-                                />
+                                loading="lazy"
+                                decoding="async"
+                                draggable={false}
+                              />
 
-                                {/* Zoom hint badge */}
-                                {!imageZoomed && (
-                                  <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-slate-900/50 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                                    <ZoomIn className="h-3 w-3" />
-                                    <span className="hidden sm:inline">Натисніть для збільшення</span>
-                                    <span className="sm:hidden">Зум</span>
-                                  </div>
-                                )}
-                                {imageZoomed && (
-                                  <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-slate-900/50 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                                    <ZoomOut className="h-3 w-3" />
-                                    <span>Закрити зум</span>
-                                  </div>
-                                )}
+                              {/* Zoom Badge */}
+                              {!imageZoomed && (
+                                <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-slate-900/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs select-none">
+                                  <ZoomIn className="h-3 w-3" />
+                                  <span>Зум</span>
+                                </div>
+                              )}
+                              {imageZoomed && (
+                                <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-slate-900/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs select-none">
+                                  <ZoomOut className="h-3 w-3" />
+                                  <span>Закрити зум</span>
+                                </div>
+                              )}
 
-                                {/* Navigation arrows */}
-                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
-                                  <>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1)); }}
-                                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-md transition-colors cursor-pointer border border-slate-200/50"
-                                    >
-                                      <ChevronLeft className="h-5 w-5" />
-                                    </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0)); }}
-                                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-md transition-colors cursor-pointer border border-slate-200/50"
-                                    >
-                                      <ChevronRight className="h-5 w-5" />
-                                    </button>
-                                  </>
-                                )}
+                              {/* Navigation Arrows */}
+                              {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
+                                <>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1)); }}
+                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-sm transition-colors cursor-pointer border border-slate-200/50"
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0)); }}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-sm transition-colors cursor-pointer border border-slate-200/50"
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
 
-                                {/* Dot indicators */}
-                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
-                                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/80 backdrop-blur-sm px-2.5 py-1.5 rounded-full shadow-sm border border-slate-200/50">
-                                    {selectedProduct.images.map((_: string, idx: number) => (
-                                      <button
-                                        key={idx}
-                                        onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
-                                        className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                                          selectedImageIndex === idx ? 'bg-[var(--lg-blue)] scale-125' : 'bg-slate-400/50 hover:bg-slate-400'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Thumbnail strip */}
-                              {selectedProduct.images && selectedProduct.images.length > 1 && (
-                                <div className="flex gap-2 px-4 lg:px-0 py-3 overflow-x-auto scrollbar-none">
-                                  {selectedProduct.images.map((img: string, idx: number) => (
+                              {/* Dot Indicators */}
+                              {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
+                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/80 backdrop-blur-xs px-2 py-1 rounded-full shadow-2xs border border-slate-200/50">
+                                  {selectedProduct.images.map((_: string, idx: number) => (
                                     <button
                                       key={idx}
-                                      onClick={() => { setSelectedImageIndex(idx); setImageZoomed(false); }}
-                                      className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer ${
-                                        selectedImageIndex === idx ? 'border-[var(--lg-blue)] shadow-md scale-105' : 'border-slate-200 opacity-50 hover:opacity-100 hover:border-slate-300'
+                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
+                                      className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                                        selectedImageIndex === idx ? 'bg-blue-600 scale-125' : 'bg-slate-400/50 hover:bg-slate-400'
                                       }`}
-                                    >
-                                      <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                                    </button>
+                                    />
                                   ))}
                                 </div>
                               )}
                             </div>
 
-                            {/* Right Column — Product Info */}
-                            <div className="px-4 lg:px-0 pb-6 space-y-5">
-                              {/* Badges */}
-                              <div className="flex items-center gap-2 flex-wrap pt-4 lg:pt-0">
-                                {selectedProduct.badge && (
-                                  <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-400 text-slate-900 shadow-xs border border-amber-300 uppercase tracking-wider">
-                                    {selectedProduct.badge}
-                                  </span>
-                                )}
-                                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full ${
-                                  selectedProduct.is_available ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'
-                                }`}>
-                                  {selectedProduct.is_available ? 'В наявності' : 'Немає в наявності'}
+                            {/* Thumbnails Strip */}
+                            {selectedProduct.images && selectedProduct.images.length > 1 && (
+                              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                {selectedProduct.images.map((img: string, idx: number) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => { setSelectedImageIndex(idx); setImageZoomed(false); }}
+                                    className={`w-14 h-14 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer ${
+                                      selectedImageIndex === idx ? 'border-blue-600 shadow-sm scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
+                                    }`}
+                                  >
+                                    <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Badges & Title */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {selectedProduct.badge && (
+                                <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-2xs border border-amber-300 uppercase tracking-wider">
+                                  {selectedProduct.badge}
                                 </span>
-                              </div>
-
-                              {/* Title */}
-                              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight tracking-tight">
-                                {selectedProduct.title}
-                              </h2>
-
-                              {/* Price Block */}
-                              <div className="flex items-baseline gap-3 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-2xl p-4 border border-slate-100">
-                                <span className="text-3xl sm:text-4xl font-black text-blue-600">
-                                  {selectedProduct.price} грн
-                                </span>
-                                {selectedProduct.old_price && (
-                                  <div className="flex items-baseline gap-2">
-                                    <span className="text-base font-semibold text-slate-400 line-through">
-                                      {selectedProduct.old_price} грн
-                                    </span>
-                                    {selectedProduct.old_price > selectedProduct.price && (
-                                      <span className="text-xs font-extrabold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                                        -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}%
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Description */}
-                              <div className="space-y-2">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                  Опис товару
-                                </h4>
-                                <p className="text-sm sm:text-[15px] text-slate-700 leading-relaxed whitespace-pre-line">
-                                  {selectedProduct.description}
-                                </p>
-                              </div>
-
-                              {/* Desktop CTA (hidden on mobile — shown in sticky footer) */}
-                              <div className="hidden lg:block pt-2">
-                                <a
-                                  href={selectedProduct.instagram_url || 'https://www.instagram.com/ks_fan.shop/'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-base shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all"
-                                >
-                                  <span>Придбати в Instagram @ks_fan.shop</span>
-                                  <ExternalLink className="h-5 w-5" />
-                                </a>
-                              </div>
+                              )}
+                              <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                                selectedProduct.is_available ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'
+                              }`}>
+                                {selectedProduct.is_available ? 'В наявності' : 'Немає в наявності'}
+                              </span>
                             </div>
 
+                            <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+                              {selectedProduct.title}
+                            </h2>
+                          </div>
+
+                          {/* Price Container */}
+                          <div className="flex items-baseline gap-2.5 bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                            <span className="text-2xl sm:text-3xl font-black text-blue-600">
+                              {selectedProduct.price} грн
+                            </span>
+                            {selectedProduct.old_price && (
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-semibold text-slate-400 line-through">
+                                  {selectedProduct.old_price} грн
+                                </span>
+                                {selectedProduct.old_price > selectedProduct.price && (
+                                  <span className="text-[11px] font-extrabold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                    -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}%
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Description */}
+                          <div className="space-y-1.5 border-t border-slate-100 pt-3.5">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                              Опис товару
+                            </h4>
+                            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                              {selectedProduct.description}
+                            </p>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Sticky Bottom CTA — Mobile Only */}
-                      <div className="lg:hidden p-4 border-t border-slate-100 bg-white shrink-0 safe-area-bottom">
-                        <a
-                          href={selectedProduct.instagram_url || 'https://www.instagram.com/ks_fan.shop/'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-sm shadow-lg hover:opacity-95 transition-opacity"
-                        >
-                          <span>Придбати в Instagram</span>
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {/* Modal Footer / Action Button */}
+                        <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/80 shrink-0">
+                          <a
+                            href={selectedProduct.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-md hover:opacity-95 transition-all cursor-pointer"
+                          >
+                            <span>Придбати в Instagram @ks_fan.shop</span>
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
                       </div>
                     </div>
                   )}
