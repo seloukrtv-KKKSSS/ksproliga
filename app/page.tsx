@@ -284,9 +284,9 @@ export default function KSLigaSite() {
     }
   }
 
-  const loadDataForChampionship = async (championshipId: number) => {
+  const loadDataForChampionship = async (championshipId: number, silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const [teamsData, matchesData, playersData, tableData, votingsData, candidatesData] = await Promise.all([
         getTeams(championshipId),
         getMatches(championshipId),
@@ -351,7 +351,7 @@ export default function KSLigaSite() {
     } catch (error) {
       console.error("Error loading championship data:", error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -415,12 +415,12 @@ export default function KSLigaSite() {
 
   // Callback for AdminPanel to notify that data changed
   const handleDataChange = useCallback(async () => {
-    // Reload championship-specific data, products, and votings without F5 page reload
+    // Reload championship-specific data silently without triggering F5 or unmounting tabs
     if (currentChampionshipId) {
-      await loadDataForChampionship(currentChampionshipId)
+      await loadDataForChampionship(currentChampionshipId, true)
       await loadVotingData()
     }
-    // Also refresh products and championships list
+    // Also refresh products and championships list silently
     try {
       const [championshipsData, productsData] = await Promise.all([
         getChampionships(),
@@ -432,6 +432,13 @@ export default function KSLigaSite() {
       console.error("Error refreshing data after admin change:", error)
     }
   }, [currentChampionshipId])
+
+  // Silently refresh championship data when switching to public tabs (e.g. table, calendar, results, scorers, cup)
+  useEffect(() => {
+    if (activeTab !== "admin" && currentChampionshipId) {
+      loadDataForChampionship(currentChampionshipId, true)
+    }
+  }, [activeTab])
 
   const handleLogin = async () => {
     setLoginError(null)
@@ -646,10 +653,10 @@ export default function KSLigaSite() {
         {/* Championships and Tabs */}
         {championships.length > 0 && (
           <div className="space-y-6">
-            {loading ? (
+            {loading && championships.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-xs text-slate-500">Оновлення даних...</p>
+                <p className="text-xs text-slate-500">Завантаження даних...</p>
               </div>
             ) : (
               <Tabs
