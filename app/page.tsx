@@ -1755,7 +1755,7 @@ export default function KSLigaSite() {
                     }
 
                     return (
-                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         {displayedProducts.map((product) => {
                           const hasDiscount = product.old_price && product.old_price > product.price
                           const discountPercent = hasDiscount
@@ -1769,7 +1769,7 @@ export default function KSLigaSite() {
                           >
                             {/* Product Image — Fixed Square */}
                             <div
-                              className="relative aspect-square bg-slate-50 overflow-hidden cursor-pointer"
+                              className="relative aspect-[4/3] bg-slate-50 overflow-hidden cursor-pointer"
                               onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
                             >
                               <img
