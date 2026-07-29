@@ -1990,31 +1990,28 @@ export default function KSLigaSite() {
                   )
                 })()}
 
-                  {/* Product Detail — Modern E-Commerce Quick View Sheet & Modal */}
+                  {/* Product Detail — Modern E-Commerce Quick View Modal */}
                   {selectedProduct && (
                     <div
-                      className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 animate-in fade-in duration-200"
+                      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
                       onClick={(e) => { if (e.target === e.currentTarget) { setSelectedProduct(null); setImageZoomed(false); } }}
                     >
-                      {/* Modal Panel: Mobile Bottom Sheet / Desktop Floating Card */}
-                      <div className="relative w-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] sm:max-h-[85vh] sm:max-w-3xl flex flex-col border-t sm:border border-slate-200/90 animate-in slide-in-from-bottom-6 duration-300">
+                      {/* Modal Panel: Centered Floating Card on Mobile & Desktop */}
+                      <div className="relative w-full max-w-lg sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[88vh] flex flex-col border border-slate-200/90 animate-in zoom-in-95 duration-200 my-auto">
                         
-                        {/* Mobile Pull Bar Handle */}
-                        <div className="sm:hidden w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 shrink-0" />
-
                         {/* Modal Header */}
-                        <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                            <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                        <div className="px-3.5 py-2.5 sm:px-6 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                               <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
                             </div>
-                            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                            <h3 className="text-xs sm:text-base font-extrabold text-slate-900 truncate">
                               {selectedProduct.title}
                             </h3>
                           </div>
                           <button
                             onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
-                            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+                            className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
                             title="Закрити"
                           >
                             <X className="h-5 w-5" />
