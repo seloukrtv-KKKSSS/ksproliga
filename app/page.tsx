@@ -1866,183 +1866,188 @@ export default function KSLigaSite() {
                   )
                 })()}
 
-                  {/* Product Detail Modal — Integrated Liquid Glass Design */}
+                  {/* Product Detail Modal — Full-Screen Immersive */}
                   {selectedProduct && (
                     <div
-                      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+                      className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-xl animate-in fade-in duration-200"
                       onClick={(e) => { if (e.target === e.currentTarget) { setSelectedProduct(null); setImageZoomed(false); } }}
                     >
-                      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-slate-200/90">
-                        {/* Modal Header */}
-                        <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <ShoppingBag className="w-4 h-4 text-blue-600 shrink-0" />
-                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
-                              {selectedProduct.title}
-                            </h3>
-                          </div>
-                          <button
-                            onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
-                            className="p-1.5 rounded-full hover:bg-slate-200/70 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
-                          >
-                            <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </button>
-                        </div>
+                      {/* Modal Container — full-screen mobile, centered panel desktop */}
+                      <div className="h-full w-full sm:flex sm:items-center sm:justify-center sm:p-6">
+                        <div className="relative bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-3xl sm:shadow-2xl overflow-hidden flex flex-col sm:border sm:border-slate-200/80">
 
-                        {/* Modal Scrollable Body */}
-                        <div className="overflow-y-auto p-4 sm:p-6 space-y-5 flex-1 scrollbar-none">
-                          {/* Image Gallery with Interactive Zoom */}
-                          <div className="space-y-3">
-                            <div
-                              className={`relative bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/80 transition-all ${
-                                imageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-                              }`}
-                              onClick={() => setImageZoomed(!imageZoomed)}
-                              style={{ aspectRatio: imageZoomed ? 'auto' : '4/3' }}
+                          {/* Sticky Header Bar */}
+                          <div className="sticky top-0 z-10 px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-100 shrink-0">
+                            <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                              <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                                <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+                              </div>
+                              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                                {selectedProduct.title}
+                              </h3>
+                            </div>
+                            <button
+                              onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
+                              className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
                             >
-                              <img
-                                src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
-                                alt={selectedProduct.title}
-                                className={`w-full transition-transform duration-300 ease-out ${
-                                  imageZoomed ? 'scale-[2.2] origin-center' : 'h-full object-contain'
+                              <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                            </button>
+                          </div>
+
+                          {/* Scrollable Content */}
+                          <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-none">
+
+                            {/* Hero Image Gallery */}
+                            <div className="relative bg-slate-50">
+                              <div
+                                className={`relative w-full overflow-hidden transition-all duration-300 ${
+                                  imageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                                 }`}
-                                loading="lazy"
-                                decoding="async"
-                                draggable={false}
-                              />
+                                style={{ aspectRatio: imageZoomed ? '1/1' : '4/3' }}
+                                onClick={() => setImageZoomed(!imageZoomed)}
+                              >
+                                <img
+                                  src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
+                                  alt={selectedProduct.title}
+                                  className={`w-full h-full transition-transform duration-500 ease-out ${
+                                    imageZoomed ? 'scale-[2.5] object-cover' : 'object-contain'
+                                  }`}
+                                  loading="lazy"
+                                  decoding="async"
+                                  draggable={false}
+                                />
 
-                              {/* Zoom Badge */}
-                              {!imageZoomed && (
-                                <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-slate-900/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs select-none">
-                                  <ZoomIn className="h-3 w-3" />
-                                  <span>Зум</span>
+                                {/* Zoom indicator */}
+                                <div className={`absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg select-none transition-colors ${
+                                  imageZoomed ? 'bg-white text-slate-900' : 'bg-slate-900/70 text-white backdrop-blur-sm'
+                                }`}>
+                                  {imageZoomed ? <ZoomOut className="h-3 w-3" /> : <ZoomIn className="h-3 w-3" />}
+                                  <span>{imageZoomed ? 'Закрити зум' : 'Збільшити'}</span>
                                 </div>
-                              )}
-                              {imageZoomed && (
-                                <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-slate-900/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs select-none">
-                                  <ZoomOut className="h-3 w-3" />
-                                  <span>Закрити зум</span>
-                                </div>
-                              )}
 
-                              {/* Navigation Arrows */}
-                              {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
-                                <>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1)); }}
-                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-sm transition-colors cursor-pointer border border-slate-200/50"
-                                  >
-                                    <ChevronLeft className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0)); }}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 text-slate-700 hover:bg-white shadow-sm transition-colors cursor-pointer border border-slate-200/50"
-                                  >
-                                    <ChevronRight className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
+                                {/* Navigation Arrows */}
+                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1)); }}
+                                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-md transition-all cursor-pointer border border-slate-200/50"
+                                    >
+                                      <ChevronLeft className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0)); }}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-md transition-all cursor-pointer border border-slate-200/50"
+                                    >
+                                      <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
 
-                              {/* Dot Indicators */}
-                              {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
-                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/80 backdrop-blur-xs px-2 py-1 rounded-full shadow-2xs border border-slate-200/50">
-                                  {selectedProduct.images.map((_: string, idx: number) => (
+                                {/* Dot Indicators */}
+                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
+                                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-full shadow-md border border-slate-200/30">
+                                    {selectedProduct.images.map((_: string, idx: number) => (
+                                      <button
+                                        key={idx}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
+                                        className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                                          selectedImageIndex === idx ? 'bg-blue-600 scale-125' : 'bg-slate-400/50 hover:bg-slate-400'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Thumbnails Strip */}
+                              {selectedProduct.images && selectedProduct.images.length > 1 && (
+                                <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-none bg-white border-b border-slate-100">
+                                  {selectedProduct.images.map((img: string, idx: number) => (
                                     <button
                                       key={idx}
-                                      onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
-                                      className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                                        selectedImageIndex === idx ? 'bg-blue-600 scale-125' : 'bg-slate-400/50 hover:bg-slate-400'
+                                      onClick={() => { setSelectedImageIndex(idx); setImageZoomed(false); }}
+                                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer ${
+                                        selectedImageIndex === idx ? 'border-blue-600 shadow-sm ring-2 ring-blue-100' : 'border-slate-200 opacity-60 hover:opacity-100'
                                       }`}
-                                    />
+                                    >
+                                      <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                                    </button>
                                   ))}
                                 </div>
                               )}
                             </div>
 
-                            {/* Thumbnails Strip */}
-                            {selectedProduct.images && selectedProduct.images.length > 1 && (
-                              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                                {selectedProduct.images.map((img: string, idx: number) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() => { setSelectedImageIndex(idx); setImageZoomed(false); }}
-                                    className={`w-14 h-14 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer ${
-                                      selectedImageIndex === idx ? 'border-blue-600 shadow-sm scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
-                                    }`}
-                                  >
-                                    <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                            {/* Product Info Body */}
+                            <div className="px-4 sm:px-6 py-5 space-y-5">
 
-                          {/* Badges & Title */}
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                                selectedProduct.is_official !== false ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-purple-100 text-purple-800 border border-purple-200'
-                              }`}>
-                                {selectedProduct.is_official !== false ? 'Офіційний KS Shop' : `Оголошення (${selectedProduct.author_name || 'Організатор'})`}
-                              </span>
-                              {selectedProduct.badge && (
-                                <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-2xs border border-amber-300 uppercase tracking-wider">
-                                  {selectedProduct.badge}
+                              {/* Badges Row */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full ${
+                                  selectedProduct.is_official !== false ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'
+                                }`}>
+                                  {selectedProduct.is_official !== false ? 'Офіційний KS Shop' : `Оголошення · ${selectedProduct.author_name || 'Організатор'}`}
                                 </span>
-                              )}
-                              <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                                selectedProduct.is_available ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'
-                              }`}>
-                                {selectedProduct.is_available ? 'В наявності' : 'Немає в наявності'}
-                              </span>
-                            </div>
-
-                            <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
-                              {selectedProduct.title}
-                            </h2>
-                          </div>
-
-                          {/* Price Container */}
-                          <div className="flex items-baseline gap-2.5 bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
-                            <span className="text-2xl sm:text-3xl font-black text-blue-600">
-                              {selectedProduct.price} грн
-                            </span>
-                            {selectedProduct.old_price && (
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-sm font-semibold text-slate-400 line-through">
-                                  {selectedProduct.old_price} грн
-                                </span>
-                                {selectedProduct.old_price > selectedProduct.price && (
-                                  <span className="text-[11px] font-extrabold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                                    -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}%
+                                {selectedProduct.badge && (
+                                  <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 uppercase tracking-wider">
+                                    {selectedProduct.badge}
                                   </span>
                                 )}
+                                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full ${
+                                  selectedProduct.is_available ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                                }`}>
+                                  {selectedProduct.is_available ? '✓ В наявності' : '✕ Немає в наявності'}
+                                </span>
                               </div>
-                            )}
+
+                              {/* Title */}
+                              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight tracking-tight">
+                                {selectedProduct.title}
+                              </h2>
+
+                              {/* Price Block */}
+                              <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-slate-50 rounded-2xl p-4 border border-blue-100/60">
+                                <span className="text-2xl sm:text-3xl font-black text-blue-600">
+                                  {selectedProduct.price} ₴
+                                </span>
+                                {selectedProduct.old_price && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm sm:text-base font-semibold text-slate-400 line-through">
+                                      {selectedProduct.old_price} ₴
+                                    </span>
+                                    {selectedProduct.old_price > selectedProduct.price && (
+                                      <span className="text-[11px] font-extrabold text-white bg-red-500 px-2 py-0.5 rounded-full">
+                                        -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Description */}
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                                  Опис
+                                </h4>
+                                <p className="text-sm sm:text-[15px] text-slate-700 leading-relaxed whitespace-pre-line">
+                                  {selectedProduct.description}
+                                </p>
+                              </div>
+                            </div>
                           </div>
 
-                          {/* Description */}
-                          <div className="space-y-1.5 border-t border-slate-100 pt-3.5">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                              Опис товару
-                            </h4>
-                            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                              {selectedProduct.description}
-                            </p>
+                          {/* Sticky Footer — Order Button */}
+                          <div className="sticky bottom-0 px-4 py-3 sm:px-5 sm:py-4 bg-white/95 backdrop-blur-md border-t border-slate-100 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+                            <a
+                              href={selectedProduct.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full flex items-center justify-center gap-2 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-sm shadow-lg hover:shadow-xl hover:opacity-95 transition-all cursor-pointer active:scale-[0.98]"
+                            >
+                              <span>Замовити в Instagram</span>
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
                           </div>
-                        </div>
 
-                        {/* Modal Footer / Action Button */}
-                        <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/80 shrink-0">
-                          <a
-                            href={selectedProduct.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-md hover:opacity-95 transition-all cursor-pointer"
-                          >
-                            <span>Придбати в Instagram @ks_fan.shop</span>
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
                         </div>
                       </div>
                     </div>
