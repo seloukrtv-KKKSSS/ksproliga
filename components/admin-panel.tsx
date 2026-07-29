@@ -425,14 +425,22 @@ export function AdminPanel({
       ? (productForm.author_name.trim() || (isOfficial ? "KS LIGA" : "Адміністратор"))
       : (organizerName || "Організатор")
 
-    const payload = {
+    let rawInstagram = productForm.instagram_url.trim()
+    let formattedInstagram = rawInstagram
+    if (formattedInstagram.startsWith("@")) {
+      formattedInstagram = `https://www.instagram.com/${formattedInstagram.substring(1)}/`
+    } else if (formattedInstagram && !formattedInstagram.startsWith("http://") && !formattedInstagram.startsWith("https://")) {
+      formattedInstagram = `https://www.instagram.com/${formattedInstagram}/`
+    }
+
+    const payload: Omit<Product, "id" | "created_at"> = {
       title: productForm.title.trim(),
       description: productForm.description.trim(),
       price: parseFloat(productForm.price) || 0,
       old_price: productForm.old_price ? parseFloat(productForm.old_price) || null : null,
       images: imageArray.length > 0 ? imageArray : ["https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=800&auto=format&fit=crop&q=80"],
       badge: productForm.badge.trim() || null,
-      instagram_url: productForm.instagram_url.trim() || "https://www.instagram.com/ks_fan.shop/",
+      instagram_url: formattedInstagram || "https://www.instagram.com/ks_fan.shop/",
       is_available: productForm.is_available,
       is_official: isOfficial,
       is_approved: isApproved,
@@ -3357,13 +3365,13 @@ export function AdminPanel({
 
               <div className="space-y-2">
                 <Label htmlFor="product-instagram" className="text-slate-700 font-semibold text-xs">
-                  Посилання для контакту / Instagram / телефон
+                  Instagram сторінка або контакт для замовлень (напр: @ваш_акаунт або посилання)
                 </Label>
                 <Input
                   id="product-instagram"
                   value={productForm.instagram_url}
                   onChange={(e) => setProductForm({ ...productForm, instagram_url: e.target.value })}
-                  placeholder="https://www.instagram.com/ks_fan.shop/"
+                  placeholder="@ваш_instagram або https://instagram.com/..."
                   className="glass-input text-sm h-10 px-4 font-mono text-xs"
                 />
               </div>

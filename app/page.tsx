@@ -1993,11 +1993,11 @@ export default function KSLigaSite() {
                   {/* Product Detail — Modern E-Commerce Quick View Modal */}
                   {selectedProduct && (
                     <div
-                      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-in fade-in duration-200"
+                      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto h-[100dvh] w-screen animate-in fade-in duration-200"
                       onClick={(e) => { if (e.target === e.currentTarget) { setSelectedProduct(null); setImageZoomed(false); } }}
                     >
                       {/* Modal Panel: Centered Floating Card on Mobile & Desktop */}
-                      <div className="relative w-full max-w-lg sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[88vh] flex flex-col border border-slate-200/90 animate-in zoom-in-95 duration-200 my-auto">
+                      <div className="relative w-full max-w-lg sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[88dvh] sm:max-h-[85vh] flex flex-col border border-slate-200/90 animate-in zoom-in-95 duration-200 my-auto">
                         
                         {/* Modal Header */}
                         <div className="px-3.5 py-2.5 sm:px-6 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
