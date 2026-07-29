@@ -101,23 +101,18 @@ export default function KSLigaSite() {
   const [shopSearchQuery, setShopSearchQuery] = useState("")
   const [shopAvailabilityFilter, setShopAvailabilityFilter] = useState<"all" | "available" | "discount">("all")
 
-  // Lock body scroll and handle Escape key when product detail view is open
+  // Handle Escape key when product detail view is open
   useEffect(() => {
-    if (selectedProduct) {
-      document.body.style.overflow = "hidden"
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          setSelectedProduct(null)
-          setImageZoomed(false)
-        }
+    if (!selectedProduct) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedProduct(null)
+        setImageZoomed(false)
       }
-      window.addEventListener("keydown", handleKeyDown)
-      return () => {
-        document.body.style.overflow = ""
-        window.removeEventListener("keydown", handleKeyDown)
-      }
-    } else {
-      document.body.style.overflow = ""
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
     }
   }, [selectedProduct])
 
