@@ -1241,5 +1241,16 @@ export async function getOrganizerLogs(): Promise<OrganizerLog[]> {
   }
 }
 
+export async function clearOrganizerLogs(): Promise<void> {
+  if (shouldUseMockData()) return
+  try {
+    const { error } = await supabase.from("organizer_logs").delete().neq("id", 0)
+    if (error) throw error
+  } catch (error) {
+    console.error("Error clearing organizer logs:", error)
+    throw error
+  }
+}
+
 
 

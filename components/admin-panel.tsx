@@ -81,6 +81,7 @@ import {
   getUserAnalytics,
   getOrganizerLogs,
   logOrganizerAction,
+  clearOrganizerLogs,
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog } from "@/lib/supabase"
 
@@ -498,6 +499,25 @@ export function AdminPanel({
       await updateChampionshipsOrder(reordered)
     } catch (error) {
       console.error("Error reordering championships:", error)
+    }
+  }
+
+  // Logs handlers
+  const handleClearLogs = async () => {
+    if (confirm("Ви впевнені, що хочете повністю очистити журнал дій організаторів?")) {
+      try {
+        setLoading(true)
+        await clearOrganizerLogs()
+        setOrganizerLogs([])
+        await logOrganizerAction(organizerName || "Адміністратор", "clear_logs", "Журнал дій організаторів було очищено")
+        const updated = await getOrganizerLogs()
+        setOrganizerLogs(updated)
+      } catch (error) {
+        console.error("Error clearing logs:", error)
+        alert("Помилка при очищенні журналу: " + getErrorMessage(error))
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -3627,9 +3647,9 @@ export function AdminPanel({
               </p>
             </div>
 
-            {/* Filters & Search */}
+            {/* Filters & Search & Clear Button */}
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-              <div className="relative w-full sm:w-48">
+              <div className="relative w-full sm:w-44">
                 <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <Input
                   value={logsSearchTerm}
@@ -3640,7 +3660,7 @@ export function AdminPanel({
               </div>
 
               <Select value={logsFilterOrganizer} onValueChange={setLogsFilterOrganizer}>
-                <SelectTrigger className="w-full sm:w-44 bg-slate-50 border-slate-200 rounded-xl h-9 text-xs text-slate-900">
+                <SelectTrigger className="w-full sm:w-40 bg-slate-50 border-slate-200 rounded-xl h-9 text-xs text-slate-900">
                   <SelectValue placeholder="Всі організатори" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3652,6 +3672,18 @@ export function AdminPanel({
                   ))}
                 </SelectContent>
               </Select>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={handleClearLogs}
+                disabled={loading || organizerLogs.length === 0}
+                className="h-9 px-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 w-full sm:w-auto shrink-0 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Очистити журнал</span>
+              </Button>
             </div>
           </div>
 
