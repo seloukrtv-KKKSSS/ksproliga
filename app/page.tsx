@@ -101,14 +101,22 @@ export default function KSLigaSite() {
   const [shopSearchQuery, setShopSearchQuery] = useState("")
   const [shopAvailabilityFilter, setShopAvailabilityFilter] = useState<"all" | "available" | "discount">("all")
 
-  // Lock body scroll when product detail view is open
+  // Lock body scroll and handle Escape key when product detail view is open
   useEffect(() => {
     if (selectedProduct) {
       document.body.style.overflow = "hidden"
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setSelectedProduct(null)
+          setImageZoomed(false)
+        }
+      }
+      window.addEventListener("keydown", handleKeyDown)
+      return () => {
+        document.body.style.overflow = ""
+        window.removeEventListener("keydown", handleKeyDown)
+      }
     } else {
-      document.body.style.overflow = ""
-    }
-    return () => {
       document.body.style.overflow = ""
     }
   }, [selectedProduct])
@@ -1880,13 +1888,11 @@ export default function KSLigaSite() {
                           return (
                           <div
                             key={product.id}
-                            className="group bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between overflow-hidden hover:-translate-y-1"
+                            className="group bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between overflow-hidden hover:-translate-y-1 cursor-pointer"
+                            onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setImageZoomed(false); }}
                           >
                             {/* Product Image Box */}
-                            <div
-                              className="relative aspect-[4/3] bg-slate-50 overflow-hidden cursor-pointer"
-                              onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
-                            >
+                            <div className="relative aspect-[4/3] bg-slate-50 overflow-hidden">
                               <img
                                 src={product.images && product.images.length > 0 ? product.images[0] : "/placeholder.svg"}
                                 alt={product.title}
@@ -1936,10 +1942,7 @@ export default function KSLigaSite() {
                                     Оголошення · {product.author_name || "Організатор"}
                                   </div>
                                 )}
-                                <h3
-                                  onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); }}
-                                  className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-1 cursor-pointer leading-snug"
-                                >
+                                <h3 className="font-extrabold text-slate-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-1 leading-snug">
                                   {product.title}
                                 </h3>
                                 <p className="text-xs text-slate-500 line-clamp-1 leading-relaxed">
@@ -1962,7 +1965,12 @@ export default function KSLigaSite() {
 
                                 <div className="grid grid-cols-2 gap-2">
                                   <button
-                                    onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setImageZoomed(false); }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedProduct(product)
+                                      setSelectedImageIndex(0)
+                                      setImageZoomed(false)
+                                    }}
                                     className="w-full text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 h-9 rounded-xl transition-colors bg-white cursor-pointer active:scale-[0.98]"
                                   >
                                     Детальніше
@@ -1971,6 +1979,7 @@ export default function KSLigaSite() {
                                     href={product.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
                                     className="w-full flex items-center justify-center gap-1 text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 transition-all h-9 rounded-xl shadow-xs active:scale-[0.98]"
                                   >
                                     <span>Замовити</span>
