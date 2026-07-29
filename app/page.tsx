@@ -505,7 +505,7 @@ export default function KSLigaSite() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
-      <header className="liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full backdrop-blur-md bg-white/95 border-b border-slate-200 shadow-xs pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+      <header className="liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-xs pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
         <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
@@ -728,9 +728,9 @@ export default function KSLigaSite() {
                         </CardContent>
                       </Card>
                     ) : (
-                      <div className="bg-white border border-slate-200 shadow-sm rounded-3xl overflow-hidden divide-y divide-slate-200">
+                      <div className="bg-white/50 backdrop-blur-2xl border border-white/70 shadow-lg shadow-black/5 rounded-3xl overflow-hidden divide-y divide-slate-200/50">
                         {/* Table Header Legend (Mobile & Desktop) */}
-                        <div className="bg-slate-50 px-3 sm:px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase tracking-wider select-none">
+                        <div className="bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="w-7 sm:w-8 text-center shrink-0">#</span>
                             <span className="truncate">Команда</span>
@@ -867,7 +867,7 @@ export default function KSLigaSite() {
                           <button
                             type="button"
                             onClick={() => setCollapsedCalendarRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
-                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs hover:border-slate-300 transition-all cursor-pointer select-none group"
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
                             <div className="flex items-center gap-2.5">
                               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-2xs shrink-0"></span>
@@ -963,7 +963,7 @@ export default function KSLigaSite() {
                           <button
                             type="button"
                             onClick={() => setCollapsedResultsRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
-                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs hover:border-slate-300 transition-all cursor-pointer select-none group"
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
                             <div className="flex items-center gap-2.5">
                               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs shrink-0"></span>
@@ -1998,7 +1998,7 @@ export default function KSLigaSite() {
 
       {/* Mobile App Bottom Navigation Bar */}
       {championships.length > 0 && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/98 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pl-[max(0.25rem,env(safe-area-inset-left,0px))] pr-[max(0.25rem,env(safe-area-inset-right,0px))] py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pl-[max(0.25rem,env(safe-area-inset-left,0px))] pr-[max(0.25rem,env(safe-area-inset-right,0px))] py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
           <div className="flex items-center justify-around max-w-md mx-auto">
             {currentChampionship?.tournament_type === "league" && (
               <button
