@@ -31,35 +31,31 @@
     --lg-teal: #5AC8FA;
     --lg-indigo: #5856D6;
     
-    /* Glass Material Tokens */
-    --glass-bg: rgba(255, 255, 255, 0.18);
-    --glass-bg-hover: rgba(255, 255, 255, 0.28);
-    --glass-bg-active: rgba(255, 255, 255, 0.35);
-    --glass-border: rgba(255, 255, 255, 0.35);
-    --glass-border-strong: rgba(255, 255, 255, 0.5);
-    --glass-blur: 40px;
-    --glass-saturate: 200%;
-    --glass-radius: 22px;
-    --glass-radius-sm: 14px;
-    --glass-radius-xs: 10px;
+    /* Glass Material Tokens — Ultra-Sharp & Crystal Clear */
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-bg-hover: rgba(255, 255, 255, 0.97);
+    --glass-bg-active: #ffffff;
+    --glass-border: rgba(226, 232, 240, 0.9);
+    --glass-border-strong: rgba(203, 213, 225, 1);
+    --glass-blur: 8px;
+    --glass-saturate: 140%;
+    --glass-radius: 20px;
+    --glass-radius-sm: 12px;
+    --glass-radius-xs: 8px;
     
-    /* Glass Shadow */
+    /* Glass Shadow — Crisp & Sharp */
     --glass-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.06),
-      0 2px 8px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      0 4px 16px rgba(0, 0, 0, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.02);
     --glass-shadow-hover:
-      0 12px 40px rgba(0, 0, 0, 0.1),
-      0 4px 12px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.02);
+      0 8px 24px rgba(0, 0, 0, 0.07),
+      0 2px 4px rgba(0, 0, 0, 0.03);
     
     /* Specular highlight (satin shimmer) */
     --glass-specular: linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.4) 0%,
-      rgba(255, 255, 255, 0.05) 40%,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.1) 40%,
       rgba(255, 255, 255, 0) 60%,
       rgba(255, 255, 255, 0.1) 100%
     );
@@ -101,16 +97,14 @@
   }
 
   body {
-    /* iOS 26-style dynamic mesh background */
-    background-color: #e8ecf4;
+    background-color: #f1f5f9;
     background-image:
-      radial-gradient(ellipse at 15% 10%, rgba(90, 200, 250, 0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 15%, rgba(175, 82, 222, 0.2) 0%, transparent 50%),
-      radial-gradient(ellipse at 75% 85%, rgba(52, 199, 89, 0.18) 0%, transparent 50%),
-      radial-gradient(ellipse at 10% 80%, rgba(255, 149, 0, 0.15) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(0, 122, 255, 0.08) 0%, transparent 60%);
+      radial-gradient(ellipse at 15% 10%, rgba(0, 122, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 15%, rgba(175, 82, 222, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 85%, rgba(52, 199, 89, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 80%, rgba(255, 149, 0, 0.05) 0%, transparent 50%);
     background-attachment: fixed;
-    color: #1c1c1e;
+    color: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
     min-height: 100vh;
   }
@@ -129,22 +123,20 @@
 
 /* ============================================================
    LIQUID GLASS CARD — Primary glass panel component
-   Maps to .glassEffect(.regular) from SwiftUI
    ============================================================ */
 .liquid-glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   border-radius: var(--glass-radius);
   box-shadow: var(--glass-shadow);
   position: relative;
   overflow: hidden;
-  transition: box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-/* Specular highlight overlay (satin shimmer) */
+/* Specular highlight overlay */
 .liquid-glass-card::before {
   content: "";
   position: absolute;
@@ -161,58 +153,50 @@
 
 /* ============================================================
    LIQUID GLASS HEADER — Sticky navigation bar
-   Maps to .glassEffect(.regular) on toolbars
    ============================================================ */
 .liquid-glass-header {
-  background: rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(50px) saturate(250%);
-  -webkit-backdrop-filter: blur(50px) saturate(250%);
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.3);
-  box-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.04),
-    0 4px 20px -4px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
 /* ============================================================
-   iOS 26 SEGMENTED CONTROL — Tab bar with glass
-   Maps to .buttonStyle(.glass) + GlassEffectContainer
+   iOS 26 SEGMENTED CONTROL — Tab bar
    ============================================================ */
 .ios-segmented-control {
-  background: var(--glass-bg);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  background: rgba(241, 245, 249, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 4px;
   border-radius: 16px;
   display: flex;
   gap: 2px;
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   position: relative;
 }
 
 .ios-segment {
   border-radius: 12px;
   font-size: 13px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.55);
+  font-weight: 700;
+  color: #334155;
   padding: 8px 16px;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
   border: none !important;
   position: relative;
   z-index: 1;
   letter-spacing: -0.01em;
 }
 
-/* Active segment — morphing glass pill */
+/* Active segment — solid crisp pill */
 .ios-segment[data-state="active"] {
-  background: rgba(255, 255, 255, 0.85) !important;
-  color: #000000 !important;
-  font-weight: 700;
-  box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.08),
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
-  transform: scale(1.01);
+  background: #007AFF !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25) !important;
 }
 
 /* ============================================================
@@ -447,32 +431,29 @@ input:checked + .ios-switch-slider:before {
    SATURATED, HIGH-CONTRAST TYPOGRAPHY OVERRIDES
    ============================================================ */
 .text-slate-900, .text-slate-950 {
-  color: #0d121f !important;
+  color: #090d16 !important;
+  font-weight: 700;
 }
 
 .text-slate-800 {
-  color: #1a2238 !important;
+  color: #111827 !important;
+  font-weight: 600;
 }
 
 .text-slate-700 {
-  color: #2e3b56 !important;
+  color: #1f2937 !important;
 }
 
 .text-slate-600, .text-slate-650 {
-  color: #3e4d6d !important;
+  color: #374151 !important;
 }
 
 .text-slate-500 {
-  color: #4e5f84 !important;
+  color: #4b5563 !important;
 }
 
 .text-slate-400 {
-  color: #6a7c9f !important;
-}
-
-/* Base text shadow to improve readability over mesh background gradients */
-body {
-  text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.3);
+  color: #6b7280 !important;
 }
 
 /* ============================================================
