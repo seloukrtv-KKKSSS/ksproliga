@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { getMatchById, getMatchVoting, getVotingCandidates } from "@/lib/database"
 import type { Match, MatchVoting, VotingCandidate } from "@/lib/supabase"
-import { Trophy, Crown, Flame, Sparkles } from "lucide-react"
+import { Trophy, Crown, Flame, Sparkles, Award } from "lucide-react"
 
 function OBSLionVotingContent() {
   const searchParams = useSearchParams()
@@ -47,7 +47,7 @@ function OBSLionVotingContent() {
   if (!matchId) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6 text-center font-sans">
-        <div className="max-w-md p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-3">
+        <div className="max-w-md p-6 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl">
           <Trophy className="w-12 h-12 text-amber-400 mx-auto" />
           <h2 className="text-xl font-bold">OBS / vMix Віджет «Лев Матчу»</h2>
           <p className="text-xs text-slate-400">
@@ -67,99 +67,116 @@ function OBSLionVotingContent() {
   }
 
   const totalVotes = candidates.reduce((acc, c) => acc + (c.votes || 0), 0)
+  // ALWAYS SHOW ONLY TOP 3 TO PREVENT OVERFLOW ON LIVE BROADCAST
+  const topCandidates = candidates.slice(0, 3)
 
   return (
-    <div className="w-full h-screen bg-transparent p-4 sm:p-6 flex flex-col justify-start items-center font-sans select-none overflow-hidden">
+    <div className="w-full h-screen bg-transparent p-3 sm:p-4 flex flex-col justify-start items-start font-sans select-none overflow-hidden">
       
-      {/* Container Widget Box */}
-      <div className="w-full max-w-md bg-slate-950/85 backdrop-blur-xl border border-amber-500/40 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.25)] p-5 space-y-4 text-white animate-in zoom-in-95 duration-300">
+      {/* iOS Liquid Glass Card Container */}
+      <div className="w-full max-w-[360px] bg-slate-950/40 backdrop-blur-2xl border border-white/20 rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] p-4 space-y-3.5 text-white animate-in zoom-in-95 duration-300 relative overflow-hidden">
         
+        {/* Ambient Top Glow Effect */}
+        <div className="absolute -top-12 -left-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
+
         {/* Header Stream Bar */}
-        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+        <div className="flex items-center justify-between border-b border-white/10 pb-2.5 relative z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
               <Trophy className="w-4 h-4 fill-slate-950" />
             </div>
             <div>
-              <div className="text-xs font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+              <div className="text-xs font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
                 <span>ЛЕВ МАТЧУ</span>
                 <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
               </div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="text-[10px] font-bold text-slate-300 truncate max-w-[170px]">
                 {match ? `${match.home_team} — ${match.away_team}` : 'Голосування'}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-black tracking-wider uppercase animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 text-[9px] font-black tracking-wider uppercase backdrop-blur-md animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             <span>LIVE</span>
           </div>
         </div>
 
-        {/* Candidates List */}
-        {candidates.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400 italic">
-            Очікування кандидатів голосування...
+        {/* TOP 3 Candidates List */}
+        {topCandidates.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-400 italic">
+            Очікування кандидатів...
           </div>
         ) : (
-          <div className="space-y-3">
-            {candidates.map((candidate, index) => {
+          <div className="space-y-2.5 relative z-10">
+            {topCandidates.map((candidate, index) => {
               const percent = totalVotes > 0 ? Math.round((candidate.votes / totalVotes) * 100) : 0
-              const isLeader = index === 0 && candidate.votes > 0
+              const isFirst = index === 0 && candidate.votes > 0
+              const isSecond = index === 1
+              const isThird = index === 2
+
+              // Liquid Glass Row Card Styles
+              let rowStyle = "bg-slate-900/40 border-white/10"
+              let badgeStyle = "bg-slate-800 text-slate-300 border-white/10"
+              let barGradient = "from-blue-500 to-indigo-500"
+
+              if (isFirst) {
+                rowStyle = "bg-gradient-to-r from-amber-500/25 via-amber-600/15 to-slate-900/40 border-amber-400/80 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                badgeStyle = "bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 shadow-md font-black"
+                barGradient = "from-amber-400 via-amber-300 to-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]"
+              } else if (isSecond) {
+                rowStyle = "bg-gradient-to-r from-slate-300/20 via-slate-400/10 to-slate-900/40 border-slate-300/60"
+                badgeStyle = "bg-slate-300 text-slate-950 font-black"
+                barGradient = "from-slate-300 to-slate-400"
+              } else if (isThird) {
+                rowStyle = "bg-gradient-to-r from-amber-700/20 via-amber-800/10 to-slate-900/40 border-amber-600/50"
+                badgeStyle = "bg-amber-600 text-white font-black"
+                barGradient = "from-amber-600 to-amber-700"
+              }
 
               return (
                 <div
                   key={candidate.id || index}
-                  className={`relative p-3 rounded-2xl border transition-all duration-500 overflow-hidden ${
-                    isLeader
-                      ? "bg-gradient-to-r from-amber-950/60 to-slate-900/90 border-amber-400/80 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
-                      : "bg-slate-900/80 border-slate-800"
-                  }`}
+                  className={`relative p-2.5 rounded-2xl border backdrop-blur-xl transition-all duration-500 overflow-hidden ${rowStyle}`}
                 >
                   {/* Progress Fill Bar */}
                   <div
-                    className={`absolute left-0 top-0 bottom-0 transition-all duration-700 ease-out opacity-20 ${
-                      isLeader ? "bg-amber-400" : "bg-blue-500"
-                    }`}
+                    className="absolute left-0 top-0 bottom-0 transition-all duration-700 ease-out opacity-25 bg-white"
                     style={{ width: `${percent}%` }}
                   />
 
-                  <div className="relative z-10 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                        isLeader ? "bg-amber-400 text-slate-950 shadow-md" : "bg-slate-800 text-slate-300"
-                      }`}>
-                        {isLeader ? <Crown className="w-4 h-4 fill-slate-950" /> : `#${index + 1}`}
+                  <div className="relative z-10 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* Rank Badge */}
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] shrink-0 border ${badgeStyle}`}>
+                        {isFirst ? <Crown className="w-3.5 h-3.5 fill-slate-950" /> : index + 1}
                       </div>
 
                       <div className="min-w-0">
-                        <div className="text-xs font-black text-white truncate flex items-center gap-1.5">
+                        <div className="text-xs font-extrabold text-white truncate flex items-center gap-1">
                           <span className="truncate">{candidate.player_name}</span>
-                          {isLeader && <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-bounce" />}
+                          {isFirst && <Flame className="w-3 h-3 text-amber-400 shrink-0 animate-bounce" />}
                         </div>
-                        <div className="text-[10px] font-semibold text-slate-400 truncate">
+                        <div className="text-[10px] font-semibold text-slate-300/80 truncate">
                           {candidate.team_name}
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className={`text-sm font-black ${isLeader ? "text-amber-300" : "text-slate-200"}`}>
+                      <div className={`text-xs font-black ${isFirst ? "text-amber-300" : "text-slate-200"}`}>
                         {percent}%
                       </div>
-                      <div className="text-[10px] font-bold text-slate-400">
-                        {candidate.votes} {candidate.votes === 1 ? "голос" : candidate.votes > 1 && candidate.votes < 5 ? "голоси" : "голосів"}
+                      <div className="text-[9px] font-bold text-slate-400">
+                        {candidate.votes} {candidate.votes === 1 ? "голос" : "голосів"}
                       </div>
                     </div>
                   </div>
 
-                  {/* Top Bar Indicator */}
-                  <div className="relative z-10 mt-2 w-full h-1.5 rounded-full bg-slate-950/80 overflow-hidden border border-white/5">
+                  {/* Progress Bar Indicator */}
+                  <div className="relative z-10 mt-1.5 w-full h-1 rounded-full bg-slate-950/60 overflow-hidden border border-white/10">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ease-out ${
-                        isLeader ? "bg-gradient-to-r from-amber-400 to-amber-200 shadow-sm" : "bg-blue-500"
-                      }`}
+                      className={`h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r ${barGradient}`}
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -169,10 +186,13 @@ function OBSLionVotingContent() {
           </div>
         )}
 
-        {/* Footer Statistics */}
-        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-amber-500/20 font-bold uppercase tracking-wider">
-          <span>Всього голосів: <strong className="text-amber-400">{totalVotes}</strong></span>
-          <span className="text-[10px] text-slate-400 font-normal lowercase">ks-liga live widget</span>
+        {/* Footer info: TOP 3 Tag */}
+        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-white/10 font-bold uppercase tracking-wider relative z-10">
+          <span className="flex items-center gap-1 text-amber-400">
+            <Award className="w-3 h-3" />
+            <span>ТОП 3 КАНДИДАТІВ</span>
+          </span>
+          <span>Всього: <strong className="text-white">{totalVotes}</strong></span>
         </div>
 
       </div>
