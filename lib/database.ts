@@ -479,16 +479,26 @@ export async function addTeam(team: Omit<Team, "id" | "created_at">): Promise<Te
   if (shouldUseMockData()) {
     const newTeam = {
       ...team,
-      id: Math.max(...mockTeams.map((t) => t.id)) + 1,
+      id: Math.max(...mockTeams.map((t) => t.id), 0) + 1,
       created_at: new Date().toISOString(),
     }
     mockTeams.push(newTeam)
     return Promise.resolve(newTeam)
   }
 
-  const { data, error } = await supabase.from("teams").insert([team]).select().single()
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase.from("teams").insert([team]).select().single()
+    if (error) throw error
+    return data
+  } catch (error: any) {
+    if (error?.message?.includes("roster") || error?.code === "PGRST204") {
+      const { roster, ...cleanTeam } = team
+      const { data, error: err2 } = await supabase.from("teams").insert([cleanTeam]).select().single()
+      if (err2) throw err2
+      return { ...data, roster }
+    }
+    throw error
+  }
 }
 
 export async function getTeams(championshipId?: number): Promise<Team[]> {
@@ -520,9 +530,19 @@ export async function updateTeam(id: number, updates: Partial<Team>): Promise<Te
     throw new Error("Team not found")
   }
 
-  const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
+    if (error) throw error
+    return data
+  } catch (error: any) {
+    if (error?.message?.includes("roster") || error?.code === "PGRST204") {
+      const { roster, ...cleanUpdates } = updates
+      const { data, error: err2 } = await supabase.from("teams").update(cleanUpdates).eq("id", id).select().single()
+      if (err2) throw err2
+      return { ...data, roster }
+    }
+    throw error
+  }
 }
 
 export async function deleteTeam(id: number): Promise<void> {
