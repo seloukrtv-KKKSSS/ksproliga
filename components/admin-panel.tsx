@@ -163,6 +163,20 @@ export function AdminPanel({
     password: "",
     championship_ids: [],
   })
+
+  // Check if organizer has no tournaments assigned
+  const hasNoChampionships = !isMainAdmin && (
+    championships.length === 0 ||
+    (Array.isArray(allowedChampionshipIds) && allowedChampionshipIds.length === 0)
+  )
+
+  const [activeAdminTab, setActiveAdminTab] = useState<string>("championships")
+
+  useEffect(() => {
+    if (hasNoChampionships) {
+      setActiveAdminTab("shop")
+    }
+  }, [hasNoChampionships])
   const [editingOrganizer, setEditingOrganizer] = useState<Organizer | null>(null)
 
   // Championship form state
@@ -1068,18 +1082,19 @@ export function AdminPanel({
         </Button>
       </div>
 
-      <Tabs defaultValue="championships" className="w-full">
+      <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
         <TabsList className="ios-segmented-control w-max mb-6">
           <TabsTrigger
             value="championships"
-            className="ios-segment"
+            disabled={hasNoChampionships}
+            className="ios-segment disabled:opacity-40"
           >
             <Settings className="h-3.5 w-3.5 mr-1" />
             <span>Турніри</span>
           </TabsTrigger>
           <TabsTrigger
             value="teams"
-            disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
             className="ios-segment disabled:opacity-40"
           >
             <Users className="h-3.5 w-3.5 mr-1" />
@@ -1087,7 +1102,7 @@ export function AdminPanel({
           </TabsTrigger>
           <TabsTrigger
             value="matches"
-            disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
             className="ios-segment disabled:opacity-40"
           >
             <Calendar className="h-3.5 w-3.5 mr-1" />
@@ -1095,7 +1110,7 @@ export function AdminPanel({
           </TabsTrigger>
           <TabsTrigger
             value="players"
-            disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
             className="ios-segment disabled:opacity-40"
           >
             <Target className="h-3.5 w-3.5 mr-1" />
@@ -1103,25 +1118,27 @@ export function AdminPanel({
           </TabsTrigger>
           <TabsTrigger
             value="votings"
-            disabled={!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
             className="ios-segment disabled:opacity-40"
           >
             <Star className="h-3.5 w-3.5 mr-1" />
             <span>Лев матчу</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="ios-segment">
-            <BarChart3 className="h-3.5 w-3.5 mr-1" />
-            <span>Аналітика</span>
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="ios-segment">
-            <Activity className="h-3.5 w-3.5 mr-1" />
-            <span>Логи дій</span>
-          </TabsTrigger>
           {isMainAdmin && (
-            <TabsTrigger value="organizers" className="ios-segment">
-              <UserCheck className="h-3.5 w-3.5 mr-1" />
-              <span>Організатори</span>
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="analytics" className="ios-segment">
+                <BarChart3 className="h-3.5 w-3.5 mr-1" />
+                <span>Аналітика</span>
+              </TabsTrigger>
+              <TabsTrigger value="logs" className="ios-segment">
+                <Activity className="h-3.5 w-3.5 mr-1" />
+                <span>Логи дій</span>
+              </TabsTrigger>
+              <TabsTrigger value="organizers" className="ios-segment">
+                <UserCheck className="h-3.5 w-3.5 mr-1" />
+                <span>Організатори</span>
+              </TabsTrigger>
+            </>
           )}
 
           <TabsTrigger value="shop" className="ios-segment relative">
@@ -3492,8 +3509,9 @@ export function AdminPanel({
             {(() => {
               const filteredList = products.filter((prod) => {
                 if (!isMainAdmin) {
-                  // Organizers see items they submitted or all announcements
-                  return true
+                  // Organizers ONLY see items they submitted
+                  if (!organizerName) return false
+                  return (prod.author_name || "").trim().toLowerCase() === organizerName.trim().toLowerCase()
                 }
                 if (adminShopFilter === "official") return prod.is_official !== false
                 if (adminShopFilter === "pending") return prod.is_approved === false
@@ -3626,6 +3644,8 @@ export function AdminPanel({
           </div>
         </TabsContent>
 
+        {isMainAdmin && (
+          <>
         <TabsContent value="analytics" className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
             <div>
@@ -3969,7 +3989,9 @@ export function AdminPanel({
             })()}
           </div>
         </TabsContent>
-      </Tabs>
+      </>
+    )}
+  </Tabs>
     </div>
   )
 }
