@@ -72,6 +72,7 @@ import {
   addMatchCard,
   deleteMatchCard,
   formatTime,
+  getMatchStatusInfo,
   sortChampionships,
   getMatchVoting,
   getVotingCandidates,
@@ -1862,21 +1863,14 @@ export function AdminPanel({
                             {formatTime(match.match_time)}
                           </span>
                         )}
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            match.is_finished
-                              ? match.is_technical_defeat
-                                ? "bg-red-50 text-red-700 border border-red-150"
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-150"
-                              : "bg-blue-50 text-blue-700 border border-blue-150"
-                          }`}
-                        >
-                          {match.is_finished
-                            ? match.is_technical_defeat
-                              ? `Технічна поразка: ${match.technical_winner === match.home_team ? "+:-" : "-:+"}`
-                              : `${match.home_score} - ${match.away_score}${match.penalty_home !== null && match.penalty_away !== null ? ` (${match.penalty_home}-${match.penalty_away} пен.)` : ""}`
-                            : "Не зіграно"}
-                        </span>
+                        {(() => {
+                          const statusInfo = getMatchStatusInfo(match)
+                          return (
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${statusInfo.badgeClass}`}>
+                              {statusInfo.status === "finished" ? statusInfo.scoreText : statusInfo.badgeText}
+                            </span>
+                          )
+                        })()}
                         {match.is_technical_defeat && (
                           <span className="flex items-center gap-1 text-red-700 font-medium">
                             <AlertTriangle className="h-3 w-3 text-red-500" />

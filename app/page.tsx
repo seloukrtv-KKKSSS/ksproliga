@@ -50,6 +50,7 @@ import {
   getMatchesGoals,
   getMatchesCards,
   formatTime,
+  getMatchStatusInfo,
   sortChampionships,
   authenticateUser,
   getProducts,
@@ -920,49 +921,55 @@ export default function KSLigaSite() {
                           {/* Matches Grid (Shown when not collapsed) */}
                           {!isCollapsed && (
                             <div className="grid gap-3 sm:grid-cols-2 glass-animate-in">
-                              {roundMatches.map((match) => (
-                                <Card key={match.id} className="liquid-glass-card overflow-hidden">
-                                  <CardContent className="p-4 flex items-center justify-between gap-4">
-                                    <div className="flex-1 space-y-3">
-                                      {/* Team 1 */}
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                          <img
-                                            src={getTeamLogo(match.home_team)}
-                                            alt="Home Team"
-                                            className="w-full h-full object-contain"
-                                            loading="lazy"
-                                            decoding="async"
-                                          />
+                              {roundMatches.map((match) => {
+                                const statusInfo = getMatchStatusInfo(match)
+                                return (
+                                  <Card key={match.id} className={`liquid-glass-card overflow-hidden transition-all ${statusInfo.isLive ? "border-red-300 ring-2 ring-red-400/20 shadow-md" : ""}`}>
+                                    <CardContent className="p-4 flex items-center justify-between gap-4">
+                                      <div className="flex-1 space-y-3">
+                                        {/* Team 1 */}
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                            <img
+                                              src={getTeamLogo(match.home_team)}
+                                              alt="Home Team"
+                                              className="w-full h-full object-contain"
+                                              loading="lazy"
+                                              decoding="async"
+                                            />
+                                          </div>
+                                          <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
                                         </div>
-                                        <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
-                                      </div>
-                                      {/* Team 2 */}
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                          <img
-                                            src={getTeamLogo(match.away_team)}
-                                            alt="Away Team"
-                                            className="w-full h-full object-contain"
-                                          />
+                                        {/* Team 2 */}
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                            <img
+                                              src={getTeamLogo(match.away_team)}
+                                              alt="Away Team"
+                                              className="w-full h-full object-contain"
+                                            />
+                                          </div>
+                                          <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
                                         </div>
-                                        <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
                                       </div>
-                                    </div>
 
-                                    {/* Date & Time */}
-                                    <div className="text-right border-l border-slate-100 pl-4 space-y-1 flex-shrink-0">
-                                      <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5">
-                                        <Clock className="h-3 w-3 text-slate-400" />
-                                        {formatTime(match.match_time) || "—"}
+                                      {/* Date, Time & Status */}
+                                      <div className="text-right border-l border-slate-100 pl-3 sm:pl-4 space-y-1 flex-shrink-0 flex flex-col items-end justify-center">
+                                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${statusInfo.badgeClass}`}>
+                                          {statusInfo.badgeText}
+                                        </span>
+                                        <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5 pt-0.5">
+                                          <Clock className="h-3 w-3 text-slate-400" />
+                                          {formatTime(match.match_time) || "—"}
+                                        </div>
+                                        <div className="text-[10px] font-medium text-slate-500">
+                                          {new Date(match.date).toLocaleDateString("uk-UA")}
+                                        </div>
                                       </div>
-                                      <div className="text-[10px] text-slate-500">
-                                        {new Date(match.date).toLocaleDateString("uk-UA")}
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))}
+                                    </CardContent>
+                                  </Card>
+                                )
+                              })}
                             </div>
                           )}
                         </div>

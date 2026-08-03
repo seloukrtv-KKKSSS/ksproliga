@@ -586,6 +586,81 @@ export async function getMatchById(id: number): Promise<Match | null> {
   }
 }
 
+export function getMatchStatusInfo(match: {
+  date: string
+  match_time?: string | null
+  is_finished?: boolean
+  home_score?: number | null
+  away_score?: number | null
+  is_technical_defeat?: boolean
+  technical_winner?: string | null
+  penalty_home?: number | null
+  penalty_away?: number | null
+  home_team?: string
+  away_team?: string
+}) {
+  if (match.is_finished) {
+    if (match.is_technical_defeat) {
+      const isHomeWinner = match.technical_winner === match.home_team
+      return {
+        status: "finished",
+        badgeText: `Технічна поразка (${isHomeWinner ? "+:-" : "-:+"})`,
+        scoreText: isHomeWinner ? "+ : -" : "- : +",
+        badgeClass: "bg-red-50 text-red-700 border-red-200",
+        isLive: false,
+      }
+    }
+    const penText = match.penalty_home !== null && match.penalty_home !== undefined && match.penalty_away !== null && match.penalty_away !== undefined
+      ? ` (${match.penalty_home}-${match.penalty_away} пен.)`
+      : ""
+    return {
+      status: "finished",
+      badgeText: "Завершено",
+      scoreText: `${match.home_score ?? 0} : ${match.away_score ?? 0}${penText}`,
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      isLive: false,
+    }
+  }
+
+  if (match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined) {
+    return {
+      status: "finished",
+      badgeText: "Завершено",
+      scoreText: `${match.home_score} : ${match.away_score}`,
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      isLive: false,
+    }
+  }
+
+  let matchDateTime: Date | null = null
+  if (match.date) {
+    const dateStr = match.date.split("T")[0]
+    const timeStr = match.match_time || "00:00"
+    matchDateTime = new Date(`${dateStr}T${timeStr.length === 5 ? timeStr + ":00" : timeStr}`)
+  }
+
+  const now = new Date()
+  if (matchDateTime && !isNaN(matchDateTime.getTime())) {
+    if (now >= matchDateTime) {
+      return {
+        status: "ongoing",
+        badgeText: "🔴 Матч триває",
+        scoreText: "Матч триває",
+        badgeClass: "bg-red-50 text-red-700 border-red-200 animate-pulse font-extrabold",
+        isLive: true,
+      }
+    }
+  }
+
+  return {
+    status: "upcoming",
+    badgeText: "Очікується",
+    scoreText: "VS",
+    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+    isLive: false,
+  }
+}
+
 export async function addMatch(match: Omit<Match, "id" | "created_at">): Promise<Match> {
   if (shouldUseMockData()) {
     const newMatch = {
