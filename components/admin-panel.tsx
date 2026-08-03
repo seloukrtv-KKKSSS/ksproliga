@@ -35,6 +35,9 @@ import {
   Hourglass,
   Search,
   Filter,
+  Tv,
+  ExternalLink,
+  Copy,
 } from "lucide-react"
 import {
   getChampionships,
@@ -2800,13 +2803,40 @@ export function AdminPanel({
                             {selectedMatchForVoting.date} {selectedMatchForVoting.match_time && `· ${formatTime(selectedMatchForVoting.match_time)}`}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
                           <span className="text-xs font-medium text-slate-500">Статус:</span>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             matchVoting?.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-red-100 text-red-800 border-red-200"
                           }`}>
                             {matchVoting?.is_active ? "ВІДКРИТЕ" : "ЗАКРИТЕ"}
                           </span>
+
+                          {/* OBS / vMix Copy Link Button */}
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                              const url = `${window.location.origin}/obs/lion-voting?matchId=${selectedMatchForVoting.id}`
+                              navigator.clipboard.writeText(url)
+                              alert(`✅ Посилання для OBS Studio / vMix успішно скопійовано!\n\n${url}\n\nІнструкція:\n1. В OBS/vMix додайте нове джерело "Браузер" (Browser Source).\n2. Вставте це посилання у поле URL.\n3. Встановіть розмір 450x650 (або ширину за вашим бажанням).\n4. Фон є напівпрозорим та адаптованим для прямого ефіру!`)
+                            }}
+                            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-8 px-3 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer border border-amber-400"
+                            title="Скопіювати посилання для OBS Studio та vMix"
+                          >
+                            <Tv className="w-3.5 h-3.5" />
+                            <span>OBS / vMix Посилання</span>
+                          </Button>
+
+                          <a
+                            href={`/obs/lion-voting?matchId=${selectedMatchForVoting.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg transition-colors"
+                            title="Відкрити попередній перегляд віджета"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Тест</span>
+                          </a>
                         </div>
                       </div>
 

@@ -566,6 +566,26 @@ export async function getMatches(championshipId?: number): Promise<Match[]> {
   }
 }
 
+export async function getMatchById(id: number): Promise<Match | null> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockMatches.find((m) => m.id === id) || null)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("matches")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error) throw error
+    return data || null
+  } catch (error) {
+    console.warn("Database error getting match by id:", error)
+    return mockMatches.find((m) => m.id === id) || null
+  }
+}
+
 export async function addMatch(match: Omit<Match, "id" | "created_at">): Promise<Match> {
   if (shouldUseMockData()) {
     const newMatch = {
