@@ -32,6 +32,8 @@ import {
   BarChart3,
   Activity,
   Eye,
+  EyeOff,
+  UserPlus,
   Hourglass,
   Search,
   Filter,
@@ -81,6 +83,7 @@ import {
   setVotingActiveState,
   addVotingCandidate,
   deleteVotingCandidate,
+  toggleVotingCandidateVisibility,
   updateVotingCandidate,
   getUserAnalytics,
   getOrganizerLogs,
@@ -198,7 +201,7 @@ export function AdminPanel({
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null)
 
   // Team form state
-  const [teamForm, setTeamForm] = useState({ name: "", logo: "", city: "" })
+  const [teamForm, setTeamForm] = useState({ name: "", logo: "", city: "", roster_text: "" })
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
 
   // Match form state
@@ -593,10 +596,16 @@ export function AdminPanel({
 
     setLoading(true)
     try {
+      const rosterArray = teamForm.roster_text
+        .split("\n")
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0)
+
       const teamData = {
-        name: teamForm.name,
-        logo: teamForm.logo,
-        city: teamForm.city,
+        name: teamForm.name.trim(),
+        logo: teamForm.logo.trim() || undefined,
+        city: teamForm.city.trim() || undefined,
+        roster: rosterArray,
         championship_id: currentChampionshipId,
       }
 
@@ -608,7 +617,7 @@ export function AdminPanel({
         await addTeam(teamData)
         await logOrganizerAction(organizerName || "Адміністратор", "create_team", `Створено команду "${teamForm.name}"${teamForm.city ? ` (${teamForm.city})` : ""}`)
       }
-      setTeamForm({ name: "", logo: "", city: "" })
+      setTeamForm({ name: "", logo: "", city: "", roster_text: "" })
       await loadData()
       onDataChange?.()
     } catch (error) {
@@ -977,6 +986,66 @@ export function AdminPanel({
       } catch (error) {
         console.error("Error deleting candidate:", error)
       }
+    }
+  }
+
+  const handleToggleCandidateVisibility = async (candidateId: number, currentIsHidden: boolean) => {
+    try {
+      const updated = await toggleVotingCandidateVisibility(candidateId, !currentIsHidden)
+      setVotingCandidates(
+        votingCandidates.map((c) => (c.id === candidateId ? updated : c))
+      )
+    } catch (error) {
+      console.error("Error toggling candidate visibility:", error)
+      alert("Помилка зміни видимості кандидата")
+    }
+  }
+
+  const handleImportRosterCandidates = async () => {
+    if (!selectedMatchForVoting) return
+    const homeTeamObj = teams.find(
+      (t) => t.name.trim().toLowerCase() === selectedMatchForVoting.home_team.trim().toLowerCase()
+    )
+    const awayTeamObj = teams.find(
+      (t) => t.name.trim().toLowerCase() === selectedMatchForVoting.away_team.trim().toLowerCase()
+    )
+
+    const homeRoster = homeTeamObj?.roster || []
+    const awayRoster = awayTeamObj?.roster || []
+
+    if (homeRoster.length === 0 && awayRoster.length === 0) {
+      alert(`У складах команд "${selectedMatchForVoting.home_team}" та "${selectedMatchForVoting.away_team}" немає доданих гравців. Додайте склади у вкладці "Команди"!`)
+      return
+    }
+
+    setLoading(true)
+    let addedCount = 0
+    try {
+      for (const playerName of homeRoster) {
+        const exists = votingCandidates.some(
+          (c) => c.team_name === selectedMatchForVoting.home_team && c.player_name.trim().toLowerCase() === playerName.trim().toLowerCase()
+        )
+        if (!exists) {
+          await addVotingCandidate(selectedMatchForVoting.id, playerName, selectedMatchForVoting.home_team)
+          addedCount++
+        }
+      }
+      for (const playerName of awayRoster) {
+        const exists = votingCandidates.some(
+          (c) => c.team_name === selectedMatchForVoting.away_team && c.player_name.trim().toLowerCase() === playerName.trim().toLowerCase()
+        )
+        if (!exists) {
+          await addVotingCandidate(selectedMatchForVoting.id, playerName, selectedMatchForVoting.away_team)
+          addedCount++
+        }
+      }
+      await loadMatchVoting(selectedMatchForVoting.id)
+      alert(`Успішно додано ${addedCount} нових гравців зі складів команд!`)
+    } catch (error) {
+      console.error("Error importing roster candidates:", error)
+      alert("Помилка імпорту складів: " + getErrorMessage(error))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -1384,6 +1453,20 @@ export function AdminPanel({
                       className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
                     />
                   </div>
+                  <div className="sm:col-span-3">
+                    <Label htmlFor="team-roster" className="text-slate-700 font-semibold text-xs flex items-center justify-between">
+                      <span>Склад команди (список гравців для голосування за Лева Матчу)</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Кожен гравець з нового рядка</span>
+                    </Label>
+                    <textarea
+                      id="team-roster"
+                      rows={4}
+                      value={teamForm.roster_text}
+                      onChange={(e) => setTeamForm({ ...teamForm, roster_text: e.target.value })}
+                      placeholder={`Андрій Шевченко\nАндрій Ярмоленко\nВіктор Циганков`}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg p-3 text-xs focus:ring-2 focus:ring-blue-500 font-mono mt-1"
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button
@@ -1400,7 +1483,7 @@ export function AdminPanel({
                       variant="outline"
                       onClick={() => {
                         setEditingTeam(null)
-                        setTeamForm({ name: "", logo: "", city: "" })
+                        setTeamForm({ name: "", logo: "", city: "", roster_text: "" })
                       }}
                       className="bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200 rounded-lg h-10 px-4"
                     >
@@ -1435,6 +1518,11 @@ export function AdminPanel({
                           {team.city && (
                             <span className="text-xs font-medium text-slate-500">{team.city}</span>
                           )}
+                          {team.roster && team.roster.length > 0 && (
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full w-fit mt-1">
+                              👥 {team.roster.length} {team.roster.length === 1 ? "гравець у заявці" : "гравців у заявці"}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
@@ -1443,7 +1531,12 @@ export function AdminPanel({
                           variant="outline"
                           onClick={() => {
                             setEditingTeam(team)
-                            setTeamForm({ name: team.name, logo: team.logo || "", city: team.city || "" })
+                            setTeamForm({
+                              name: team.name,
+                              logo: team.logo || "",
+                              city: team.city || "",
+                              roster_text: team.roster ? team.roster.join("\n") : "",
+                            })
                           }}
                           className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
@@ -2964,15 +3057,28 @@ export function AdminPanel({
                             </Select>
                           </div>
                         </div>
-                        <Button
-                          type="submit"
-                          disabled={loading}
-                          size="sm"
-                          className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          Додати гравця
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="submit"
+                            disabled={loading}
+                            size="sm"
+                            className="bg-slate-900 hover:bg-slate-800 text-white text-xs h-8 px-3 rounded-lg"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Додати гравця
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleImportRosterCandidates}
+                            disabled={loading}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 rounded-lg flex items-center gap-1.5 shadow-xs"
+                            title="Автоматично імпортувати гравців зі збережених складів команд для цього матчу"
+                          >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            <span>⚡ Додати всіх із заявки (складу)</span>
+                          </Button>
+                        </div>
                       </form>
 
                       {/* Candidates Lists */}
@@ -2982,15 +3088,20 @@ export function AdminPanel({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {/* Home Candidates */}
                           <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
-                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
-                              {selectedMatchForVoting.home_team}
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span>{selectedMatchForVoting.home_team}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.home_team).length} у списку
+                              </span>
                             </h6>
                             {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.home_team).length === 0 ? (
                               <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
                             ) : (
                               <div className="space-y-1.5">
                                 {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.home_team).map((candidate) => (
-                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                  <div key={candidate.id} className={`flex items-center justify-between gap-2 p-1.5 border rounded-md text-xs transition-all ${
+                                    candidate.is_hidden ? "bg-amber-50/70 border-amber-200 text-slate-400" : "bg-slate-50 border-slate-200"
+                                  }`}>
                                     {editingCandidateId === candidate.id ? (
                                       <div className="flex items-center gap-1.5 w-full">
                                         <Input
@@ -3003,9 +3114,29 @@ export function AdminPanel({
                                       </div>
                                     ) : (
                                       <>
-                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                        <span className={`font-medium ${candidate.is_hidden ? "line-through text-slate-400" : "text-slate-900"}`}>
+                                          {candidate.player_name}
+                                          {candidate.is_hidden && <span className="no-underline text-[9px] font-bold text-amber-700 ml-1.5">(Прихований)</span>}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-0.5">{candidate.votes || 0} гол.</span>
+                                          
+                                          {/* Toggle Visibility Button */}
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleToggleCandidateVisibility(candidate.id, !!candidate.is_hidden)}
+                                            className={`h-6 w-6 p-0 border ${
+                                              candidate.is_hidden
+                                                ? "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                                                : "border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            }`}
+                                            type="button"
+                                            title={candidate.is_hidden ? "Показати у голосуванні" : "Приховати з голосування"}
+                                          >
+                                            {candidate.is_hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                          </Button>
+
                                           <Button
                                             size="sm"
                                             variant="outline"
@@ -3035,15 +3166,20 @@ export function AdminPanel({
 
                           {/* Away Candidates */}
                           <div className="space-y-2 border border-slate-200 p-3 rounded-lg bg-white">
-                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100">
-                              {selectedMatchForVoting.away_team}
+                            <h6 className="font-bold text-xs text-slate-800 pb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span>{selectedMatchForVoting.away_team}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.away_team).length} у списку
+                              </span>
                             </h6>
                             {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.away_team).length === 0 ? (
                               <div className="text-xs text-slate-400 py-2">Гравців не додано</div>
                             ) : (
                               <div className="space-y-1.5">
                                 {votingCandidates.filter(c => c.team_name === selectedMatchForVoting.away_team).map((candidate) => (
-                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs">
+                                  <div key={candidate.id} className={`flex items-center justify-between gap-2 p-1.5 border rounded-md text-xs transition-all ${
+                                    candidate.is_hidden ? "bg-amber-50/70 border-amber-200 text-slate-400" : "bg-slate-50 border-slate-200"
+                                  }`}>
                                     {editingCandidateId === candidate.id ? (
                                       <div className="flex items-center gap-1.5 w-full">
                                         <Input
@@ -3056,9 +3192,29 @@ export function AdminPanel({
                                       </div>
                                     ) : (
                                       <>
-                                        <span className="font-medium text-slate-900">{candidate.player_name}</span>
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-[10px] text-slate-500 font-semibold mr-1">{candidate.votes || 0} гол.</span>
+                                        <span className={`font-medium ${candidate.is_hidden ? "line-through text-slate-400" : "text-slate-900"}`}>
+                                          {candidate.player_name}
+                                          {candidate.is_hidden && <span className="no-underline text-[9px] font-bold text-amber-700 ml-1.5">(Прихований)</span>}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <span className="text-[10px] text-slate-500 font-semibold mr-0.5">{candidate.votes || 0} гол.</span>
+                                          
+                                          {/* Toggle Visibility Button */}
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleToggleCandidateVisibility(candidate.id, !!candidate.is_hidden)}
+                                            className={`h-6 w-6 p-0 border ${
+                                              candidate.is_hidden
+                                                ? "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200"
+                                                : "border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            }`}
+                                            type="button"
+                                            title={candidate.is_hidden ? "Показати у голосуванні" : "Приховати з голосування"}
+                                          >
+                                            {candidate.is_hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                          </Button>
+
                                           <Button
                                             size="sm"
                                             variant="outline"

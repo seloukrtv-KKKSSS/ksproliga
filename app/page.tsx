@@ -1372,7 +1372,7 @@ export default function KSLigaSite() {
                       const match = allMatches.find((m) => m.id === voting.match_id)
                       if (!match) return null
                       const matchCandidates = candidates
-                        .filter((c) => c.match_id === voting.match_id)
+                        .filter((c) => c.match_id === voting.match_id && !c.is_hidden)
                         .sort((a, b) => b.votes - a.votes)
                       const totalVotes = matchCandidates.reduce((sum, c) => sum + c.votes, 0)
                       const hasVoted = votedMatches.includes(voting.match_id)

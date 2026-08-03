@@ -37,6 +37,7 @@ export interface Team {
   name: string
   logo?: string
   city?: string
+  roster?: string[]
   championship_id: number
   created_at: string
 }
@@ -104,6 +105,7 @@ export interface VotingCandidate {
   player_name: string
   team_name: string
   votes: number
+  is_hidden?: boolean
   created_at: string
 }
 

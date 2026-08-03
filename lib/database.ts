@@ -1166,6 +1166,37 @@ export async function deleteVotingCandidate(id: number): Promise<void> {
   if (error) throw error
 }
 
+export async function toggleVotingCandidateVisibility(id: number, isHidden: boolean): Promise<VotingCandidate> {
+  if (shouldUseMockData()) {
+    const index = mockVotingCandidates.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      mockVotingCandidates[index].is_hidden = isHidden
+      return Promise.resolve(mockVotingCandidates[index])
+    }
+    throw new Error("Candidate not found")
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("voting_candidates")
+      .update({ is_hidden: isHidden })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.warn("Database error toggling candidate visibility:", error)
+    const index = mockVotingCandidates.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      mockVotingCandidates[index].is_hidden = isHidden
+      return Promise.resolve(mockVotingCandidates[index])
+    }
+    throw new Error("Candidate not found")
+  }
+}
+
 export async function incrementCandidateVotes(id: number): Promise<void> {
   if (shouldUseMockData()) {
     const index = mockVotingCandidates.findIndex((c) => c.id === id)

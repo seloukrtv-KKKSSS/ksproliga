@@ -31,7 +31,7 @@ function OBSLionVotingContent() {
       ])
       setMatch(m)
       setVoting(v)
-      setCandidates(c.sort((a, b) => b.votes - a.votes))
+      setCandidates(c.filter((cand) => !cand.is_hidden).sort((a, b) => b.votes - a.votes))
       setTeams(t)
     } catch (e) {
       console.error("Error fetching OBS voting data:", e)
