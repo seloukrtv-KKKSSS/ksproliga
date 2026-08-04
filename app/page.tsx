@@ -103,6 +103,11 @@ export default function KSLigaSite() {
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null)
   const [lightboxProduct, setLightboxProduct] = useState<Product | null>(null)
   const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
+  const [isLightboxZoomed, setIsLightboxZoomed] = useState(false)
+  const [lightboxZoomOrigin, setLightboxZoomOrigin] = useState({ x: 50, y: 50 })
+  const [lightboxTouchStart, setLightboxTouchStart] = useState<{ x: number; y: number } | null>(null)
+  const [cardTouchStarts, setCardTouchStarts] = useState<Record<number, { x: number; y: number }>>({})
+  const [cardMousePos, setCardMousePos] = useState<Record<number, { x: number; y: number }>>({})
 
   // Round Spoiler states
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
@@ -1889,19 +1894,54 @@ export default function KSLigaSite() {
                             key={product.id}
                             className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
                           >
-                            {/* ── Image Gallery ── */}
-                            <div className="relative aspect-[4/3] bg-slate-50 overflow-hidden group">
+                            {/* ── Image Gallery with Touch Swiping & Cursor Zoom ── */}
+                            <div
+                              className="relative aspect-[4/3] bg-slate-50 overflow-hidden group touch-pan-y select-none"
+                              onTouchStart={(e) => {
+                                setCardTouchStarts(prev => ({
+                                  ...prev,
+                                  [product.id]: { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                                }))
+                              }}
+                              onTouchEnd={(e) => {
+                                const start = cardTouchStarts[product.id]
+                                if (!start) return
+                                const endX = e.changedTouches[0].clientX
+                                const endY = e.changedTouches[0].clientY
+                                const deltaX = endX - start.x
+                                const deltaY = endY - start.y
+
+                                if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                                  if (deltaX < 0) {
+                                    setImgIdx(currentImgIdx < totalImages - 1 ? currentImgIdx + 1 : 0)
+                                  } else {
+                                    setImgIdx(currentImgIdx > 0 ? currentImgIdx - 1 : totalImages - 1)
+                                  }
+                                }
+                              }}
+                              onMouseMove={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                const x = ((e.clientX - rect.left) / rect.width) * 100
+                                const y = ((e.clientY - rect.top) / rect.height) * 100
+                                setCardMousePos(prev => ({ ...prev, [product.id]: { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } }))
+                              }}
+                            >
                               <img
                                 src={images[currentImgIdx]}
                                 alt={product.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-125 pointer-events-none"
+                                style={{
+                                  transformOrigin: cardMousePos[product.id]
+                                    ? `${cardMousePos[product.id].x}% ${cardMousePos[product.id].y}%`
+                                    : 'center center'
+                                }}
                                 loading="lazy"
                                 decoding="async"
                                 draggable={false}
                               />
 
                               {/* Badges top-left */}
-                              <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start z-10">
+                              <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start z-10 pointer-events-none">
                                 {product.badge && (
                                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-sm border border-amber-300 uppercase tracking-wider">
                                     {product.badge}
@@ -1915,7 +1955,7 @@ export default function KSLigaSite() {
                               </div>
 
                               {/* Status badge top-right */}
-                              <div className="absolute top-2.5 right-2.5 z-10">
+                              <div className="absolute top-2.5 right-2.5 z-10 pointer-events-none">
                                 <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-md flex items-center gap-1 ${
                                   product.is_available
                                     ? "bg-emerald-600/90 text-white border border-emerald-400/50"
@@ -1928,7 +1968,7 @@ export default function KSLigaSite() {
 
                               {/* Image counter */}
                               {hasMultipleImages && (
-                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm px-2.5 py-0.5 rounded-full z-10">
+                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm px-2.5 py-0.5 rounded-full z-10 pointer-events-none">
                                   {currentImgIdx + 1} / {totalImages}
                                 </div>
                               )}
@@ -1936,8 +1976,9 @@ export default function KSLigaSite() {
                               {/* Zoom button */}
                               <button
                                 type="button"
-                                onClick={() => { setLightboxProduct(product); setLightboxImageIndex(currentImgIdx); }}
+                                onClick={() => { setLightboxProduct(product); setLightboxImageIndex(currentImgIdx); setIsLightboxZoomed(false); }}
                                 className="absolute bottom-2.5 right-2.5 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-colors z-10 cursor-pointer"
+                                title="Відкрити на весь екран"
                               >
                                 <ZoomIn className="h-3.5 w-3.5" />
                               </button>
@@ -1946,14 +1987,14 @@ export default function KSLigaSite() {
                               {hasMultipleImages && (
                                 <>
                                   <button
-                                    onClick={() => setImgIdx(currentImgIdx > 0 ? currentImgIdx - 1 : totalImages - 1)}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100"
+                                    onClick={(e) => { e.stopPropagation(); setImgIdx(currentImgIdx > 0 ? currentImgIdx - 1 : totalImages - 1); }}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100 sm:flex hidden"
                                   >
                                     <ChevronLeft className="h-3.5 w-3.5" />
                                   </button>
                                   <button
-                                    onClick={() => setImgIdx(currentImgIdx < totalImages - 1 ? currentImgIdx + 1 : 0)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100"
+                                    onClick={(e) => { e.stopPropagation(); setImgIdx(currentImgIdx < totalImages - 1 ? currentImgIdx + 1 : 0); }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100 sm:flex hidden"
                                   >
                                     <ChevronRight className="h-3.5 w-3.5" />
                                   </button>
@@ -1966,7 +2007,7 @@ export default function KSLigaSite() {
                                   {images.map((_: string, idx: number) => (
                                     <button
                                       key={idx}
-                                      onClick={() => setImgIdx(idx)}
+                                      onClick={(e) => { e.stopPropagation(); setImgIdx(idx); }}
                                       className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
                                         currentImgIdx === idx ? 'bg-white scale-125 shadow-sm' : 'bg-white/50 hover:bg-white/80'
                                       }`}
@@ -2062,44 +2103,113 @@ export default function KSLigaSite() {
                       })}
                       </div>
 
-                      {/* ── Full-Screen Lightbox ── */}
+                      {/* ── Full-Screen Lightbox with Touch Swiping & Cursor/Touch Tracking Zoom ── */}
                       {lightboxProduct && (
                         <div
-                          className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center animate-in fade-in duration-150"
-                          onClick={() => setLightboxProduct(null)}
+                          className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-150 select-none overflow-hidden"
+                          onClick={() => { setLightboxProduct(null); setIsLightboxZoomed(false); }}
                         >
-                          <button
-                            onClick={() => setLightboxProduct(null)}
-                            className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
+                          {/* Top Controls Bar */}
+                          <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-30 flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsLightboxZoomed(!isLightboxZoomed); }}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                isLightboxZoomed ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-md'
+                              }`}
+                            >
+                              <ZoomIn className="h-4 w-4" />
+                              <span>{isLightboxZoomed ? 'Зум увімкнено' : 'Збільшити'}</span>
+                            </button>
+                            <button
+                              onClick={() => { setLightboxProduct(null); setIsLightboxZoomed(false); }}
+                              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
 
-                          {lightboxProduct.images && lightboxProduct.images.length > 1 && (
-                            <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/80 text-xs font-bold bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full">
-                              {lightboxImageIndex + 1} / {lightboxProduct.images.length}
+                          {/* Top Status & Instructions */}
+                          <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1 max-w-[70vw]">
+                            {lightboxProduct.images && lightboxProduct.images.length > 1 && (
+                              <div className="text-white/90 text-xs font-bold bg-white/15 backdrop-blur-md px-3 py-0.5 rounded-full border border-white/20">
+                                {lightboxImageIndex + 1} / {lightboxProduct.images.length}
+                              </div>
+                            )}
+                            <div className="text-[10px] sm:text-[11px] text-white/70 bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-center">
+                              {isLightboxZoomed
+                                ? "Ведіть пальцем або мишкою для розглядання"
+                                : "Свайпайте ◄ ► для гортання · Натисніть на фото для зуму"}
                             </div>
-                          )}
+                          </div>
 
-                          <img
-                            src={lightboxProduct.images && lightboxProduct.images.length > 0 ? lightboxProduct.images[lightboxImageIndex] : '/placeholder.svg'}
-                            alt={lightboxProduct.title}
-                            className="max-w-[94vw] max-h-[88vh] object-contain select-none"
-                            draggable={false}
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                          {/* Main Zoom Container */}
+                          <div
+                            className={`relative max-w-[95vw] max-h-[85vh] overflow-hidden flex items-center justify-center cursor-zoom-in touch-pan-y ${
+                              isLightboxZoomed ? 'cursor-crosshair' : ''
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setIsLightboxZoomed(!isLightboxZoomed)
+                            }}
+                            onMouseMove={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              const x = ((e.clientX - rect.left) / rect.width) * 100
+                              const y = ((e.clientY - rect.top) / rect.height) * 100
+                              setLightboxZoomOrigin({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) })
+                            }}
+                            onTouchStart={(e) => {
+                              setLightboxTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+                            }}
+                            onTouchMove={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              const touch = e.touches[0]
+                              const x = ((touch.clientX - rect.left) / rect.width) * 100
+                              const y = ((touch.clientY - rect.top) / rect.height) * 100
+                              setLightboxZoomOrigin({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) })
+                            }}
+                            onTouchEnd={(e) => {
+                              if (isLightboxZoomed) return
+                              if (!lightboxTouchStart) return
+                              const endX = e.changedTouches[0].clientX
+                              const endY = e.changedTouches[0].clientY
+                              const deltaX = endX - lightboxTouchStart.x
+                              const deltaY = endY - lightboxTouchStart.y
 
-                          {lightboxProduct.images && lightboxProduct.images.length > 1 && (
+                              if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                                const totalImgs = lightboxProduct.images?.length || 1
+                                if (deltaX < 0) {
+                                  setLightboxImageIndex(prev => (prev < totalImgs - 1 ? prev + 1 : 0))
+                                } else {
+                                  setLightboxImageIndex(prev => (prev > 0 ? prev - 1 : totalImgs - 1))
+                                }
+                              }
+                              setLightboxTouchStart(null)
+                            }}
+                          >
+                            <img
+                              src={lightboxProduct.images && lightboxProduct.images.length > 0 ? lightboxProduct.images[lightboxImageIndex] : '/placeholder.svg'}
+                              alt={lightboxProduct.title}
+                              className="max-w-[94vw] max-h-[85vh] object-contain select-none transition-transform duration-100"
+                              style={{
+                                transformOrigin: `${lightboxZoomOrigin.x}% ${lightboxZoomOrigin.y}%`,
+                                transform: isLightboxZoomed ? 'scale(2.5)' : 'scale(1)'
+                              }}
+                              draggable={false}
+                            />
+                          </div>
+
+                          {/* Navigation arrows in lightbox */}
+                          {!isLightboxZoomed && lightboxProduct.images && lightboxProduct.images.length > 1 && (
                             <>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setLightboxImageIndex(prev => prev > 0 ? prev - 1 : lightboxProduct.images.length - 1); }}
-                                className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
+                                className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors z-20"
                               >
                                 <ChevronLeft className="h-5 w-5" />
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setLightboxImageIndex(prev => prev < lightboxProduct.images.length - 1 ? prev + 1 : 0); }}
-                                className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
+                                className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors z-20"
                               >
                                 <ChevronRight className="h-5 w-5" />
                               </button>
