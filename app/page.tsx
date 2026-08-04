@@ -36,6 +36,7 @@ import {
   Filter,
   ShieldCheck,
   Truck,
+  Instagram,
 } from "lucide-react"
 import {
   getTeams,
@@ -2000,106 +2001,94 @@ export default function KSLigaSite() {
                   {/* Product Detail — Modern E-Commerce Quick View Modal */}
                   {selectedProduct && (
                     <div
-                      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto h-[100dvh] w-screen animate-in fade-in duration-200"
+                      className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto h-[100dvh] w-screen animate-in fade-in duration-200"
                       onClick={(e) => { if (e.target === e.currentTarget) { setSelectedProduct(null); setImageZoomed(false); } }}
                     >
-                      {/* Modal Panel: Centered Floating Card on Mobile & Desktop */}
-                      <div className="relative w-full max-w-lg sm:max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[88dvh] sm:max-h-[85vh] flex flex-col border border-slate-200/90 animate-in zoom-in-95 duration-200 my-auto">
+                      {/* Modal Card Box */}
+                      <div className="relative w-full max-w-full sm:max-w-4xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[85vh] flex flex-col border-t sm:border border-slate-200/90 animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-300 my-0 sm:my-auto">
                         
-                        {/* Modal Header */}
-                        <div className="px-3.5 py-2.5 sm:px-6 sm:py-3.5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+                        {/* Mobile Top Grabber & Modal Header */}
+                        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-white/90 backdrop-blur-md shrink-0 sticky top-0 z-20">
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 shadow-2xs">
+                              <ShoppingBag className="w-4 h-4 text-blue-600" />
                             </div>
-                            <h3 className="text-xs sm:text-base font-extrabold text-slate-900 truncate">
-                              {selectedProduct.title}
-                            </h3>
+                            <div className="min-w-0">
+                              <h3 className="text-xs sm:text-base font-extrabold text-slate-900 truncate">
+                                {selectedProduct.title}
+                              </h3>
+                              <div className="text-[10px] font-bold text-slate-400">
+                                {selectedProduct.is_official !== false ? "Офіційний KS Shop" : `Оголошення (${selectedProduct.author_name || "Організатор"})`}
+                              </div>
+                            </div>
                           </div>
+
                           <button
                             onClick={() => { setSelectedProduct(null); setImageZoomed(false); }}
-                            className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+                            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                             title="Закрити"
                           >
-                            <X className="h-5 w-5" />
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
 
-                        {/* Modal Body */}
+                        {/* Scrollable Body */}
                         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 scrollbar-thin">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 items-start">
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-8 items-start">
                             
-                            {/* Left Column: Image Gallery */}
-                            <div className="space-y-3 w-full">
+                            {/* Left Column: Image Gallery (md:col-span-6) */}
+                            <div className="space-y-3 md:col-span-6 w-full">
                               <div
-                                className={`relative w-full rounded-2xl bg-slate-50 border border-slate-200/80 overflow-hidden transition-all duration-300 ${
-                                  imageZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-                                }`}
-                                style={{ aspectRatio: imageZoomed ? '1/1' : '4/3' }}
-                                onClick={() => setImageZoomed(!imageZoomed)}
+                                className="relative w-full rounded-2xl bg-slate-50 border border-slate-200/80 overflow-hidden shadow-2xs group cursor-zoom-in h-60 sm:h-72 md:h-80 flex items-center justify-center"
+                                onClick={() => setImageZoomed(true)}
                               >
                                 <img
                                   src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
                                   alt={selectedProduct.title}
-                                  className={`w-full h-full transition-transform duration-500 ease-out ${
-                                    imageZoomed ? 'scale-[2.5] object-cover' : 'object-contain'
-                                  }`}
+                                  className="max-w-full max-h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
                                   loading="lazy"
                                   decoding="async"
                                   draggable={false}
                                 />
 
-                                {/* Zoom Badge */}
-                                <div className={`absolute bottom-2.5 right-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm select-none transition-colors ${
-                                  imageZoomed ? 'bg-white text-slate-900 border border-slate-200' : 'bg-slate-900/70 text-white backdrop-blur-sm'
-                                }`}>
-                                  {imageZoomed ? <ZoomOut className="h-3 w-3" /> : <ZoomIn className="h-3 w-3" />}
-                                  <span>{imageZoomed ? 'Закрити зум' : 'Збільшити'}</span>
-                                </div>
+                                {/* Zoom Trigger Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setImageZoomed(true); }}
+                                  className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-slate-950/75 text-white backdrop-blur-md hover:bg-slate-900 transition-all shadow-md"
+                                >
+                                  <ZoomIn className="h-3.5 w-3.5" />
+                                  <span>Збільшити</span>
+                                </button>
 
                                 {/* Navigation Arrows */}
-                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
+                                {selectedProduct.images && selectedProduct.images.length > 1 && (
                                   <>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1)); }}
-                                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-sm transition-all cursor-pointer border border-slate-200/50"
+                                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-md transition-all cursor-pointer border border-slate-200/60 flex items-center justify-center"
                                     >
                                       <ChevronLeft className="h-4 w-4" />
                                     </button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0)); }}
-                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-md transition-all cursor-pointer border border-slate-200/50"
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow-md transition-all cursor-pointer border border-slate-200/60 flex items-center justify-center"
                                     >
                                       <ChevronRight className="h-4 w-4" />
                                     </button>
                                   </>
                                 )}
-
-                                {/* Dot Indicators */}
-                                {!imageZoomed && selectedProduct.images && selectedProduct.images.length > 1 && (
-                                  <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-xs border border-slate-200/40">
-                                    {selectedProduct.images.map((_: string, idx: number) => (
-                                      <button
-                                        key={idx}
-                                        onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
-                                        className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                                          selectedImageIndex === idx ? 'bg-blue-600 scale-125' : 'bg-slate-300 hover:bg-slate-400'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
                               </div>
 
-                              {/* Thumbnails Strip */}
+                              {/* Thumbnails Horizontal Strip */}
                               {selectedProduct.images && selectedProduct.images.length > 1 && (
-                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
                                   {selectedProduct.images.map((img: string, idx: number) => (
                                     <button
                                       key={idx}
-                                      onClick={() => { setSelectedImageIndex(idx); setImageZoomed(false); }}
-                                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer ${
-                                        selectedImageIndex === idx ? 'border-blue-600 shadow-xs ring-2 ring-blue-100 scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
+                                      onClick={() => setSelectedImageIndex(idx)}
+                                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl border-2 overflow-hidden shrink-0 transition-all cursor-pointer snap-start bg-slate-50 ${
+                                        selectedImageIndex === idx ? 'border-blue-600 shadow-md ring-2 ring-blue-100 scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
                                       }`}
                                     >
                                       <img src={img} alt={`Фото ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" decoding="async" />
@@ -2109,88 +2098,134 @@ export default function KSLigaSite() {
                               )}
                             </div>
 
-                            {/* Right Column: Product Details */}
-                            <div className="space-y-4 w-full">
-                              {/* Badges */}
+                            {/* Right Column: Product Details (md:col-span-6) */}
+                            <div className="space-y-4 md:col-span-6 w-full">
+                              
+                              {/* Status & Category Badges */}
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                                <span className={`text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 ${
                                   selectedProduct.is_official !== false ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'
                                 }`}>
-                                  {selectedProduct.is_official !== false ? 'Офіційний KS Shop' : `Оголошення (${selectedProduct.author_name || 'Організатор'})`}
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                  <span>{selectedProduct.is_official !== false ? 'Офіційний KS Shop' : `Оголошення (${selectedProduct.author_name || 'Організатор'})`}</span>
                                 </span>
+
                                 {selectedProduct.badge && (
-                                  <span className="text-[10px] sm:text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-900 border border-amber-300 uppercase tracking-wider">
+                                  <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-amber-400 text-slate-950 border border-amber-300 uppercase tracking-wider shadow-2xs">
                                     {selectedProduct.badge}
                                   </span>
                                 )}
-                                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full ${
+
+                                <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${
                                   selectedProduct.is_available ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
                                 }`}>
                                   {selectedProduct.is_available ? '✓ В наявності' : '✕ Продано'}
                                 </span>
                               </div>
 
-                              {/* Title */}
-                              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
+                              {/* Product Title */}
+                              <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
                                 {selectedProduct.title}
                               </h2>
 
-                              {/* Price Container */}
-                              <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                              {/* Price Box */}
+                              <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between shadow-2xs">
                                 <div>
-                                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ціна</div>
-                                  <div className="flex items-baseline gap-2">
+                                  <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Ціна товару</div>
+                                  <div className="flex items-baseline gap-2.5 mt-0.5">
                                     <span className="text-2xl sm:text-3xl font-black text-blue-600">
                                       {selectedProduct.price} ₴
                                     </span>
                                     {selectedProduct.old_price && (
-                                      <span className="text-xs sm:text-sm font-semibold text-slate-400 line-through">
+                                      <span className="text-sm sm:text-base font-bold text-slate-400 line-through">
                                         {selectedProduct.old_price} ₴
                                       </span>
                                     )}
                                   </div>
                                 </div>
+
                                 {selectedProduct.old_price && selectedProduct.old_price > selectedProduct.price && (
-                                  <span className="text-[11px] font-extrabold text-white bg-red-500 px-2.5 py-1 rounded-full">
-                                    -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}%
-                                  </span>
+                                  <div className="text-xs font-black text-white bg-red-500 px-3 py-1.5 rounded-full shadow-xs">
+                                    -{Math.round(((selectedProduct.old_price - selectedProduct.price) / selectedProduct.old_price) * 100)}% ЗНИЖКА
+                                  </div>
                                 )}
                               </div>
 
-                              {/* Description Box */}
-                              <div className="space-y-1.5">
-                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                              {/* Service Perks */}
+                              <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-600">
+                                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-100">
+                                  <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+                                  <span>Швидка доставка</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-100">
+                                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span>Гарантія якості</span>
+                                </div>
+                              </div>
+
+                              {/* Product Description */}
+                              <div className="space-y-1.5 pt-1">
+                                <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                                   Опис товару
                                 </div>
-                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
+                                <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-200/70 max-h-48 overflow-y-auto scrollbar-thin">
                                   {selectedProduct.description}
-                                </p>
+                                </div>
                               </div>
+
                             </div>
 
                           </div>
                         </div>
 
-                        {/* Sticky Action Footer */}
-                        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-white border-t border-slate-100 shrink-0 flex items-center justify-between gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+                        {/* Sticky Bottom Action Bar */}
+                        <div className="px-4 py-3.5 sm:px-6 sm:py-4 bg-white/95 backdrop-blur-md border-t border-slate-100 shrink-0 flex items-center justify-between gap-3 sticky bottom-0 z-20 pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))]">
                           <div className="hidden xs:block">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase">Разом</div>
-                            <div className="text-lg font-black text-slate-900 leading-none">
+                            <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Сума до сплати</div>
+                            <div className="text-xl font-black text-slate-900 leading-none">
                               {selectedProduct.price} ₴
                             </div>
                           </div>
+
                           <a
                             href={selectedProduct.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 py-3 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-md hover:opacity-95 transition-all cursor-pointer active:scale-[0.98]"
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:from-purple-700 hover:to-amber-600 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-pink-500/25 hover:shadow-xl transition-all cursor-pointer active:scale-[0.98]"
                           >
+                            <Instagram className="h-4 w-4 shrink-0" />
                             <span>Замовити в Instagram</span>
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3.5 w-3.5 opacity-80 shrink-0" />
                           </a>
                         </div>
 
                       </div>
+
+                      {/* Full Screen Lightbox Zoom Mode Overlay */}
+                      {imageZoomed && (
+                        <div
+                          className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+                          onClick={() => setImageZoomed(false)}
+                        >
+                          <button
+                            onClick={() => setImageZoomed(false)}
+                            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors cursor-pointer z-10"
+                          >
+                            <X className="h-6 w-6" />
+                          </button>
+
+                          <img
+                            src={selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[selectedImageIndex] : "/placeholder.svg"}
+                            alt={selectedProduct.title}
+                            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+                          />
+
+                          <div className="text-white text-xs font-bold mt-4 bg-slate-900/80 px-4 py-1.5 rounded-full border border-white/20">
+                            Натисніть у будь-якому місці, щоб закрити
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   )}
                 </TabsContent>
