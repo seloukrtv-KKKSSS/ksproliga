@@ -1711,22 +1711,23 @@ export default function KSLigaSite() {
                         {shopSubTab === "official" ? "Офіційний онлайн-магазин KS LIGA" : "Оголошення від організаторів"}
                       </h2>
                       <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-                        {shopSubTab === "official"
-                          ? "Фірмове футбольне екіпірування, м'ячі, ігрові форми та фан-атрибутика. Швидке замовлення в один клік через Instagram @ks_fan.shop."
-                          : "Майданчик оголошень про продаж та обмін футбольного екіпірування від офіційних організаторів та команд."}
+                        {shopSubTab === "official" ? (
+                          <>
+                            Фірмова фан-атрибутика. Швидке замовлення в один клік через Instagram{" "}
+                            <a
+                              href="https://www.instagram.com/ks_fan.shop/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-pink-400 hover:text-pink-300 font-bold underline transition-colors"
+                            >
+                              @ks_fan.shop
+                            </a>
+                            .
+                          </>
+                        ) : (
+                          "Майданчик оголошень про продаж та обмін футбольного екіпірування від офіційних організаторів та команд."
+                        )}
                       </p>
-
-                      {/* Feature Chips */}
-                      <div className="flex items-center gap-2 sm:gap-4 pt-1 flex-wrap text-[11px] sm:text-xs font-semibold text-slate-300">
-                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                          <Truck className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>Доставка по Україні</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                          <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-                          <span>100% Перевірена якість</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
