@@ -40,6 +40,7 @@ import {
   Tv,
   ExternalLink,
   Copy,
+  RotateCw,
 } from "lucide-react"
 import {
   getChampionships,
@@ -1119,22 +1120,22 @@ export function AdminPanel({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/90 p-3.5 sm:p-4 rounded-2xl border border-blue-900/40 text-white shadow-lg backdrop-blur-md">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
           {championships.length > 0 ? (
             <Select
               value={currentChampionshipId.toString()}
               onValueChange={(value) => onChampionshipChange(Number.parseInt(value))}
             >
-              <SelectTrigger className="w-full sm:w-48 bg-white/10 border-2 border-blue-400/30 text-white backdrop-blur-md hover:bg-white/20 transition-all duration-300 rounded-xl shadow-lg">
+              <SelectTrigger className="w-full sm:w-56 bg-white/10 border border-blue-400/30 text-white backdrop-blur-md hover:bg-white/20 transition-all rounded-xl h-11 text-xs sm:text-sm font-bold">
                 <SelectValue placeholder="Оберіть чемпіонат" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900/95 backdrop-blur-md border-blue-400/30">
+              <SelectContent className="bg-slate-900/95 backdrop-blur-md border-blue-400/30 text-white">
                 {sortedChampionships.map((championship) => (
                   <SelectItem
                     key={championship.id}
                     value={championship.id.toString()}
-                    className="text-white hover:bg-slate-800/30"
+                    className="text-white hover:bg-slate-800/80 text-xs sm:text-sm font-medium py-2 cursor-pointer"
                   >
                     {championship.name} ({championship.season})
                     {championship.is_active ? " (Активний)" : ""}
@@ -1143,85 +1144,109 @@ export function AdminPanel({
               </SelectContent>
             </Select>
           ) : (
-            <div className="text-sm text-blue-200">Немає створених чемпіонатів</div>
+            <div className="text-xs text-blue-200">Немає створених чемпіонатів</div>
           )}
         </div>
-        <Button
-          variant="outline"
-          onClick={onLogout}
-          className="bg-red-600/20 border-red-400/30 text-white hover:bg-red-600/30 w-full sm:w-auto"
-        >
-          Вийти
-        </Button>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Quick Refresh All Data Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              setLoading(true)
+              await loadData()
+              onDataChange?.()
+              setLoading(false)
+            }}
+            disabled={loading}
+            className="flex-1 sm:flex-initial bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400/40 text-white text-xs font-bold h-11 px-3.5 rounded-xl transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5"
+            title="Оновити всі дані та список"
+          >
+            <RotateCw className={`h-4 w-4 text-blue-400 shrink-0 ${loading ? "animate-spin" : ""}`} />
+            <span>Оновити дані</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={onLogout}
+            className="flex-1 sm:flex-initial bg-red-600/20 hover:bg-red-600/30 border border-red-400/40 text-white text-xs font-bold h-11 px-3.5 rounded-xl transition-all active:scale-[0.98] cursor-pointer shrink-0"
+          >
+            Вийти
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
-        <TabsList className="ios-segmented-control w-max mb-6">
-          <TabsTrigger
-            value="championships"
-            disabled={hasNoChampionships}
-            className="ios-segment disabled:opacity-40"
-          >
-            <Settings className="h-3.5 w-3.5 mr-1" />
-            <span>Турніри</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="teams"
-            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="ios-segment disabled:opacity-40"
-          >
-            <Users className="h-3.5 w-3.5 mr-1" />
-            <span>Команди</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="matches"
-            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="ios-segment disabled:opacity-40"
-          >
-            <Calendar className="h-3.5 w-3.5 mr-1" />
-            <span>Матчі</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="players"
-            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="ios-segment disabled:opacity-40"
-          >
-            <Target className="h-3.5 w-3.5 mr-1" />
-            <span>Гравці</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="votings"
-            disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
-            className="ios-segment disabled:opacity-40"
-          >
-            <Star className="h-3.5 w-3.5 mr-1" />
-            <span>Лев матчу</span>
-          </TabsTrigger>
-          {isMainAdmin && (
-            <>
-              <TabsTrigger value="analytics" className="ios-segment">
-                <BarChart3 className="h-3.5 w-3.5 mr-1" />
-                <span>Аналітика</span>
-              </TabsTrigger>
-              <TabsTrigger value="logs" className="ios-segment">
-                <Activity className="h-3.5 w-3.5 mr-1" />
-                <span>Логи дій</span>
-              </TabsTrigger>
-              <TabsTrigger value="organizers" className="ios-segment">
-                <UserCheck className="h-3.5 w-3.5 mr-1" />
-                <span>Організатори</span>
-              </TabsTrigger>
-            </>
-          )}
-
-          <TabsTrigger value="shop" className="ios-segment relative">
-            <ShoppingBag className="h-3.5 w-3.5 mr-1 text-blue-600" />
-            <span>{isMainAdmin ? "Магазин та Оголошення" : "Оголошення"}</span>
-            {isMainAdmin && products.some((p) => p.is_approved === false) && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1 animate-pulse" />
+        {/* Scrollable Mobile Tabs List */}
+        <div className="overflow-x-auto scrollbar-none -mx-1 px-1 mb-5">
+          <TabsList className="ios-segmented-control flex items-center gap-1.5 p-1.5 w-max bg-slate-100/90 border border-slate-200/80 rounded-2xl shadow-xs">
+            <TabsTrigger
+              value="championships"
+              disabled={hasNoChampionships}
+              className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              <span>Турніри</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="teams"
+              disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+              className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Команди</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="matches"
+              disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+              className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Матчі</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="players"
+              disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+              className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Target className="h-3.5 w-3.5" />
+              <span>Гравці</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="votings"
+              disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
+              className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
+            >
+              <Star className="h-3.5 w-3.5 text-amber-500" />
+              <span>Лев матчу</span>
+            </TabsTrigger>
+            {isMainAdmin && (
+              <>
+                <TabsTrigger value="analytics" className="ios-segment whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  <span>Аналітика</span>
+                </TabsTrigger>
+                <TabsTrigger value="logs" className="ios-segment whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer">
+                  <Activity className="h-3.5 w-3.5" />
+                  <span>Логи дій</span>
+                </TabsTrigger>
+                <TabsTrigger value="organizers" className="ios-segment whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Організатори</span>
+                </TabsTrigger>
+              </>
             )}
-          </TabsTrigger>
-        </TabsList>
+
+            <TabsTrigger value="shop" className="ios-segment relative whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer">
+              <ShoppingBag className="h-3.5 w-3.5 text-blue-600" />
+              <span>{isMainAdmin ? "Магазин та Оголошення" : "Оголошення"}</span>
+              {isMainAdmin && products.some((p) => p.is_approved === false) && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1 animate-pulse" />
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="championships" className="space-y-4">
           <form
