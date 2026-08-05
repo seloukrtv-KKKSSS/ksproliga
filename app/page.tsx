@@ -18,6 +18,7 @@ import {
   User,
   Vote,
   CheckCircle2,
+  RotateCw,
   ChevronDown,
   ChevronUp,
   AlertCircle,
@@ -104,6 +105,12 @@ export default function KSLigaSite() {
   const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
   const [lightboxTouchStart, setLightboxTouchStart] = useState<{ x: number; y: number } | null>(null)
   const [cardTouchStarts, setCardTouchStarts] = useState<Record<number, { x: number; y: number }>>({})
+
+  // Mobile Pull-to-Refresh states
+  const [pullDistance, setPullDistance] = useState(0)
+  const [isPulling, setIsPulling] = useState(false)
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false)
+  const [refreshSuccess, setRefreshSuccess] = useState(false)
 
   // Round Spoiler states
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
@@ -255,6 +262,90 @@ export default function KSLigaSite() {
       window.removeEventListener("focus", handleWindowFocus)
     }
   }, [currentChampionshipId, activeTab])
+
+  // Mobile Pull to Refresh gesture handling
+  const PULL_THRESHOLD = 70
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    let startY = 0
+    let isAtTop = false
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (window.scrollY <= 0) {
+        startY = e.touches[0].clientY
+        isAtTop = true
+      } else {
+        isAtTop = false
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isAtTop || isPullRefreshing) return
+      const currentY = e.touches[0].clientY
+      const deltaY = currentY - startY
+
+      if (deltaY > 0 && window.scrollY <= 0) {
+        const distance = Math.min(110, Math.pow(deltaY, 0.82) * 0.9)
+        setPullDistance(distance)
+        setIsPulling(true)
+      } else {
+        setPullDistance(0)
+        setIsPulling(false)
+      }
+    }
+
+    const handleTouchEnd = () => {
+      if (!isAtTop || isPullRefreshing) return
+
+      setPullDistance((currentDist) => {
+        if (currentDist >= PULL_THRESHOLD) {
+          triggerPullRefresh()
+        } else {
+          setIsPulling(false)
+        }
+        return 0
+      })
+    }
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true })
+    window.addEventListener("touchmove", handleTouchMove, { passive: true })
+    window.addEventListener("touchend", handleTouchEnd, { passive: true })
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart)
+      window.removeEventListener("touchmove", handleTouchMove)
+      window.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isPullRefreshing, currentChampionshipId])
+
+  const triggerPullRefresh = async () => {
+    setIsPullRefreshing(true)
+    setIsPulling(false)
+    setRefreshSuccess(false)
+
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      try { navigator.vibrate(40) } catch {}
+    }
+
+    try {
+      await loadInitialData()
+      if (currentChampionshipId) {
+        await loadDataForChampionship(currentChampionshipId, true)
+      }
+      await loadVotingData()
+
+      setRefreshSuccess(true)
+      await new Promise((res) => setTimeout(res, 800))
+    } catch (err) {
+      console.error("Error on pull refresh:", err)
+    } finally {
+      setIsPullRefreshing(false)
+      setRefreshSuccess(false)
+      setPullDistance(0)
+    }
+  }
 
   // Load initial data (championships list)
   useEffect(() => {
@@ -526,6 +617,42 @@ export default function KSLigaSite() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
+      {/* ── Mobile Pull to Refresh Animated Floating Indicator ── */}
+      {(isPulling || isPullRefreshing || refreshSuccess || pullDistance > 0) && (
+        <div
+          className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-[100] transition-all duration-200 pointer-events-none"
+          style={{
+            transform: `translate(-50%, ${isPullRefreshing || refreshSuccess ? 16 : Math.min(pullDistance, 75)}px)`,
+            opacity: isPullRefreshing || refreshSuccess ? 1 : Math.min(1, pullDistance / 35)
+          }}
+        >
+          <div className="flex items-center gap-2 bg-slate-900/90 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-2xl backdrop-blur-xl border border-white/20">
+            {refreshSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 animate-bounce" />
+                <span className="text-emerald-300">Дані оновлено ✓</span>
+              </>
+            ) : isPullRefreshing ? (
+              <>
+                <RotateCw className="w-4 h-4 text-blue-400 animate-spin" />
+                <span className="text-blue-200">Оновлення даних KS LIGA...</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown
+                  className={`w-4 h-4 text-blue-400 transition-transform duration-150 ${
+                    pullDistance >= PULL_THRESHOLD ? 'rotate-180 text-emerald-400' : ''
+                  }`}
+                />
+                <span className={pullDistance >= PULL_THRESHOLD ? 'text-emerald-300 font-black' : 'text-slate-200'}>
+                  {pullDistance >= PULL_THRESHOLD ? 'Відпустіть для оновлення' : 'Потягніть для оновлення'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <header className="liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-xs pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
         <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Title */}
