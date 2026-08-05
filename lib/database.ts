@@ -1317,8 +1317,8 @@ export async function getChampionshipCandidates(championshipId: number): Promise
 // USER ANALYTICS & ORGANIZER AUDIT LOGGING
 // ============================================================
 
-export async function recordUserAnalytics(sessionId: string, activeTab: string, durationSeconds: number): Promise<void> {
-  if (shouldUseMockData()) return
+export async function recordUserAnalytics(sessionId: string, activeTab: string, durationSeconds: number): Promise<number | null> {
+  if (shouldUseMockData()) return null
   try {
     let userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
     if (typeof window !== "undefined") {
@@ -1328,20 +1328,57 @@ export async function recordUserAnalytics(sessionId: string, activeTab: string, 
       }
     }
 
-    await supabase.from("user_analytics").insert([{
+    const { data, error } = await supabase.from("user_analytics").insert([{
       session_id: sessionId,
       active_tab: activeTab,
-      duration_seconds: Math.max(1, Math.round(durationSeconds)),
+      duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)),
       user_agent: userAgent
-    }])
+    }]).select("id")
+
+    if (error) throw error
+    return data?.[0]?.id ?? null
   } catch (error) {
     console.error("Error recording user analytics:", error)
+    return null
+  }
+}
+
+export async function updateAnalyticsDuration(rowId: number, durationSeconds: number): Promise<void> {
+  if (shouldUseMockData()) return
+  try {
+    await supabase
+      .from("user_analytics")
+      .update({ duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)) })
+      .eq("id", rowId)
+  } catch (error) {
+    console.error("Error updating analytics duration:", error)
+  }
+}
+
+export async function cleanupOldAnalytics(): Promise<number> {
+  if (shouldUseMockData()) return 0
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const { data, error } = await supabase
+      .from("user_analytics")
+      .delete()
+      .lt("created_at", cutoff.toISOString())
+      .select("id")
+
+    if (error) throw error
+    return data?.length ?? 0
+  } catch (error) {
+    console.error("Error cleaning up old analytics:", error)
+    return 0
   }
 }
 
 export async function getUserAnalytics(period: "24h" | "7d" | "30d" = "24h"): Promise<UserAnalytics[]> {
   if (shouldUseMockData()) return []
   try {
+    // Auto-cleanup: delete entries older than 30 days on each fetch
+    await cleanupOldAnalytics()
+
     const now = new Date()
     let cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     if (period === "7d") {

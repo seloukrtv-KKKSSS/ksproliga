@@ -56,6 +56,7 @@ import {
   authenticateUser,
   getProducts,
   recordUserAnalytics,
+  updateAnalyticsDuration,
   logOrganizerAction,
 } from "@/lib/database"
 import { AdminPanel } from "@/components/admin-panel"
@@ -116,7 +117,7 @@ export default function KSLigaSite() {
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
   const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
 
-  // Session tracking & User Analytics (Mobile PWA Standalone & Browser Compatible)
+  // Session tracking & User Analytics — ONE row per page view, duration updated via heartbeat
   useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -136,38 +137,38 @@ export default function KSLigaSite() {
 
     const tabStartTime = Date.now()
     const currentTab = activeTab
+    let analyticsRowId: number | null = null
 
-    // Instant Pageview Ping (Ensures visits to PWA standalone apps are logged immediately)
-    recordUserAnalytics(sessionId, currentTab, 1)
+    // Insert ONE analytics row for this page view (returns its DB id)
+    recordUserAnalytics(sessionId, currentTab, 1).then((id) => {
+      analyticsRowId = id
+    })
 
-    let accumulatedSeconds = 0
-
-    const sendDurationUpdate = () => {
-      const elapsed = Math.round((Date.now() - tabStartTime) / 1000)
-      const diff = elapsed - accumulatedSeconds
-      if (diff >= 2 && sessionId) {
-        accumulatedSeconds = elapsed
-        recordUserAnalytics(sessionId, currentTab, diff)
+    // Update the SAME row's duration via heartbeat (no new rows)
+    const updateDuration = () => {
+      const elapsedSec = Math.round((Date.now() - tabStartTime) / 1000)
+      if (analyticsRowId && elapsedSec > 1) {
+        updateAnalyticsDuration(analyticsRowId, elapsedSec)
       }
     }
 
-    // Periodic Heartbeat every 15s for long sessions
+    // Periodic heartbeat every 30s to update duration on existing row
     const heartbeatInterval = setInterval(() => {
       localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
-      sendDurationUpdate()
-    }, 15000)
+      updateDuration()
+    }, 30000)
 
     // Handle Mobile PWA Background / App Switch / Lock Screen events
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        sendDurationUpdate()
+        updateDuration()
       } else if (document.visibilityState === "visible") {
         localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
       }
     }
 
     const handleUnload = () => {
-      sendDurationUpdate()
+      updateDuration()
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
@@ -175,7 +176,7 @@ export default function KSLigaSite() {
     window.addEventListener("pagehide", handleUnload)
 
     return () => {
-      sendDurationUpdate()
+      updateDuration()
       clearInterval(heartbeatInterval)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("beforeunload", handleUnload)

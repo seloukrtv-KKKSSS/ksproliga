@@ -3861,33 +3861,53 @@ export function AdminPanel({
               <p className="text-xs text-slate-500 mt-1">
                 Відстеження унікальних сесій, переглядів сторінок та часу на сайті
               </p>
+              <p className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                <Hourglass className="w-3 h-3" />
+                Статистика автоматично обнуляється кожних 30 днів
+              </p>
             </div>
 
-            {/* Timeframe Selector */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              {/* Timeframe Selector */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <Button
+                  size="sm"
+                  variant={analyticsPeriod === "24h" ? "default" : "ghost"}
+                  onClick={() => setAnalyticsPeriod("24h")}
+                  className={`h-8 text-xs font-semibold px-3 rounded-lg cursor-pointer ${analyticsPeriod === "24h" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  24 години
+                </Button>
+                <Button
+                  size="sm"
+                  variant={analyticsPeriod === "7d" ? "default" : "ghost"}
+                  onClick={() => setAnalyticsPeriod("7d")}
+                  className={`h-8 text-xs font-semibold px-3 rounded-lg cursor-pointer ${analyticsPeriod === "7d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  7 днів
+                </Button>
+                <Button
+                  size="sm"
+                  variant={analyticsPeriod === "30d" ? "default" : "ghost"}
+                  onClick={() => setAnalyticsPeriod("30d")}
+                  className={`h-8 text-xs font-semibold px-3 rounded-lg cursor-pointer ${analyticsPeriod === "30d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  30 днів
+                </Button>
+              </div>
+
+              {/* Manual Refresh */}
               <Button
                 size="sm"
-                variant={analyticsPeriod === "24h" ? "default" : "ghost"}
-                onClick={() => setAnalyticsPeriod("24h")}
-                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "24h" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                variant="outline"
+                onClick={async () => {
+                  const data = await getUserAnalytics(analyticsPeriod)
+                  setUserAnalytics(data)
+                }}
+                className="h-8 text-xs font-semibold px-3 rounded-lg border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer"
               >
-                24 години
-              </Button>
-              <Button
-                size="sm"
-                variant={analyticsPeriod === "7d" ? "default" : "ghost"}
-                onClick={() => setAnalyticsPeriod("7d")}
-                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "7d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-              >
-                7 днів
-              </Button>
-              <Button
-                size="sm"
-                variant={analyticsPeriod === "30d" ? "default" : "ghost"}
-                onClick={() => setAnalyticsPeriod("30d")}
-                className={`h-8 text-xs font-semibold px-3 rounded-lg ${analyticsPeriod === "30d" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-              >
-                30 днів
+                <RotateCw className="w-3.5 h-3.5 mr-1" />
+                Оновити
               </Button>
             </div>
           </div>
