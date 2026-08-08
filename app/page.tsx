@@ -64,6 +64,8 @@ import { CupTournament } from "@/components/cup-tournament"
 import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Product } from "@/lib/supabase"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
+import { ShopProductCard } from "@/components/shop-product-card"
+import { ShopLightbox } from "@/components/shop-lightbox"
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -101,11 +103,8 @@ export default function KSLigaSite() {
   const [shopSubTab, setShopSubTab] = useState<"official" | "announcements">("official")
   const [shopSearchQuery, setShopSearchQuery] = useState("")
   const [shopAvailabilityFilter, setShopAvailabilityFilter] = useState<"all" | "available" | "discount">("all")
-  const [expandedProductId, setExpandedProductId] = useState<number | null>(null)
   const [lightboxProduct, setLightboxProduct] = useState<Product | null>(null)
   const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
-  const [lightboxTouchStart, setLightboxTouchStart] = useState<{ x: number; y: number } | null>(null)
-  const [cardTouchStarts, setCardTouchStarts] = useState<Record<number, { x: number; y: number }>>({})
 
   // Mobile Pull-to-Refresh states
   const [pullDistance, setPullDistance] = useState(0)
@@ -1998,290 +1997,30 @@ export default function KSLigaSite() {
 
                     return (
                       <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-                        {displayedProducts.map((product) => {
-                          const hasDiscount = product.old_price && product.old_price > product.price
-                          const discountPercent = hasDiscount
-                            ? Math.round(((product.old_price! - product.price) / product.old_price!) * 100)
-                            : 0
-                          const currentImgIdx = shopImageIndexes[product.id] || 0
-                          const isExpanded = expandedProductId === product.id
-                          const images = product.images && product.images.length > 0 ? product.images : ['/placeholder.svg']
-                          const totalImages = images.length
-                          const hasMultipleImages = totalImages > 1
-
-                          const setImgIdx = (idx: number) => {
-                            setShopImageIndexes(prev => ({ ...prev, [product.id]: idx }))
-                          }
-
-                          return (
-                          <div
-                            key={product.id}
-                            className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col"
-                          >
-                            {/* ── Image Gallery with Touch Swiping ── */}
-                            <div
-                              className="relative aspect-[4/3] bg-slate-50 overflow-hidden group touch-pan-y select-none cursor-pointer"
-                              onClick={() => { setLightboxProduct(product); setLightboxImageIndex(currentImgIdx); }}
-                              onTouchStart={(e) => {
-                                setCardTouchStarts(prev => ({
-                                  ...prev,
-                                  [product.id]: { x: e.touches[0].clientX, y: e.touches[0].clientY }
-                                }))
-                              }}
-                              onTouchEnd={(e) => {
-                                const start = cardTouchStarts[product.id]
-                                if (!start) return
-                                const endX = e.changedTouches[0].clientX
-                                const endY = e.changedTouches[0].clientY
-                                const deltaX = endX - start.x
-                                const deltaY = endY - start.y
-
-                                if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY)) {
-                                  if (deltaX < 0) {
-                                    setImgIdx(currentImgIdx < totalImages - 1 ? currentImgIdx + 1 : 0)
-                                  } else {
-                                    setImgIdx(currentImgIdx > 0 ? currentImgIdx - 1 : totalImages - 1)
-                                  }
-                                }
-                              }}
-                            >
-                              <img
-                                src={images[currentImgIdx]}
-                                alt={product.title}
-                                className="w-full h-full object-cover pointer-events-none"
-                                loading="lazy"
-                                decoding="async"
-                                draggable={false}
-                              />
-
-                              {/* Badges top-left */}
-                              <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start z-10 pointer-events-none">
-                                {product.badge && (
-                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-900 shadow-sm border border-amber-300 uppercase tracking-wider">
-                                    {product.badge}
-                                  </span>
-                                )}
-                                {hasDiscount && (
-                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white shadow-sm border border-red-500">
-                                    -{discountPercent}%
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Status badge top-right */}
-                              <div className="absolute top-2.5 right-2.5 z-10 pointer-events-none">
-                                <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-md flex items-center gap-1 ${
-                                  product.is_available
-                                    ? "bg-emerald-600/90 text-white border border-emerald-400/50"
-                                    : "bg-red-600/90 text-white border border-red-400/50"
-                                }`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${product.is_available ? "bg-white animate-pulse" : "bg-white/70"}`} />
-                                  <span>{product.is_available ? "В наявності" : "Продано"}</span>
-                                </span>
-                              </div>
-
-                              {/* Image counter */}
-                              {hasMultipleImages && (
-                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm px-2.5 py-0.5 rounded-full z-10 pointer-events-none">
-                                  {currentImgIdx + 1} / {totalImages}
-                                </div>
-                              )}
-
-                              {/* Nav arrows */}
-                              {hasMultipleImages && (
-                                <>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setImgIdx(currentImgIdx > 0 ? currentImgIdx - 1 : totalImages - 1); }}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100 sm:flex hidden"
-                                  >
-                                    <ChevronLeft className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setImgIdx(currentImgIdx < totalImages - 1 ? currentImgIdx + 1 : 0); }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 hover:bg-white shadow-md flex items-center justify-center cursor-pointer transition-all z-10 opacity-0 group-hover:opacity-100 sm:flex hidden"
-                                  >
-                                    <ChevronRight className="h-3.5 w-3.5" />
-                                  </button>
-                                </>
-                              )}
-
-                              {/* Dot indicators on hover for multi-photo */}
-                              {hasMultipleImages && (
-                                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-                                  {images.map((_: string, idx: number) => (
-                                    <button
-                                      key={idx}
-                                      onClick={(e) => { e.stopPropagation(); setImgIdx(idx); }}
-                                      className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                                        currentImgIdx === idx ? 'bg-white scale-125 shadow-sm' : 'bg-white/50 hover:bg-white/80'
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* ── Product Info Section ── */}
-                            <div className="p-3.5 sm:p-4 flex-1 flex flex-col gap-2.5">
-
-                              {/* Source label */}
-                              {product.is_official === false && (
-                                <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">
-                                  Оголошення · {product.author_name || "Організатор"}
-                                </div>
-                              )}
-
-                              {/* Title */}
-                              <h3 className="font-extrabold text-slate-900 text-sm sm:text-[15px] leading-snug line-clamp-2">
-                                {product.title}
-                              </h3>
-
-                              {/* Price row */}
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-lg sm:text-xl font-black text-blue-600">
-                                  {product.price} ₴
-                                </span>
-                                {product.old_price && (
-                                  <span className="text-xs font-semibold text-slate-400 line-through">
-                                    {product.old_price} ₴
-                                  </span>
-                                )}
-                                {hasDiscount && (
-                                  <span className="text-[10px] font-black text-red-600 ml-auto">
-                                    −{discountPercent}%
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Description — always visible, collapsible for long text */}
-                              {product.description && (
-                                <div className="text-xs sm:text-[13px] text-slate-500 leading-relaxed whitespace-pre-line">
-                                  <p className={isExpanded ? '' : 'line-clamp-2'}>
-                                    {product.description}
-                                  </p>
-                                  {product.description.length > 100 && (
-                                    <button
-                                      onClick={() => setExpandedProductId(isExpanded ? null : product.id)}
-                                      className="text-blue-600 font-bold text-[11px] mt-0.5 hover:underline cursor-pointer"
-                                    >
-                                      {isExpanded ? 'Згорнути ↑' : 'Читати далі ↓'}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Thumbnail strip (visible only when > 1 photo) */}
-                              {hasMultipleImages && (
-                                <div className="flex gap-1.5 overflow-x-auto scrollbar-none pt-1 -mx-1 px-1">
-                                  {images.map((img: string, idx: number) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() => setImgIdx(idx)}
-                                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg overflow-hidden shrink-0 transition-all cursor-pointer border-2 ${
-                                        currentImgIdx === idx
-                                          ? 'border-blue-500 opacity-100 shadow-xs'
-                                          : 'border-transparent opacity-50 hover:opacity-80'
-                                      }`}
-                                    >
-                                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* CTA Button */}
-                              <a
-                                href={product.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-auto w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-extrabold text-xs shadow-md shadow-pink-500/15 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
-                              >
-                                <Instagram className="h-3.5 w-3.5" />
-                                <span>Замовити в Instagram</span>
-                                <ExternalLink className="h-3 w-3 opacity-70" />
-                              </a>
-
-                            </div>
-                          </div>
-                        )
-                      })}
-                      </div>
-
-                      {/* ── Full-Screen Photo Viewer ── */}
-                      {lightboxProduct && (
-                        <div
-                          className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-150 select-none overflow-hidden"
-                          onClick={() => setLightboxProduct(null)}
-                        >
-                          {/* Close Button */}
-                          <button
-                            onClick={() => setLightboxProduct(null)}
-                            className="absolute top-3 right-3 sm:top-5 sm:right-5 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                            title="Закрити"
-                          >
-                            <X className="h-5 w-5" />
-                          </button>
-
-                          {/* Photo Counter */}
-                          {lightboxProduct.images && lightboxProduct.images.length > 1 && (
-                            <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20 text-white/90 text-xs font-bold bg-white/15 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
-                              {lightboxImageIndex + 1} / {lightboxProduct.images.length}
-                            </div>
-                          )}
-
-                          {/* Main Image Container */}
-                          <div
-                            className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center touch-pan-y"
-                            onClick={(e) => e.stopPropagation()}
-                            onTouchStart={(e) => {
-                              setLightboxTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                            }}
-                            onTouchEnd={(e) => {
-                              if (!lightboxTouchStart) return
-                              const endX = e.changedTouches[0].clientX
-                              const endY = e.changedTouches[0].clientY
-                              const deltaX = endX - lightboxTouchStart.x
-                              const deltaY = endY - lightboxTouchStart.y
-
-                              if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY)) {
-                                const totalImgs = lightboxProduct.images?.length || 1
-                                if (deltaX < 0) {
-                                  setLightboxImageIndex(prev => (prev < totalImgs - 1 ? prev + 1 : 0))
-                                } else {
-                                  setLightboxImageIndex(prev => (prev > 0 ? prev - 1 : totalImgs - 1))
-                                }
+                        {/* ── Products Grid with Instagram/Tinder Smooth Swiping Cards ── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                          {displayedProducts.map((product) => (
+                            <ShopProductCard
+                              key={product.id}
+                              product={product}
+                              currentImageIndex={shopImageIndexes[product.id] || 0}
+                              onImageIndexChange={(idx) =>
+                                setShopImageIndexes((prev) => ({ ...prev, [product.id]: idx }))
                               }
-                              setLightboxTouchStart(null)
-                            }}
-                          >
-                            <img
-                              src={lightboxProduct.images && lightboxProduct.images.length > 0 ? lightboxProduct.images[lightboxImageIndex] : '/placeholder.svg'}
-                              alt={lightboxProduct.title}
-                              className="max-w-[94vw] max-h-[85vh] object-contain select-none"
-                              draggable={false}
+                              onOpenLightbox={(prod, idx) => {
+                                setLightboxProduct(prod)
+                                setLightboxImageIndex(idx)
+                              }}
                             />
-                          </div>
-
-                          {/* Navigation arrows in lightbox */}
-                          {lightboxProduct.images && lightboxProduct.images.length > 1 && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setLightboxImageIndex(prev => prev > 0 ? prev - 1 : lightboxProduct.images.length - 1); }}
-                                className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors z-20"
-                              >
-                                <ChevronLeft className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setLightboxImageIndex(prev => prev < lightboxProduct.images.length - 1 ? prev + 1 : 0); }}
-                                className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors z-20"
-                              >
-                                <ChevronRight className="h-5 w-5" />
-                              </button>
-                            </>
-                          )}
+                          ))}
                         </div>
-                      )}
+
+                        {/* ── Full-Screen Instagram / Tinder Lightbox ── */}
+                        <ShopLightbox
+                          product={lightboxProduct}
+                          initialIndex={lightboxImageIndex}
+                          onClose={() => setLightboxProduct(null)}
+                        />
                       </>
                     )
                 })()}
