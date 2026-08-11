@@ -725,6 +725,7 @@ export function KsDinoRunner({
               {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
             </button>
 
+            {/* Fullscreen only on Desktop */}
             <button
               type="button"
               onClick={(e) => {
@@ -732,7 +733,7 @@ export function KsDinoRunner({
                 handleToggleFullscreen()
               }}
               title={isFullscreen ? "Вийти з повного екрану" : "На повний екран"}
-              className="p-2 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 hover:bg-slate-900 shadow-md transition-all active:scale-95 cursor-pointer"
+              className="hidden sm:flex p-2 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 hover:bg-slate-900 shadow-md transition-all active:scale-95 cursor-pointer"
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4 text-amber-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
             </button>
@@ -779,41 +780,19 @@ export function KsDinoRunner({
                 <span>Грати зараз</span>
               </button>
 
+              {/* Fullscreen only on Desktop */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleToggleFullscreen()
                 }}
-                className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                className="hidden sm:inline-flex px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer items-center gap-2"
               >
                 {isFullscreen ? <Minimize2 className="h-4 w-4 text-amber-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
                 <span>{isFullscreen ? "Звичайний екран" : "На весь екран"}</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Fullscreen In-Game Floating Controls for Mobile */}
-        {isFullscreen && gameState === "playing" && (
-          <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between pointer-events-none z-30 sm:hidden">
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); doJump(); }}
-              className="pointer-events-auto w-20 h-20 rounded-full bg-blue-600/80 backdrop-blur-md border-2 border-blue-400 text-white font-black text-[11px] flex flex-col items-center justify-center shadow-2xl active:scale-90 select-none"
-            >
-              <ChevronUp className="h-7 w-7" />
-              <span>СТРИБОК</span>
-            </button>
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); setDuck(true); }}
-              onTouchEnd={(e) => { e.preventDefault(); setDuck(false); }}
-              className="pointer-events-auto w-20 h-20 rounded-full bg-slate-800/80 backdrop-blur-md border-2 border-slate-600 text-white font-black text-[11px] flex flex-col items-center justify-center shadow-2xl active:scale-90 select-none"
-            >
-              <ChevronDown className="h-7 w-7" />
-              <span>ПІДКАТ</span>
-            </button>
           </div>
         )}
 

@@ -431,60 +431,61 @@ export function KsSnakeGame({
   }, [gameState, gameTick, renderTick])
 
   return (
-    <div className="space-y-4">
-      {/* Game Screen Container */}
+    <div className="space-y-3 max-w-[420px] mx-auto">
+      {/* Top Dedicated HUD (Never overlaps the grid!) */}
+      <div className="flex items-center justify-between bg-slate-900/90 backdrop-blur-md p-2 px-3 rounded-2xl border border-white/10 shadow-lg select-none">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
+            className="p-1.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all active:scale-95 cursor-pointer"
+          >
+            {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
+          </button>
+
+          {/* Fullscreen only for Desktop (hidden on mobile) */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            title={isFullscreen ? "Вийти з повного екрану" : "На повний екран"}
+            className="hidden sm:flex p-1.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all active:scale-95 cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4 text-emerald-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
+          </button>
+
+          <div className="px-2.5 py-1 rounded-xl bg-white/10 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="truncate max-w-[110px]">{localPlayerName || "Гравець"}</span>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Рекорд: {highScore}</div>
+          <div className="text-base font-black text-emerald-400 font-mono tracking-widest leading-none">
+            {score} <span className="text-[10px] text-slate-400">оч.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Game Screen Container (100% Unobstructed 20x20 Grid) */}
       <div
         ref={containerRef}
-        className={`relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square w-full max-w-[370px] sm:max-w-[420px] mx-auto p-2 sm:p-3 ${
-          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-w-none border-none flex flex-col justify-between items-center p-4 sm:p-6" : ""
+        className={`relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square w-full mx-auto p-1.5 sm:p-2.5 ${
+          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-w-none border-none flex flex-col justify-center items-center p-6 bg-slate-950" : ""
         }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         style={{ touchAction: "none" }}
       >
-        {/* Top Floating HUD */}
-        <div className={`w-full flex items-center justify-between pointer-events-none z-10 ${isFullscreen ? "max-w-md pt-1 px-2" : "absolute top-3 left-3 right-3"}`}>
-          <div className="flex items-center gap-2 pointer-events-auto">
-            <button
-              type="button"
-              onClick={handleToggleMute}
-              title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
-              className="p-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 hover:bg-slate-800 shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleToggleFullscreen}
-              title={isFullscreen ? "Вийти з повного екрану" : "На повний екран"}
-              className="p-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 hover:bg-slate-800 shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              {isFullscreen ? <Minimize2 className="h-4 w-4 text-emerald-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
-            </button>
-
-            <div className="px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 text-[11px] font-bold flex items-center gap-1.5 shadow-md">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="truncate max-w-[100px]">{localPlayerName || "Гравець"}</span>
-            </div>
-          </div>
-
-          <div className="px-3 py-1 rounded-xl bg-slate-900/80 backdrop-blur-md border border-white/10 text-right shadow-md">
-            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Рекорд: {highScore}</div>
-            <div className="text-base font-black text-emerald-400 font-mono tracking-widest leading-none">
-              {score} <span className="text-[10px] text-slate-400">оч.</span>
-            </div>
-          </div>
-        </div>
-
         {/* 20x20 Arcade LCD Grid */}
         <div
           className={`rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800/80 grid relative overflow-hidden ${
             isFullscreen ? "my-auto shadow-2xl ring-2 ring-emerald-500/20" : "w-full h-full"
           }`}
           style={{
-            width: isFullscreen ? "min(64vh, 88vw)" : undefined,
-            height: isFullscreen ? "min(64vh, 88vw)" : undefined,
+            width: isFullscreen ? "min(68vh, 88vw)" : undefined,
+            height: isFullscreen ? "min(68vh, 88vw)" : undefined,
             gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
           }}
@@ -605,54 +606,16 @@ export function KsSnakeGame({
                 <span>Почати гру</span>
               </button>
 
+              {/* Fullscreen button only on Desktop */}
               <button
                 type="button"
                 onClick={handleToggleFullscreen}
-                className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                className="hidden sm:inline-flex px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer items-center gap-2"
               >
                 {isFullscreen ? <Minimize2 className="h-4 w-4 text-emerald-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
                 <span>{isFullscreen ? "Звичайний екран" : "На весь екран"}</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Fullscreen Floating D-Pad at bottom */}
-        {isFullscreen && (
-          <div className="w-full max-w-xs flex flex-col items-center justify-center gap-1.5 pointer-events-auto sm:hidden select-none pb-2">
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
-              className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-            >
-              <ArrowUp className="h-6 w-6" />
-            </button>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
-                className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-              >
-                <ArrowLeft className="h-6 w-6" />
-              </button>
-              <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
-              <button
-                type="button"
-                onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
-                className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-              >
-                <ArrowRight className="h-6 w-6" />
-              </button>
-            </div>
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
-              className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-            >
-              <ArrowDown className="h-6 w-6" />
-            </button>
           </div>
         )}
 
@@ -736,65 +699,61 @@ export function KsSnakeGame({
         )}
       </div>
 
-      {/* Arcade D-Pad Virtual Controller for Mobile (Only in Normal View) */}
-      {!isFullscreen && (
-        <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2 select-none">
+      {/* Large Ergonomic Arcade Joystick / D-Pad for Mobile */}
+      <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-3 select-none">
+        <button
+          type="button"
+          onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
+          onMouseDown={() => changeDirection("UP")}
+          className="w-28 h-16 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+        >
+          <ArrowUp className="h-9 w-9 text-emerald-400" />
+        </button>
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
-            onMouseDown={() => changeDirection("UP")}
-            className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
+            onMouseDown={() => changeDirection("LEFT")}
+            className="w-28 h-16 rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowUp className="h-7 w-7" />
+            <ArrowLeft className="h-9 w-9 text-emerald-400" />
           </button>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
-              onMouseDown={() => changeDirection("LEFT")}
-              className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-            >
-              <ArrowLeft className="h-7 w-7" />
-            </button>
-            <div className="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center shadow-inner">
-              <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/60 animate-pulse" />
-            </div>
-            <button
-              type="button"
-              onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
-              onMouseDown={() => changeDirection("RIGHT")}
-              className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-            >
-              <ArrowRight className="h-7 w-7" />
-            </button>
+          <div className="w-14 h-14 rounded-full bg-slate-950 border-2 border-slate-800 flex items-center justify-center shadow-inner">
+            <span className="w-5 h-5 rounded-full bg-emerald-500/80 animate-pulse shadow-md shadow-emerald-500/40" />
           </div>
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
-            onMouseDown={() => changeDirection("DOWN")}
-            className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
+            onMouseDown={() => changeDirection("RIGHT")}
+            className="w-28 h-16 rounded-2xl bg-gradient-to-l from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowDown className="h-6 w-6" />
+            <ArrowRight className="h-9 w-9 text-emerald-400" />
           </button>
         </div>
-      )}
+        <button
+          type="button"
+          onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
+          onMouseDown={() => changeDirection("DOWN")}
+          className="w-28 h-16 rounded-2xl bg-gradient-to-t from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+        >
+          <ArrowDown className="h-9 w-9 text-emerald-400" />
+        </button>
+      </div>
 
-      {/* Scroll Lock Toggle (Only in Normal View) */}
-      {!isFullscreen && (
-        <div className="flex justify-center pt-4 sm:hidden">
-          <button
-            type="button"
-            onClick={() => setScrollLocked(!scrollLocked)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md ${
-              scrollLocked 
-                ? "bg-amber-500/20 text-amber-500 border border-amber-500/40" 
-                : "bg-slate-800 text-slate-300 border border-slate-700"
-            }`}
-          >
-            {scrollLocked ? "🔓 Розблокувати скрол" : "🔒 Заблокувати скрол"}
-          </button>
-        </div>
-      )}
+      {/* Scroll Lock Toggle */}
+      <div className="flex justify-center pt-2 sm:hidden">
+        <button
+          type="button"
+          onClick={() => setScrollLocked(!scrollLocked)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+            scrollLocked 
+              ? "bg-amber-500/20 text-amber-500 border border-amber-500/40" 
+              : "bg-slate-800 text-slate-300 border border-slate-700"
+          }`}
+        >
+          {scrollLocked ? "🔓 Розблокувати скрол" : "🔒 Заблокувати скрол"}
+        </button>
+      </div>
     </div>
   )
 }
