@@ -520,27 +520,107 @@ export async function getTeams(championshipId?: number): Promise<Team[]> {
   }
 }
 
-export async function updateTeam(id: number, updates: Partial<Team>): Promise<Team> {
+export async function updateTeam(id: number, updates: Partial<Team>, oldNameOverride?: string): Promise<Team> {
   if (shouldUseMockData()) {
     const index = mockTeams.findIndex((t) => t.id === id)
     if (index !== -1) {
+      const oldTeam = mockTeams[index]
+      const oldName = (oldNameOverride || oldTeam.name)?.trim()
+      const newName = updates.name?.trim()
       mockTeams[index] = { ...mockTeams[index], ...updates }
+
+      if (newName && oldName && newName !== oldName) {
+        // Cascade to mockMatches
+        mockMatches.forEach((m) => {
+          if (!oldTeam.championship_id || m.championship_id === oldTeam.championship_id) {
+            if (m.home_team?.trim() === oldName) m.home_team = newName
+            if (m.away_team?.trim() === oldName) m.away_team = newName
+            if (m.technical_winner?.trim() === oldName) m.technical_winner = newName
+            if (m.penalty_winner?.trim() === oldName) m.penalty_winner = newName
+          }
+        })
+        // Cascade to mockPlayers
+        mockPlayers.forEach((p) => {
+          if (!oldTeam.championship_id || p.championship_id === oldTeam.championship_id) {
+            if (p.team?.trim() === oldName) p.team = newName
+          }
+        })
+      }
       return Promise.resolve(mockTeams[index])
     }
     throw new Error("Team not found")
   }
 
   try {
-    const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
-    if (error) throw error
-    return data
-  } catch (error: any) {
-    if (error?.message?.includes("roster") || error?.code === "PGRST204") {
-      const { roster, ...cleanUpdates } = updates
-      const { data, error: err2 } = await supabase.from("teams").update(cleanUpdates).eq("id", id).select().single()
-      if (err2) throw err2
-      return { ...data, roster }
+    // 1. Fetch current team before update to get previous name & championship
+    let oldName = oldNameOverride?.trim()
+    let champId: number | undefined = updates.championship_id
+
+    if (!oldName) {
+      const { data: currentTeam } = await supabase
+        .from("teams")
+        .select("name, championship_id")
+        .eq("id", id)
+        .maybeSingle()
+      if (currentTeam) {
+        oldName = currentTeam.name?.trim()
+        if (!champId) champId = currentTeam.championship_id
+      }
     }
+
+    // 2. Perform the update on teams table
+    let updatedTeam: Team
+    try {
+      const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
+      if (error) throw error
+      updatedTeam = data
+    } catch (error: any) {
+      if (error?.message?.includes("roster") || error?.code === "PGRST204") {
+        const { roster, ...cleanUpdates } = updates
+        const { data, error: err2 } = await supabase.from("teams").update(cleanUpdates).eq("id", id).select().single()
+        if (err2) throw err2
+        updatedTeam = { ...data, roster }
+      } else {
+        throw error
+      }
+    }
+
+    // 3. If team name changed, CASCADE update all match and player references!
+    const newName = updates.name?.trim()
+    if (newName && oldName && newName !== oldName) {
+      const cleanOldName = oldName
+      try {
+        if (champId) {
+          await Promise.all([
+            supabase.from("matches").update({ home_team: newName }).eq("championship_id", champId).eq("home_team", cleanOldName),
+            supabase.from("matches").update({ away_team: newName }).eq("championship_id", champId).eq("away_team", cleanOldName),
+            supabase.from("matches").update({ technical_winner: newName }).eq("championship_id", champId).eq("technical_winner", cleanOldName),
+            supabase.from("matches").update({ penalty_winner: newName }).eq("championship_id", champId).eq("penalty_winner", cleanOldName),
+            supabase.from("players").update({ team: newName }).eq("championship_id", champId).eq("team", cleanOldName),
+            supabase.from("match_goals").update({ team_name: newName }).eq("team_name", cleanOldName),
+            supabase.from("match_cards").update({ team_name: newName }).eq("team_name", cleanOldName),
+            supabase.from("voting_candidates").update({ team_name: newName }).eq("team_name", cleanOldName),
+          ])
+        } else {
+          await Promise.all([
+            supabase.from("matches").update({ home_team: newName }).eq("home_team", cleanOldName),
+            supabase.from("matches").update({ away_team: newName }).eq("away_team", cleanOldName),
+            supabase.from("matches").update({ technical_winner: newName }).eq("technical_winner", cleanOldName),
+            supabase.from("matches").update({ penalty_winner: newName }).eq("penalty_winner", cleanOldName),
+            supabase.from("players").update({ team: newName }).eq("team", cleanOldName),
+            supabase.from("match_goals").update({ team_name: newName }).eq("team_name", cleanOldName),
+            supabase.from("match_cards").update({ team_name: newName }).eq("team_name", cleanOldName),
+            supabase.from("voting_candidates").update({ team_name: newName }).eq("team_name", cleanOldName),
+          ])
+        }
+      } catch (cascadeError) {
+        console.warn("Cascade team update notice:", cascadeError)
+      }
+    }
+
+    return updatedTeam
+  } catch (error) {
+    console.error("Error in updateTeam:", error)
     throw error
   }
 }
@@ -957,6 +1037,7 @@ export async function calculateLeagueTable(championshipId?: number) {
   const table = teams.map((team) => ({
     name: team.name,
     city: team.city,
+    logo: team.logo,
     games: 0,
     wins: 0,
     draws: 0,
@@ -966,21 +1047,29 @@ export async function calculateLeagueTable(championshipId?: number) {
     pts: 0,
   }))
 
+  const findTeamInTable = (teamName: string | undefined | null) => {
+    if (!teamName) return undefined
+    const clean = teamName.trim()
+    const lower = clean.toLowerCase()
+    return table.find((t) => t.name === clean) || table.find((t) => t.name.trim().toLowerCase() === lower)
+  }
+
   matches
     .filter((match) => match.is_finished)
     .forEach((match) => {
-      const homeTeam = table.find((t) => t.name === match.home_team)
-      const awayTeam = table.find((t) => t.name === match.away_team)
+      const homeTeam = findTeamInTable(match.home_team)
+      const awayTeam = findTeamInTable(match.away_team)
 
       if (homeTeam && awayTeam) {
         if (match.is_technical_defeat) {
           homeTeam.games++
           awayTeam.games++
-          if (match.technical_winner === match.home_team) {
+          const techWinner = match.technical_winner?.trim().toLowerCase()
+          if (techWinner && techWinner === match.home_team?.trim().toLowerCase()) {
             homeTeam.wins++
             homeTeam.pts += 3
             awayTeam.losses++
-          } else if (match.technical_winner === match.away_team) {
+          } else if (techWinner && techWinner === match.away_team?.trim().toLowerCase()) {
             awayTeam.wins++
             awayTeam.pts += 3
             homeTeam.losses++

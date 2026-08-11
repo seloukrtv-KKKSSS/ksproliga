@@ -611,7 +611,7 @@ export function AdminPanel({
       }
 
       if (editingTeam) {
-        await updateTeam(editingTeam.id, teamData)
+        await updateTeam(editingTeam.id, teamData, editingTeam.name)
         await logOrganizerAction(organizerName || "Адміністратор", "update_team", `Оновлено команду "${teamForm.name}"${teamForm.city ? ` (${teamForm.city})` : ""}`)
         setEditingTeam(null)
       } else {

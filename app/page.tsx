@@ -184,15 +184,30 @@ export default function KSLigaSite() {
   }, [activeTab])
 
   // ===== MEMOIZED COMPUTATIONS =====
-  // O(1) team logo lookup via Map instead of O(N) .find() on every render
+  // O(1) resilient team logo lookup with trimmed and case-insensitive fallback
   const teamLogoMap = useMemo(() => {
     const map = new Map<string, string>()
-    teams.forEach((t) => map.set(t.name, t.logo || "/placeholder.svg?height=32&width=32"))
+    teams.forEach((t) => {
+      if (t.name) {
+        const logo = t.logo || "/placeholder.svg?height=32&width=32"
+        map.set(t.name, logo)
+        map.set(t.name.trim(), logo)
+        map.set(t.name.trim().toLowerCase(), logo)
+      }
+    })
     return map
   }, [teams])
 
   const getTeamLogo = useCallback(
-    (teamName: string): string => teamLogoMap.get(teamName) || "/placeholder.svg?height=32&width=32",
+    (teamName: string): string => {
+      if (!teamName) return "/placeholder.svg?height=32&width=32"
+      return (
+        teamLogoMap.get(teamName) ||
+        teamLogoMap.get(teamName.trim()) ||
+        teamLogoMap.get(teamName.trim().toLowerCase()) ||
+        "/placeholder.svg?height=32&width=32"
+      )
+    },
     [teamLogoMap]
   )
 
