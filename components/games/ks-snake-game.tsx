@@ -30,7 +30,7 @@ interface FoodItem {
 }
 
 const GRID_SIZE = 20
-const INITIAL_SPEED = 140 // ms per tick
+const INITIAL_SPEED = 165 // ms per tick (starts calm and accessible)
 
 export function KsSnakeGame({
   teams,
@@ -374,11 +374,14 @@ export function KsSnakeGame({
 
       foodRef.current = spawnFood()
 
-      // Speed up slightly
-      speedRef.current = Math.max(70, speedRef.current - 2.5)
+      // Smooth progressive acceleration based on score brackets
+      const curScore = scoreRef.current
+      const accel = curScore < 50 ? 1.8 : curScore < 150 ? 2.4 : 3.0
+      speedRef.current = Math.max(65, speedRef.current - accel)
 
-      // Random Golden Trophy Spawn (15% chance)
-      if (Math.random() < 0.2 && !goldenFoodRef.current) {
+      // Random Golden Trophy Spawn (Higher 28% chance in early game for instant thrill)
+      const goldenChance = curScore < 60 ? 0.28 : 0.18
+      if (Math.random() < goldenChance && !goldenFoodRef.current) {
         goldenFoodRef.current = spawnGoldenFood()
       }
     }

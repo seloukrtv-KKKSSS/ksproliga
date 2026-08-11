@@ -202,7 +202,7 @@ export function KsDinoRunner({
   // Start / Restart Game
   const startGame = () => {
     scoreRef.current = 0
-    speedRef.current = 6
+    speedRef.current = 4.6
     playerYRef.current = 0
     playerVYRef.current = 0
     isJumpingRef.current = false
@@ -575,7 +575,7 @@ export function KsDinoRunner({
           isJumpingRef.current = false
         }
 
-        // Score & Speed Curve
+        // Score & Speed Curve - Starts easy & relaxed to hook player, scales progressively
         scoreRef.current += 0.15 * timeScale
         const intScore = Math.floor(scoreRef.current)
         setScore(intScore)
@@ -592,10 +592,10 @@ export function KsDinoRunner({
           triggerHaptic("bonus")
         }
 
-        // Accelerate gradually
-        speedRef.current = 6 + Math.min(intScore * 0.006, 7)
+        // Smooth progressive acceleration: 4.6 (calm start) -> 12.0 (blazing max)
+        speedRef.current = 4.6 + Math.min(intScore * 0.0075, 7.4)
 
-        // 4. Obstacles Spawner
+        // 4. Obstacles Spawner with progressive scaling
         nextSpawnDistanceRef.current -= speedRef.current * timeScale
         if (nextSpawnDistanceRef.current <= 0) {
           // Select random team logo
@@ -604,12 +604,20 @@ export function KsDinoRunner({
             ? eligibleTeams[Math.floor(Math.random() * eligibleTeams.length)]
             : { name: "KS Team", logo: undefined }
 
-          const isAir = Math.random() > 0.7 && intScore > 150
-          const obsSize = isAir ? 28 : Math.random() > 0.5 ? 36 : 42
+          // Flying air obstacles only appear after 180 points
+          const canAir = intScore >= 180
+          const isAir = canAir && Math.random() < Math.min(0.15 + (intScore - 180) * 0.0006, 0.45)
+          const obsSize = isAir
+            ? 26
+            : intScore < 150
+            ? 30
+            : intScore < 400
+            ? (Math.random() > 0.5 ? 36 : 32)
+            : (Math.random() > 0.4 ? 42 : 36)
 
           obstaclesRef.current.push({
             x: width + 20,
-            y: isAir ? 32 + Math.random() * 14 : 0,
+            y: isAir ? 30 + Math.random() * 10 : 0,
             width: obsSize,
             height: obsSize,
             teamLogo: randomTeam.logo,
@@ -617,8 +625,10 @@ export function KsDinoRunner({
             isAir,
           })
 
-          // Next spawn gap
-          nextSpawnDistanceRef.current = 180 + Math.random() * 220 + (10 - Math.min(speedRef.current, 10)) * 10
+          // Spacing between obstacles: starts wide (260-380px) and tightens as score grows
+          const baseGap = intScore < 150 ? 260 : intScore < 400 ? 210 : 160
+          const randomExtra = intScore < 150 ? 120 : intScore < 400 ? 160 : 190
+          nextSpawnDistanceRef.current = baseGap + Math.random() * randomExtra
         }
 
         // 5. Update & Collision Detection
@@ -626,15 +636,15 @@ export function KsDinoRunner({
           const obs = obstaclesRef.current[i]
           obs.x -= speedRef.current * timeScale
 
-          // Hitbox calculation
+          // Hitbox calculation with forgiving early padding
           const playerH = isDuckingRef.current ? 22 : 44
           const playerW = isDuckingRef.current ? 38 : 24
           const playerActualY = groundY - playerYRef.current - playerH
 
           const obsY = obs.isAir ? groundY - obs.y - obs.height : groundY - obs.height
 
-          // Circular/Box AABB intersection with fair padding
-          const padding = 6
+          // Circular/Box AABB intersection with progressive padding
+          const padding = intScore < 150 ? 8 : intScore < 400 ? 7 : 6
           const pLeft = playerX + padding
           const pRight = playerX + playerW - padding
           const pTop = playerActualY + padding
