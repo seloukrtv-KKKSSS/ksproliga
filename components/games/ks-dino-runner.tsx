@@ -896,15 +896,20 @@ export function KsDinoRunner({
       </div>
 
       {/* Mobile On-Screen Action Controls Bar */}
-      <div className="grid grid-cols-2 gap-3 sm:hidden">
+      <div 
+        className="grid grid-cols-2 gap-3 sm:hidden select-none arcade-no-select"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <button
           type="button"
           onTouchStart={(e) => { e.preventDefault(); doJump(); }}
           onMouseDown={() => doJump()}
-          className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-500 text-white font-extrabold text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
+          className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-500 text-white font-extrabold text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none arcade-no-select"
         >
-          <ChevronUp className="h-5 w-5" />
-          <span>СТРИБОК (Jump)</span>
+          <ChevronUp className="h-5 w-5 pointer-events-none" />
+          <span className="pointer-events-none">СТРИБОК (Jump)</span>
         </button>
 
         <button
@@ -913,10 +918,12 @@ export function KsDinoRunner({
           onTouchEnd={(e) => { e.preventDefault(); setDuck(false); }}
           onMouseDown={() => setDuck(true)}
           onMouseUp={() => setDuck(false)}
-          className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
+          className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none arcade-no-select"
         >
-          <ChevronDown className="h-5 w-5" />
-          <span>ПІДКАТ (Slide)</span>
+          <ChevronDown className="h-5 w-5 pointer-events-none" />
+          <span className="pointer-events-none">ПІДКАТ (Slide)</span>
         </button>
       </div>
     </div>

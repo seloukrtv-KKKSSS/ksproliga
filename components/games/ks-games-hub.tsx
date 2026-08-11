@@ -156,44 +156,50 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       </div>
 
       {/* Main Navigation Segmented Control */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/60 backdrop-blur-xl border border-slate-200/80 shadow-sm">
+      <div 
+        className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/60 backdrop-blur-xl border border-slate-200/80 shadow-sm select-none arcade-no-select"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <button
           type="button"
           onClick={() => setActiveTab("dino")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
+          onContextMenu={(e) => e.preventDefault()}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none arcade-no-select cursor-pointer ${
             activeTab === "dino"
               ? "bg-slate-900 text-white shadow-md"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <span className="text-base">🏃</span>
-          <span>KS Dino Runner</span>
+          <span className="text-base pointer-events-none">🏃</span>
+          <span className="pointer-events-none">KS Dino Runner</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("snake")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
+          onContextMenu={(e) => e.preventDefault()}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none arcade-no-select cursor-pointer ${
             activeTab === "snake"
               ? "bg-slate-900 text-white shadow-md"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <span className="text-base">🐍</span>
-          <span>KS Retro Snake</span>
+          <span className="text-base pointer-events-none">🐍</span>
+          <span className="pointer-events-none">KS Retro Snake</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("leaderboard")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
+          onContextMenu={(e) => e.preventDefault()}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none arcade-no-select cursor-pointer ${
             activeTab === "leaderboard"
               ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md font-black"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Trophy className="h-4 w-4 text-amber-500" />
-          <span>Зал Слави</span>
+          <Trophy className="h-4 w-4 text-amber-500 pointer-events-none" />
+          <span className="pointer-events-none">Зал Слави</span>
         </button>
       </div>
 

@@ -537,3 +537,19 @@ body {
   animation: tapFlash 0.3s ease-out forwards;
 }
 
+/* ============================================================
+   ARCADE GAME TOUCH, SELECTION & CALLOUT PREVENTION
+   Prevents text selection, callouts, and magnifying glasses
+   when holding buttons on iOS Safari and Android Chrome.
+   ============================================================ */
+.arcade-no-select,
+.arcade-btn {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
