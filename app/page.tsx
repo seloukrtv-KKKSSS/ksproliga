@@ -893,26 +893,26 @@ export default function KSLigaSite() {
                     ) : (
                       <div className="bg-white/50 backdrop-blur-2xl border border-white/70 shadow-lg shadow-black/5 rounded-3xl overflow-hidden divide-y divide-slate-200/50">
                         {/* Table Header Legend (Mobile & Desktop) */}
-                        <div className="bg-white/40 backdrop-blur-md px-3 sm:px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="w-7 sm:w-8 text-center shrink-0">#</span>
+                        <div className="bg-white/40 backdrop-blur-md px-2.5 sm:px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                            <span className="w-6 sm:w-8 text-center shrink-0">#</span>
                             <span className="truncate">Команда</span>
                           </div>
                           <div className="flex items-center shrink-0 text-right">
                             {/* І */}
                             <span className="w-5 sm:w-6 text-center">І</span>
                             {/* Divider spacing */}
-                            <span className="w-2.5"></span>
+                            <span className="w-1.5 sm:w-2.5"></span>
                             {/* В / Н / П */}
-                            <span className="w-[58px] sm:w-[72px] text-center">В/Н/П</span>
+                            <span className="w-[54px] sm:w-[72px] text-center">В/Н/П</span>
                             {/* spacing */}
-                            <span className="w-2 sm:w-4"></span>
+                            <span className="w-1.5 sm:w-4"></span>
                             {/* З:П */}
-                            <span className="w-10 sm:w-14 text-center">З:П</span>
+                            <span className="w-9 sm:w-14 text-center">З:П</span>
                             {/* spacing */}
-                            <span className="w-2 sm:w-4"></span>
+                            <span className="w-1.5 sm:w-4"></span>
                             {/* О */}
-                            <span className="w-7 sm:w-9 text-right text-blue-600 font-extrabold">О</span>
+                            <span className="w-6 sm:w-9 text-right text-blue-600 font-extrabold">О</span>
                           </div>
                         </div>
 
@@ -930,17 +930,17 @@ export default function KSLigaSite() {
                           return (
                             <div
                               key={index}
-                              className="flex items-center justify-between px-3 sm:px-4 py-3 hover:bg-white/60 transition-all gap-2"
+                              className="flex items-center justify-between px-2.5 sm:px-4 py-2.5 sm:py-3 hover:bg-white/60 transition-all gap-1.5 sm:gap-2 overflow-hidden"
                             >
-                              {/* Left side: Position, Logo, Team Name (Truncates smoothly without shifting stats) */}
-                              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden mr-1">
+                              {/* Left side: Position, Logo, Team Name (Truncates cleanly without shifting stats) */}
+                              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1 overflow-hidden mr-1">
                                 <span
-                                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm shrink-0 ${posBadgeClass}`}
+                                  className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-sm shrink-0 ${posBadgeClass}`}
                                 >
                                   {position}
                                 </span>
 
-                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                                   <img
                                     src={getTeamLogo(team.name) || "/placeholder.svg"}
                                     alt={`${team.name} Logo`}
@@ -950,19 +950,25 @@ export default function KSLigaSite() {
                                   />
                                 </div>
 
-                                <div className="flex flex-col min-w-0 flex-1 justify-center">
-                                  <span className="font-bold text-slate-900 text-xs min-[380px]:text-sm sm:text-base truncate leading-snug">
+                                <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
+                                  <span
+                                    className="font-bold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight"
+                                    title={team.name}
+                                  >
                                     {team.name}
                                   </span>
                                   {team.city && (
-                                    <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate leading-none mt-0.5">
+                                    <span
+                                      className="text-[9px] sm:text-xs font-medium text-slate-500 truncate leading-none mt-0.5"
+                                      title={team.city}
+                                    >
                                       {team.city}
                                     </span>
                                   )}
                                 </div>
                               </div>
 
-                              {/* Right side: Stats & Points (Completely locked column positions) */}
+                              {/* Right side: Stats & Points (Locked column positions) */}
                               <div className="flex items-center shrink-0 text-right text-xs sm:text-sm font-semibold select-none">
                                 {/* Games played (І) */}
                                 <span className="w-5 sm:w-6 text-center font-extrabold text-slate-800 shrink-0">{team.games}</span>
@@ -971,25 +977,29 @@ export default function KSLigaSite() {
                                 <span className="text-slate-300 mx-0.5 sm:mx-1 shrink-0">|</span>
 
                                 {/* Record (В / Н / П) */}
-                                <div className="flex items-center justify-center w-[58px] sm:w-[72px] shrink-0">
-                                  <span className="w-4 sm:w-5 text-center text-emerald-600 font-bold shrink-0">{team.wins}</span>
+                                <div className="flex items-center justify-center w-[54px] sm:w-[72px] shrink-0 text-[11px] sm:text-sm">
+                                  <span className="w-3.5 sm:w-5 text-center text-emerald-600 font-bold shrink-0">{team.wins}</span>
                                   <span className="text-slate-300 shrink-0">/</span>
-                                  <span className="w-4 sm:w-5 text-center text-amber-600 font-bold shrink-0">{team.draws}</span>
+                                  <span className="w-3.5 sm:w-5 text-center text-amber-600 font-bold shrink-0">{team.draws}</span>
                                   <span className="text-slate-300 shrink-0">/</span>
-                                  <span className="w-4 sm:w-5 text-center text-red-500 font-bold shrink-0">{team.losses}</span>
+                                  <span className="w-3.5 sm:w-5 text-center text-red-500 font-bold shrink-0">{team.losses}</span>
                                 </div>
 
-                                {/* Divider spacing */}
-                                <span className="w-2 sm:w-4 shrink-0"></span>
+                                {/* Divider */}
+                                <span className="text-slate-300 mx-0.5 sm:mx-1 shrink-0">|</span>
 
-                                {/* Goals ratio (З:П) */}
-                                <span className="w-10 sm:w-14 text-center text-slate-500 font-medium shrink-0">{team.gf}:{team.ga}</span>
+                                {/* Goals (З:П) */}
+                                <span className="w-9 sm:w-14 text-center text-slate-600 shrink-0 text-[11px] sm:text-sm truncate">
+                                  {team.gf}:{team.ga}
+                                </span>
 
-                                {/* Divider spacing */}
-                                <span className="w-2 sm:w-4 shrink-0"></span>
+                                {/* Divider */}
+                                <span className="text-slate-300 mx-0.5 sm:mx-1 shrink-0">|</span>
 
                                 {/* Points (О) */}
-                                <span className="w-7 sm:w-9 text-right font-extrabold text-blue-600 text-sm sm:text-base shrink-0">{team.pts}</span>
+                                <span className="w-6 sm:w-9 text-right font-black text-blue-600 text-xs sm:text-base shrink-0">
+                                  {team.pts}
+                                </span>
                               </div>
                             </div>
                           )
@@ -1032,9 +1042,9 @@ export default function KSLigaSite() {
                             onClick={() => setCollapsedCalendarRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
                             className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-2xs shrink-0"></span>
-                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate">
                                 {roundTitle}
                               </span>
                               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60 shrink-0">
@@ -1042,7 +1052,7 @@ export default function KSLigaSite() {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold">
+                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold shrink-0">
                               <span className="hidden min-[400px]:inline">{isCollapsed ? "Розгорнути" : "Згорнути"}</span>
                               {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                             </div>
@@ -1055,11 +1065,11 @@ export default function KSLigaSite() {
                                 const statusInfo = getMatchStatusInfo(match)
                                 return (
                                   <Card key={match.id} className={`liquid-glass-card overflow-hidden transition-all ${statusInfo.isLive ? "border-red-300 ring-2 ring-red-400/20 shadow-md" : ""}`}>
-                                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                                      <div className="flex-1 space-y-3">
+                                    <CardContent className="p-3.5 sm:p-4 flex items-center justify-between gap-3 sm:gap-4 overflow-hidden">
+                                      <div className="flex-1 min-w-0 space-y-2.5 sm:space-y-3">
                                         {/* Team 1 */}
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 overflow-hidden">
+                                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                                             <img
                                               src={getTeamLogo(match.home_team)}
                                               alt="Home Team"
@@ -1068,31 +1078,43 @@ export default function KSLigaSite() {
                                               decoding="async"
                                             />
                                           </div>
-                                          <span className="text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
+                                          <span
+                                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
+                                            title={match.home_team}
+                                          >
+                                            {match.home_team}
+                                          </span>
                                         </div>
                                         {/* Team 2 */}
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 overflow-hidden">
+                                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                                             <img
                                               src={getTeamLogo(match.away_team)}
                                               alt="Away Team"
                                               className="w-full h-full object-contain"
+                                              loading="lazy"
+                                              decoding="async"
                                             />
                                           </div>
-                                          <span className="text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
+                                          <span
+                                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
+                                            title={match.away_team}
+                                          >
+                                            {match.away_team}
+                                          </span>
                                         </div>
                                       </div>
 
                                       {/* Date, Time & Status */}
-                                      <div className="text-right border-l border-slate-100 pl-3 sm:pl-4 space-y-1 flex-shrink-0 flex flex-col items-end justify-center">
-                                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${statusInfo.badgeClass}`}>
+                                      <div className="text-right border-l border-slate-100 pl-2.5 sm:pl-4 space-y-1 shrink-0 flex flex-col items-end justify-center min-w-[70px] sm:min-w-[85px]">
+                                        <span className={`text-[9px] sm:text-[10px] font-extrabold px-2 py-0.5 rounded-full border shadow-2xs ${statusInfo.badgeClass}`}>
                                           {statusInfo.badgeText}
                                         </span>
-                                        <div className="text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1.5 pt-0.5">
+                                        <div className="text-[10px] sm:text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1 pt-0.5">
                                           <Clock className="h-3 w-3 text-slate-400" />
                                           {formatTime(match.match_time) || "—"}
                                         </div>
-                                        <div className="text-[10px] font-medium text-slate-500">
+                                        <div className="text-[9px] sm:text-[10px] font-medium text-slate-500">
                                           {new Date(match.date).toLocaleDateString("uk-UA")}
                                         </div>
                                       </div>
@@ -1134,9 +1156,9 @@ export default function KSLigaSite() {
                             onClick={() => setCollapsedResultsRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
                             className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs shrink-0"></span>
-                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                              <span className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate">
                                 {roundTitle}
                               </span>
                               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60 shrink-0">
@@ -1144,7 +1166,7 @@ export default function KSLigaSite() {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold">
+                            <div className="flex items-center gap-1 text-slate-400 group-hover:text-slate-800 transition-colors text-xs font-semibold shrink-0">
                               <span className="hidden min-[400px]:inline">{isCollapsed ? "Розгорнути" : "Згорнути"}</span>
                               {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                             </div>
@@ -1178,9 +1200,9 @@ export default function KSLigaSite() {
                                 >
                                   <CardContent className="p-3.5 space-y-2.5">
                                     {/* Main Compact Result Bar */}
-                                    <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center justify-between gap-1.5 sm:gap-2 min-w-0 overflow-hidden">
                                       {/* Home Team */}
-                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 overflow-hidden">
                                         <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${
                                           isHomeWinner
                                             ? "border-2 border-[#007AFF] ring-2 ring-[#007AFF]/20 shadow-xs scale-105"
@@ -1194,21 +1216,24 @@ export default function KSLigaSite() {
                                             decoding="async"
                                           />
                                         </div>
-                                        <span className={`text-xs sm:text-sm truncate transition-colors flex items-center gap-1 ${
-                                          isHomeWinner
-                                            ? "font-black text-[#007AFF] tracking-tight"
-                                            : isAwayWinner
-                                            ? "font-semibold text-slate-500 opacity-80"
-                                            : "font-extrabold text-slate-900"
-                                        }`}>
+                                        <span
+                                          className={`text-xs sm:text-sm truncate transition-colors flex items-center gap-1 flex-1 min-w-0 ${
+                                            isHomeWinner
+                                              ? "font-black text-[#007AFF] tracking-tight"
+                                              : isAwayWinner
+                                              ? "font-semibold text-slate-500 opacity-80"
+                                              : "font-extrabold text-slate-900"
+                                          }`}
+                                          title={match.home_team}
+                                        >
                                           {isHomeWinner && <Crown className="h-3.5 w-3.5 text-[#007AFF] shrink-0" />}
-                                          <span className="truncate">{match.home_team}</span>
+                                          <span className="truncate flex-1 min-w-0">{match.home_team}</span>
                                         </span>
                                       </div>
 
                                       {/* Highlighted Score Badge */}
-                                      <div className="flex flex-col items-center shrink-0 px-1.5">
-                                        <span className="px-2.5 py-1 rounded-xl bg-[#007AFF] text-white font-black text-xs sm:text-sm shadow-xs tracking-tight">
+                                      <div className="flex flex-col items-center shrink-0 px-1 sm:px-2">
+                                        <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-[#007AFF] text-white font-black text-xs sm:text-sm shadow-xs tracking-tight">
                                           {formatMatchResult(match)}
                                         </span>
                                         {formatPenaltyResult(match) && (
@@ -1219,15 +1244,18 @@ export default function KSLigaSite() {
                                       </div>
 
                                       {/* Away Team */}
-                                      <div className="flex items-center justify-end gap-2 flex-1 min-w-0 text-right">
-                                        <span className={`text-xs sm:text-sm truncate transition-colors flex items-center justify-end gap-1 ${
-                                          isAwayWinner
-                                            ? "font-black text-[#007AFF] tracking-tight"
-                                            : isHomeWinner
-                                            ? "font-semibold text-slate-500 opacity-80"
-                                            : "font-extrabold text-slate-900"
-                                        }`}>
-                                          <span className="truncate">{match.away_team}</span>
+                                      <div className="flex items-center justify-end gap-1.5 sm:gap-2 flex-1 min-w-0 overflow-hidden text-right">
+                                        <span
+                                          className={`text-xs sm:text-sm truncate transition-colors flex items-center justify-end gap-1 flex-1 min-w-0 ${
+                                            isAwayWinner
+                                              ? "font-black text-[#007AFF] tracking-tight"
+                                              : isHomeWinner
+                                              ? "font-semibold text-slate-500 opacity-80"
+                                              : "font-extrabold text-slate-900"
+                                          }`}
+                                          title={match.away_team}
+                                        >
+                                          <span className="truncate flex-1 min-w-0">{match.away_team}</span>
                                           {isAwayWinner && <Crown className="h-3.5 w-3.5 text-[#007AFF] shrink-0" />}
                                         </span>
                                         <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white flex items-center justify-center shrink-0 p-0.5 transition-all ${

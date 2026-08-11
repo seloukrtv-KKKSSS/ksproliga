@@ -46,7 +46,9 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
   }
 
   const getTeamLogo = (teamName: string): string => {
-    const team = teams.find((t) => t.name === teamName)
+    if (!teamName) return "/placeholder.svg?height=32&width=32"
+    const clean = teamName.trim().toLowerCase()
+    const team = teams.find((t) => t.name?.trim().toLowerCase() === clean)
     return team?.logo || "/placeholder.svg?height=32&width=32"
   }
 
@@ -87,41 +89,51 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
             <div className="grid gap-3 sm:grid-cols-2">
               {stageMatches.map((match, index) => (
                 <Card key={index} className="liquid-glass-card overflow-hidden">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-3 flex-1">
+                  <CardContent className="p-3.5 sm:p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3 overflow-hidden">
+                      <div className="space-y-2.5 sm:space-y-3 flex-1 min-w-0">
                         {/* Home Team */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                             <img
                               src={getTeamLogo(match.home_team)}
                               alt="Home Team"
                               className="w-full h-full object-contain"
+                              loading="lazy"
+                              decoding="async"
                             />
                           </div>
-                          <span className="text-sm font-bold text-slate-900">
+                          <span
+                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
+                            title={match.home_team}
+                          >
                             {match.home_team}
                           </span>
                         </div>
                         {/* Away Team */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
                             <img
                               src={getTeamLogo(match.away_team)}
                               alt="Away Team"
                               className="w-full h-full object-contain"
+                              loading="lazy"
+                              decoding="async"
                             />
                           </div>
-                          <span className="text-sm font-bold text-slate-900">
+                          <span
+                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
+                            title={match.away_team}
+                          >
                             {match.away_team}
                           </span>
                         </div>
                       </div>
 
                       {/* Score or VS */}
-                      <div className="text-right pl-4 flex-shrink-0 flex flex-col justify-center items-end">
+                      <div className="text-right pl-2.5 sm:pl-4 shrink-0 flex flex-col justify-center items-end min-w-[65px] sm:min-w-[80px]">
                         {match.is_finished ? (
-                          <div className="text-base font-black text-slate-900 tracking-tight">
+                          <div className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                             {formatMatchResult(match)}
                             <span className="text-[10px] text-slate-550 block font-semibold mt-0.5">
                               {formatPenaltyResult(match)}
