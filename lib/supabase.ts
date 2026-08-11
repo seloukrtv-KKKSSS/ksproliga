@@ -153,4 +153,12 @@ export interface OrganizerLog {
   created_at: string
 }
 
+export interface GameScore {
+  id: number
+  player_name: string
+  game_type: "dino" | "snake"
+  score: number
+  created_at: string
+}
+
 

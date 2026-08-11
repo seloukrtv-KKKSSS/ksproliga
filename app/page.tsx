@@ -37,6 +37,7 @@ import {
   ShieldCheck,
   Truck,
   Instagram,
+  Gamepad2,
 } from "lucide-react"
 import {
   getTeams,
@@ -66,6 +67,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TeamDisplay } from "@/components/team-display"
 import { ShopProductCard } from "@/components/shop-product-card"
 import { ShopLightbox } from "@/components/shop-lightbox"
+import { KsGamesHub } from "@/components/games/ks-games-hub"
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -871,6 +873,16 @@ export default function KSLigaSite() {
                     >
                       <ShoppingBag className="h-4 w-4" />
                       <span className="ml-1.5">KS Shop</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="games"
+                      className="ios-segment flex items-center justify-center relative"
+                    >
+                      <Gamepad2 className="h-4 w-4 text-amber-500" />
+                      <span className="ml-1.5">KS Games</span>
+                      <span className="ml-1 px-1.5 py-0.2 text-[8px] font-black uppercase bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 rounded-full leading-none shadow-xs">
+                        New
+                      </span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -2069,6 +2081,11 @@ export default function KSLigaSite() {
                 })()}
                 </TabsContent>
 
+                {/* KS Games Tab */}
+                <TabsContent value="games" className="outline-none space-y-4">
+                  <KsGamesHub teams={teams} />
+                </TabsContent>
+
                 {/* Admin Tab */}
                 <TabsContent value="admin" className="outline-none">
                   <Card className="liquid-glass-card overflow-hidden">
@@ -2258,6 +2275,22 @@ export default function KSLigaSite() {
             >
               <ShoppingBag className="h-5 w-5" />
               <span className="text-[10px] leading-tight mt-1">KS Shop</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("games")
+                window.scrollTo({ top: 0, behavior: "smooth" })
+              }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
+                activeTab === "games"
+                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
+                  : "text-slate-500 font-medium hover:text-slate-900"
+              }`}
+            >
+              <Gamepad2 className="h-5 w-5" />
+              <span className="text-[10px] leading-tight mt-1">Ігри</span>
             </button>
 
             <button

@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog, GameScore } from "./supabase"
 
 export function formatTime(timeStr?: string): string {
   if (!timeStr) return ""
@@ -1534,6 +1534,59 @@ export async function clearOrganizerLogs(): Promise<void> {
   } catch (error) {
     console.error("Error clearing organizer logs:", error)
     throw error
+  }
+}
+
+// KS Games Leaderboard
+export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10): Promise<GameScore[]> {
+  if (shouldUseMockData()) return []
+  try {
+    const { data, error } = await supabase
+      .from("game_scores")
+      .select("*")
+      .eq("game_type", gameType)
+      .order("score", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn(`Error fetching ${gameType} leaderboard:`, error)
+    return []
+  }
+}
+
+export async function saveGameScore(playerName: string, gameType: "dino" | "snake", score: number): Promise<GameScore | null> {
+  if (!playerName || !playerName.trim() || score <= 0) return null
+  const cleanName = playerName.trim().slice(0, 30)
+
+  if (shouldUseMockData()) {
+    return {
+      id: Date.now(),
+      player_name: cleanName,
+      game_type: gameType,
+      score,
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("game_scores")
+      .insert([{
+        player_name: cleanName,
+        game_type: gameType,
+        score,
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error("Error saving game score:", error)
+    return null
   }
 }
 
