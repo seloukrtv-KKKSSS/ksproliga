@@ -139,6 +139,18 @@ export function KsSnakeGame({
     setIsMuted(next)
   }
 
+  const triggerHaptic = (type: "move" | "eat" | "bonus" | "gameover") => {
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      try {
+        if (type === "eat") navigator.vibrate(25)
+        else if (type === "bonus") navigator.vibrate([30, 40, 30])
+        else if (type === "gameover") navigator.vibrate([60, 40, 80])
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
   // Spawn random Food with team logo
   const spawnFood = useCallback((): FoodItem => {
     const eligibleTeams = teams.filter((t) => t.logo)
@@ -296,6 +308,7 @@ export function KsSnakeGame({
 
     const triggerGameOver = async () => {
       retroAudio.playGameOver()
+      triggerHaptic("gameover")
       setGameState("gameover")
 
       const finalScore = scoreRef.current
@@ -345,41 +358,43 @@ export function KsSnakeGame({
     const newSnake = [head, ...snakeRef.current]
     let ateFood = false
 
-    // 3. Regular Team Logo Food Check
+    // 3. Regular Food Collision
     if (foodRef.current && head.x === foodRef.current.x && head.y === foodRef.current.y) {
-      ateFood = true
       scoreRef.current += 10
+      ateFood = true
       retroAudio.playScore()
+      triggerHaptic("eat")
 
-      // Add particle
-      const pId = Date.now()
+      // Spawn floating score particle
+      const pId = Date.now() + Math.random()
       setParticles((prev) => [...prev, { id: pId, text: "+10", x: head.x, y: head.y }])
-      setTimeout(() => setParticles((prev) => prev.filter((p) => p.id !== pId)), 800)
+      setTimeout(() => {
+        setParticles((prev) => prev.filter((p) => p.id !== pId))
+      }, 700)
 
       foodRef.current = spawnFood()
 
-      // Rare golden trophy chance (15%)
-      if (Math.random() < 0.18 && !goldenFoodRef.current) {
+      // Speed up slightly
+      speedRef.current = Math.max(70, speedRef.current - 2.5)
+
+      // Random Golden Trophy Spawn (15% chance)
+      if (Math.random() < 0.2 && !goldenFoodRef.current) {
         goldenFoodRef.current = spawnGoldenFood()
       }
-
-      // Speed acceleration
-      speedRef.current = Math.max(70, INITIAL_SPEED - Math.floor(scoreRef.current / 40) * 8)
     }
 
-    // 4. Golden Trophy Food Check
-    if (
-      goldenFoodRef.current &&
-      head.x === goldenFoodRef.current.x &&
-      head.y === goldenFoodRef.current.y
-    ) {
-      ateFood = true
+    // 4. Golden Trophy Collision
+    if (goldenFoodRef.current && head.x === goldenFoodRef.current.x && head.y === goldenFoodRef.current.y) {
       scoreRef.current += 50
+      ateFood = true
       retroAudio.playBonus()
+      triggerHaptic("bonus")
 
-      const pId = Date.now()
-      setParticles((prev) => [...prev, { id: pId, text: "⭐ +50", x: head.x, y: head.y }])
-      setTimeout(() => setParticles((prev) => prev.filter((p) => p.id !== pId)), 1000)
+      const pId = Date.now() + Math.random()
+      setParticles((prev) => [...prev, { id: pId, text: "+50 🏆", x: head.x, y: head.y }])
+      setTimeout(() => {
+        setParticles((prev) => prev.filter((p) => p.id !== pId))
+      }, 900)
 
       goldenFoodRef.current = null
     }
@@ -396,13 +411,14 @@ export function KsSnakeGame({
     snakeRef.current = newSnake
     setScore(scoreRef.current)
 
-    if (scoreRef.current > highScore) {
+    if (scoreRef.current > highScoreRef.current) {
+      highScoreRef.current = scoreRef.current
       setHighScore(scoreRef.current)
       localStorage.setItem("ks_snake_highscore", String(scoreRef.current))
     }
 
     setRenderTick((t) => t + 1)
-  }, [gameState, highScore, spawnFood, spawnGoldenFood])
+  }, [gameState, spawnFood, spawnGoldenFood])
 
   // Timer loop
   useEffect(() => {
@@ -420,14 +436,14 @@ export function KsSnakeGame({
       <div
         ref={containerRef}
         className={`relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square w-full max-w-[370px] sm:max-w-[420px] mx-auto p-2 sm:p-3 ${
-          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-w-none border-none flex flex-col justify-center items-center" : ""
+          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-w-none border-none flex flex-col justify-between items-center p-4 sm:p-6" : ""
         }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         style={{ touchAction: "none" }}
       >
         {/* Top Floating HUD */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+        <div className={`w-full flex items-center justify-between pointer-events-none z-10 ${isFullscreen ? "max-w-md pt-1 px-2" : "absolute top-3 left-3 right-3"}`}>
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               type="button"
@@ -463,8 +479,12 @@ export function KsSnakeGame({
 
         {/* 20x20 Arcade LCD Grid */}
         <div
-          className="w-full h-full rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800/80 grid relative overflow-hidden"
+          className={`rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800/80 grid relative overflow-hidden ${
+            isFullscreen ? "my-auto shadow-2xl ring-2 ring-emerald-500/20" : "w-full h-full"
+          }`}
           style={{
+            width: isFullscreen ? "min(64vh, 88vw)" : undefined,
+            height: isFullscreen ? "min(64vh, 88vw)" : undefined,
             gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
             gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
           }}
@@ -565,22 +585,73 @@ export function KsSnakeGame({
 
         {/* Start Overlay */}
         {gameState === "idle" && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/30 mb-3 flex items-center justify-center animate-bounce">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <Play className="h-6 w-6 text-emerald-400 fill-emerald-400 ml-0.5" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/40 mb-3.5 flex items-center justify-center animate-bounce">
+              <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
+                <Play className="h-7 w-7 text-emerald-400 fill-emerald-400 ml-0.5" />
               </div>
             </div>
-            <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">KS Retro Snake</h3>
-            <p className="text-xs text-slate-300 max-w-xs mt-1 mb-4">
-              Збирайте емблеми команд KS LIGA та Золоті Кубки! Керуйте стрілками або свайпами.
+            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">KS Retro Snake</h3>
+            <p className="text-xs text-slate-300 max-w-sm mt-1.5 mb-5 font-medium leading-relaxed">
+              Збирайте емблеми команд KS LIGA (+10 очок) та Золоті Кубки (+50 очок)!
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={startGame}
+                className="px-7 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Play className="h-4 w-4 fill-slate-950" />
+                <span>Почати гру</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleFullscreen}
+                className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4 text-emerald-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
+                <span>{isFullscreen ? "Звичайний екран" : "На весь екран"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Floating D-Pad at bottom */}
+        {isFullscreen && (
+          <div className="w-full max-w-xs flex flex-col items-center justify-center gap-1.5 pointer-events-auto sm:hidden select-none pb-2">
             <button
               type="button"
-              onClick={startGame}
-              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
+              className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
             >
-              Почати гру
+              <ArrowUp className="h-6 w-6" />
+            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
+                className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+              <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
+                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <button
+                type="button"
+                onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
+                className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+              >
+                <ArrowRight className="h-6 w-6" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
+              className="w-14 h-12 rounded-2xl bg-slate-800/90 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+            >
+              <ArrowDown className="h-6 w-6" />
             </button>
           </div>
         )}
@@ -665,61 +736,65 @@ export function KsSnakeGame({
         )}
       </div>
 
-      {/* Arcade D-Pad Virtual Controller for Mobile */}
-      <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2 select-none">
-        <button
-          type="button"
-          onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
-          onMouseDown={() => changeDirection("UP")}
-          className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-        >
-          <ArrowUp className="h-7 w-7" />
-        </button>
-        <div className="flex items-center gap-4">
+      {/* Arcade D-Pad Virtual Controller for Mobile (Only in Normal View) */}
+      {!isFullscreen && (
+        <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2 select-none">
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
-            onMouseDown={() => changeDirection("LEFT")}
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
+            onMouseDown={() => changeDirection("UP")}
             className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowLeft className="h-7 w-7" />
+            <ArrowUp className="h-7 w-7" />
           </button>
-          <div className="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center shadow-inner">
-            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/60 animate-pulse" />
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
+              onMouseDown={() => changeDirection("LEFT")}
+              className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="h-7 w-7" />
+            </button>
+            <div className="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center shadow-inner">
+              <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/60 animate-pulse" />
+            </div>
+            <button
+              type="button"
+              onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
+              onMouseDown={() => changeDirection("RIGHT")}
+              className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
+            >
+              <ArrowRight className="h-7 w-7" />
+            </button>
           </div>
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
-            onMouseDown={() => changeDirection("RIGHT")}
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
+            onMouseDown={() => changeDirection("DOWN")}
             className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowRight className="h-7 w-7" />
+            <ArrowDown className="h-6 w-6" />
           </button>
         </div>
-        <button
-          type="button"
-          onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
-          onMouseDown={() => changeDirection("DOWN")}
-          className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
-        >
-          <ArrowDown className="h-7 w-7" />
-        </button>
-      </div>
+      )}
 
-      {/* Scroll Lock Toggle */}
-      <div className="flex justify-center pt-4 sm:hidden">
-        <button
-          type="button"
-          onClick={() => setScrollLocked(!scrollLocked)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md ${
-            scrollLocked 
-              ? "bg-amber-500/20 text-amber-500 border border-amber-500/40" 
-              : "bg-slate-800 text-slate-300 border border-slate-700"
-          }`}
-        >
-          {scrollLocked ? "🔓 Розблокувати скрол" : "🔒 Заблокувати скрол"}
-        </button>
-      </div>
+      {/* Scroll Lock Toggle (Only in Normal View) */}
+      {!isFullscreen && (
+        <div className="flex justify-center pt-4 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setScrollLocked(!scrollLocked)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md ${
+              scrollLocked 
+                ? "bg-amber-500/20 text-amber-500 border border-amber-500/40" 
+                : "bg-slate-800 text-slate-300 border border-slate-700"
+            }`}
+          >
+            {scrollLocked ? "🔓 Розблокувати скрол" : "🔒 Заблокувати скрол"}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

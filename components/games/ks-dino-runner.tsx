@@ -124,6 +124,19 @@ export function KsDinoRunner({
     setIsMuted(next)
   }
 
+  const triggerHaptic = (type: "jump" | "slide" | "bonus" | "gameover") => {
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      try {
+        if (type === "jump") navigator.vibrate(25)
+        else if (type === "slide") navigator.vibrate(20)
+        else if (type === "bonus") navigator.vibrate([30, 40, 30])
+        else if (type === "gameover") navigator.vibrate([60, 40, 80])
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
   // Jump Action
   const doJump = useCallback(() => {
     if (gameStateRef.current === "idle") {
@@ -136,9 +149,10 @@ export function KsDinoRunner({
     }
     if (gameStateRef.current === "playing") {
       if (playerYRef.current === 0 && !isDuckingRef.current) {
-        playerVYRef.current = 13.8 // Jump force
+        playerVYRef.current = 14.2 // Jump force
         isJumpingRef.current = true
         retroAudio.playJump()
+        triggerHaptic("jump")
       }
     }
   }, [])
@@ -148,16 +162,18 @@ export function KsDinoRunner({
     if (gameStateRef.current !== "playing") return
     if (ducking && !isDuckingRef.current && playerYRef.current === 0) {
       retroAudio.playSlide()
+      triggerHaptic("slide")
     }
     isDuckingRef.current = ducking
     if (ducking && playerYRef.current > 0) {
-      playerVYRef.current = -15 // Fast fall / dive
+      playerVYRef.current = -16 // Fast fall / dive
     }
   }, [])
 
   // Keyboard Event Handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (["Space", "ArrowUp", "KeyW"].includes(e.code)) {
         e.preventDefault()
         doJump()
@@ -168,6 +184,7 @@ export function KsDinoRunner({
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (["ArrowDown", "KeyS"].includes(e.code)) {
         e.preventDefault()
         setDuck(false)
@@ -248,109 +265,97 @@ export function KsDinoRunner({
       for (let i = 0; i < 3; i++) {
         const sx = -5 - Math.random() * 12
         const sy = 18 + Math.random() * 4
-        ctx.fillRect(sx, sy, 2, 2)
+        ctx.fillRect(sx, sy, 2.5, 2.5)
       }
 
-      // Torso (Sliding KS LIGA Blue Kit)
-      ctx.fillStyle = "#007AFF"
+      // Torso / Jersey (Slanted forward)
+      ctx.fillStyle = "#2563EB" // Team Blue
       ctx.beginPath()
-      ctx.roundRect(8, 6, 26, 12, 4)
+      ctx.roundRect(10, 8, 26, 12, 4)
       ctx.fill()
 
-      // Gold Stripe
+      // Yellow Accent Number 7
       ctx.fillStyle = "#FBBF24"
-      ctx.fillRect(8, 11, 26, 3)
+      ctx.font = "bold 9px sans-serif"
+      ctx.fillText("7", 20, 17)
 
-      // Head / Helmet with Gold Headband
-      ctx.fillStyle = "#FCD34D" // Skin
+      // Head / Helmet
+      ctx.fillStyle = "#FBBF24" // Blonde hair
       ctx.beginPath()
-      ctx.arc(38, 10, 6, 0, Math.PI * 2)
+      ctx.arc(36, 10, 7, 0, Math.PI * 2)
       ctx.fill()
 
-      // Hair
-      ctx.fillStyle = "#1E293B"
+      // Face
+      ctx.fillStyle = "#FCD34D"
       ctx.beginPath()
-      ctx.arc(37, 7, 5, Math.PI, 0)
+      ctx.arc(37, 11, 5, 0, Math.PI * 2)
       ctx.fill()
 
-      // Gold Headband
-      ctx.fillStyle = "#F59E0B"
-      ctx.fillRect(34, 8, 7, 2)
-
-      // Legs / Cleats stretched out
-      ctx.fillStyle = "#1E293B" // Shorts
-      ctx.fillRect(0, 10, 10, 8)
-      ctx.fillStyle = "#F59E0B" // Boots
-      ctx.fillRect(-4, 14, 8, 5)
-    } else {
-      // Running / Jumping Player (Standard profile: 46px height, 28px width)
-      // Dynamic Shadow on Pitch
-      const shadowScale = Math.max(0.4, 1 - Math.abs(playerYRef.current) / 120)
-      ctx.fillStyle = `rgba(0, 0, 0, ${0.25 * shadowScale})`
+      // Sliding Shorts & Legs
+      ctx.fillStyle = "#FFFFFF"
       ctx.beginPath()
-      ctx.ellipse(14, 46 + playerYRef.current, 14 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2)
+      ctx.roundRect(0, 12, 14, 8, 3)
       ctx.fill()
 
-      // Head & Hair
-      ctx.fillStyle = "#FCD34D" // Skin tone
-      ctx.beginPath()
-      ctx.arc(14, 8, 7, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Styled Dark Hair
+      // Boots with Grass spray
       ctx.fillStyle = "#0F172A"
+      ctx.fillRect(-2, 16, 8, 5)
+    } else {
+      // Standard Running Player (44px height, 26px width)
+      // Dynamic Shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.25)"
       ctx.beginPath()
-      ctx.arc(13, 5, 6.5, Math.PI * 0.9, Math.PI * 2.1)
+      ctx.ellipse(13, 44, 12, 4, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      // KS Gold Headband
-      ctx.fillStyle = "#F59E0B"
-      ctx.fillRect(8, 6, 12, 2.5)
+      // Head
+      ctx.fillStyle = "#FBBF24" // Hair
+      ctx.beginPath()
+      ctx.arc(13, 8, 7, 0, Math.PI * 2)
+      ctx.fill()
 
-      // Eyes
+      // Face
+      ctx.fillStyle = "#FCD34D"
+      ctx.beginPath()
+      ctx.arc(14, 9, 5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Eye
       ctx.fillStyle = "#0F172A"
       ctx.fillRect(16, 7, 2, 2)
 
-      // KS LIGA Blue Jersey
-      ctx.fillStyle = "#007AFF"
+      // Jersey (Blue KS)
+      ctx.fillStyle = "#2563EB"
       ctx.beginPath()
-      ctx.roundRect(6, 15, 16, 16, 4)
+      ctx.roundRect(5, 14, 16, 15, 4)
       ctx.fill()
 
-      // Gold Chest Badge
+      // Jersey Number
       ctx.fillStyle = "#FBBF24"
-      ctx.beginPath()
-      ctx.arc(14, 21, 2.5, 0, Math.PI * 2)
-      ctx.fill()
-
-      // White Number "10" on jersey
-      ctx.fillStyle = "#FFFFFF"
-      ctx.fillRect(13, 25, 2, 4)
+      ctx.font = "bold 9px sans-serif"
+      ctx.fillText("7", 11, 25)
 
       // White Shorts
       ctx.fillStyle = "#FFFFFF"
-      ctx.fillRect(7, 30, 14, 7)
+      ctx.fillRect(5, 28, 16, 7)
 
-      // Left & Right Legs with Animated Stride
-      if (playerYRef.current > 0) {
-        // Jumping Pose (Legs tucked)
-        ctx.fillStyle = "#007AFF" // Socks
-        ctx.fillRect(7, 36, 4, 6)
-        ctx.fillRect(15, 36, 4, 4)
-        ctx.fillStyle = "#F59E0B" // Gold Boots
-        ctx.fillRect(6, 41, 6, 4)
-        ctx.fillRect(15, 39, 6, 4)
-      } else {
-        // Running Legs
-        ctx.fillStyle = "#007AFF" // Socks
-        ctx.fillRect(8 + legOffset * 0.5, 36, 4, 6)
-        ctx.fillRect(14 - legOffset * 0.5, 36, 4, 6)
+      // Left Leg (Animated)
+      ctx.fillStyle = "#FCD34D"
+      ctx.fillRect(6, 35, 5, 6 + legOffset)
+      ctx.fillStyle = "#0F172A" // Boot
+      ctx.fillRect(6, 40 + legOffset, 7, 4)
 
-        // Gold Football Boots
-        ctx.fillStyle = "#F59E0B"
-        ctx.fillRect(7 + legOffset * 0.5, 41, 6, 4)
-        ctx.fillRect(13 - legOffset * 0.5, 41, 6, 4)
-      }
+      // Right Leg (Animated Inverse)
+      ctx.fillStyle = "#FCD34D"
+      ctx.fillRect(15, 35, 5, 6 - legOffset)
+      ctx.fillStyle = "#0F172A" // Boot
+      ctx.fillRect(15, 40 - legOffset, 7, 4)
+
+      // Running Arm with Soccer Ball
+      ctx.fillStyle = "#2563EB"
+      ctx.fillRect(18, 16, 4, 8)
+      ctx.fillStyle = "#FCD34D"
+      ctx.fillRect(18, 23, 4, 4)
     }
 
     ctx.restore()
@@ -471,7 +476,7 @@ export function KsDinoRunner({
     touchStartRef.current = null
   }
 
-  // Main 60 FPS Game Loop
+  // Main 60-120 FPS High Refresh Rate Delta-Time Game Loop
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -479,30 +484,33 @@ export function KsDinoRunner({
     if (!ctx) return
 
     let width = 640
-    let height = 280
+    let height = 300
+    let lastTime = performance.now()
 
     const resizeCanvas = () => {
       if (!canvas || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const isMobile = window.innerWidth < 640
-      width = rect.width || (isMobile ? 360 : 640)
-      height = isMobile
-        ? Math.min(320, Math.max(260, rect.width * 0.75))
-        : Math.min(300, Math.max(220, rect.width * 0.42))
+      width = rect.width || 640
+      height = rect.height || 300
 
-      canvas.width = width * dpr
-      canvas.height = height * dpr
+      canvas.width = Math.round(width * dpr)
+      canvas.height = Math.round(height * dpr)
+      ctx.resetTransform?.()
       ctx.scale(dpr, dpr)
     }
 
     resizeCanvas()
     window.addEventListener("resize", resizeCanvas)
 
-    const gameLoop = () => {
-      const isMobile = window.innerWidth < 640
-      const groundY = height - (isMobile ? 48 : 42)
-      const playerX = isMobile ? 38 : 50
+    const gameLoop = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.05)
+      lastTime = now
+      const timeScale = dt * 60 // normalized to 60 FPS
+
+      const isMobile = width < 640
+      const groundY = height - (height > 420 ? 80 : isMobile ? 50 : 44)
+      const playerX = isFullscreen ? Math.max(50, width * 0.12) : isMobile ? 38 : 50
 
       frameCountRef.current++
       ctx.clearRect(0, 0, width, height)
@@ -525,13 +533,13 @@ export function KsDinoRunner({
       // Stadium Floodlights in Background
       ctx.fillStyle = isNight ? "rgba(251, 191, 36, 0.15)" : "rgba(255, 255, 255, 0.4)"
       ctx.beginPath()
-      ctx.arc(100, 30, 70, 0, Math.PI * 2)
-      ctx.arc(width - 100, 30, 70, 0, Math.PI * 2)
+      ctx.arc(Math.min(100, width * 0.15), 30, 70, 0, Math.PI * 2)
+      ctx.arc(Math.max(width - 100, width * 0.85), 30, 70, 0, Math.PI * 2)
       ctx.fill()
 
       // 2. Parallax Pitch Grass & Markings
       if (gameStateRef.current === "playing") {
-        groundOffsetRef.current = (groundOffsetRef.current + speedRef.current) % 60
+        groundOffsetRef.current = (groundOffsetRef.current + speedRef.current * timeScale) % 60
       }
 
       // Grass Area
@@ -557,9 +565,9 @@ export function KsDinoRunner({
 
       // 3. Physics & Player Update
       if (gameStateRef.current === "playing") {
-        // Gravity & Vertical Movement
-        playerYRef.current += playerVYRef.current
-        playerVYRef.current -= 0.72 // Gravity force
+        // Gravity & Vertical Movement with Delta Time
+        playerYRef.current += playerVYRef.current * timeScale
+        playerVYRef.current -= 0.72 * timeScale // Gravity force
 
         if (playerYRef.current <= 0) {
           playerYRef.current = 0
@@ -568,7 +576,7 @@ export function KsDinoRunner({
         }
 
         // Score & Speed Curve
-        scoreRef.current += 0.15
+        scoreRef.current += 0.15 * timeScale
         const intScore = Math.floor(scoreRef.current)
         setScore(intScore)
 
@@ -579,15 +587,16 @@ export function KsDinoRunner({
         }
 
         // Milestone score chime
-        if (intScore > 0 && intScore % 100 === 0 && Math.floor(scoreRef.current - 0.15) % 100 !== 0) {
+        if (intScore > 0 && intScore % 100 === 0 && Math.floor(scoreRef.current - 0.15 * timeScale) % 100 !== 0) {
           retroAudio.playScore()
+          triggerHaptic("bonus")
         }
 
         // Accelerate gradually
         speedRef.current = 6 + Math.min(intScore * 0.006, 7)
 
         // 4. Obstacles Spawner
-        nextSpawnDistanceRef.current -= speedRef.current
+        nextSpawnDistanceRef.current -= speedRef.current * timeScale
         if (nextSpawnDistanceRef.current <= 0) {
           // Select random team logo
           const eligibleTeams = teams.filter((t) => t.logo)
@@ -596,11 +605,11 @@ export function KsDinoRunner({
             : { name: "KS Team", logo: undefined }
 
           const isAir = Math.random() > 0.7 && intScore > 150
-          const obsSize = isAir ? 26 : Math.random() > 0.5 ? 36 : 42
+          const obsSize = isAir ? 28 : Math.random() > 0.5 ? 36 : 42
 
           obstaclesRef.current.push({
             x: width + 20,
-            y: isAir ? 30 + Math.random() * 15 : 0,
+            y: isAir ? 32 + Math.random() * 14 : 0,
             width: obsSize,
             height: obsSize,
             teamLogo: randomTeam.logo,
@@ -615,7 +624,7 @@ export function KsDinoRunner({
         // 5. Update & Collision Detection
         for (let i = obstaclesRef.current.length - 1; i >= 0; i--) {
           const obs = obstaclesRef.current[i]
-          obs.x -= speedRef.current
+          obs.x -= speedRef.current * timeScale
 
           // Hitbox calculation
           const playerH = isDuckingRef.current ? 22 : 44
@@ -639,6 +648,7 @@ export function KsDinoRunner({
           if (pRight > oLeft && pLeft < oRight && pBottom > oTop && pTop < oBottom) {
             // Collision! GAME OVER!
             retroAudio.playGameOver()
+            triggerHaptic("gameover")
             setGameState("gameover")
             gameStateRef.current = "gameover"
 
@@ -661,7 +671,7 @@ export function KsDinoRunner({
           }
 
           // Remove off-screen obstacles
-          if (obs.x + obs.width < -20) {
+          if (obs.x + obs.width < -40) {
             obstaclesRef.current.splice(i, 1)
           }
         }
@@ -683,7 +693,7 @@ export function KsDinoRunner({
       if (reqIdRef.current) cancelAnimationFrame(reqIdRef.current)
       window.removeEventListener("resize", resizeCanvas)
     }
-  }, [teams])
+  }, [teams, isFullscreen])
 
   return (
     <div className="space-y-4">
@@ -746,25 +756,63 @@ export function KsDinoRunner({
 
         {/* Idle Overlay */}
         {gameState === "idle" && (
-          <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-amber-400 p-0.5 shadow-lg shadow-blue-500/30 mb-3 flex items-center justify-center animate-bounce">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <Play className="h-6 w-6 text-amber-400 fill-amber-400 ml-0.5" />
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 to-amber-400 p-0.5 shadow-xl shadow-blue-500/40 mb-3.5 flex items-center justify-center animate-bounce">
+              <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
+                <Play className="h-7 w-7 text-amber-400 fill-amber-400 ml-0.5" />
               </div>
             </div>
-            <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">KS Dino Runner</h3>
-            <p className="text-xs text-slate-300 max-w-xs mt-1 mb-4">
+            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">KS Dino Runner</h3>
+            <p className="text-xs text-slate-300 max-w-sm mt-1.5 mb-5 font-medium leading-relaxed">
               Перестрибуйте емблеми команд-суперників! Натисніть пробіл або тапніть по екрану.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  startGame()
+                }}
+                className="px-7 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-amber-500 hover:from-blue-500 hover:to-amber-400 text-white font-black text-sm shadow-xl shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Play className="h-4 w-4 fill-white" />
+                <span>Грати зараз</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleFullscreen()
+                }}
+                className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4 text-amber-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
+                <span>{isFullscreen ? "Звичайний екран" : "На весь екран"}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen In-Game Floating Controls for Mobile */}
+        {isFullscreen && gameState === "playing" && (
+          <div className="absolute bottom-6 left-6 right-6 flex items-center justify-between pointer-events-none z-30 sm:hidden">
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                startGame()
-              }}
-              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-amber-500 text-white font-extrabold text-sm shadow-lg shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              onTouchStart={(e) => { e.preventDefault(); doJump(); }}
+              className="pointer-events-auto w-20 h-20 rounded-full bg-blue-600/80 backdrop-blur-md border-2 border-blue-400 text-white font-black text-[11px] flex flex-col items-center justify-center shadow-2xl active:scale-90 select-none"
             >
-              Грати зараз
+              <ChevronUp className="h-7 w-7" />
+              <span>СТРИБОК</span>
+            </button>
+            <button
+              type="button"
+              onTouchStart={(e) => { e.preventDefault(); setDuck(true); }}
+              onTouchEnd={(e) => { e.preventDefault(); setDuck(false); }}
+              className="pointer-events-auto w-20 h-20 rounded-full bg-slate-800/80 backdrop-blur-md border-2 border-slate-600 text-white font-black text-[11px] flex flex-col items-center justify-center shadow-2xl active:scale-90 select-none"
+            >
+              <ChevronDown className="h-7 w-7" />
+              <span>ПІДКАТ</span>
             </button>
           </div>
         )}
