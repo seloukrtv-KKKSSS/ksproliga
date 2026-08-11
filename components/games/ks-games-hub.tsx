@@ -6,6 +6,7 @@ import { KsDinoRunner } from "./ks-dino-runner"
 import { KsSnakeGame } from "./ks-snake-game"
 import { KsLeaderboard } from "./ks-leaderboard"
 import { retroAudio } from "@/lib/retro-audio"
+import { getTeams } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
 
 interface KsGamesHubProps {
@@ -20,6 +21,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
   const [isMuted, setIsMuted] = useState(false)
   const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<number | undefined>(undefined)
   const [nicknameReady, setNicknameReady] = useState(false)
+  const [allLeagueTeams, setAllLeagueTeams] = useState<Team[]>(teams || [])
 
   useEffect(() => {
     const savedName = localStorage.getItem("ks_player_name")
@@ -31,6 +33,13 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       setIsEditingName(true)
     }
     setIsMuted(retroAudio.isMuted)
+
+    // Load ALL teams across all leagues and championships in database
+    getTeams().then((data) => {
+      if (data && data.length > 0) {
+        setAllLeagueTeams(data)
+      }
+    }).catch(console.error)
   }, [])
 
   const handleSaveName = (e?: React.FormEvent) => {
@@ -236,7 +245,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           {activeTab === "dino" && (
             <div className="space-y-6">
               <KsDinoRunner
-                teams={teams}
+                teams={allLeagueTeams}
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}
@@ -260,7 +269,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           {activeTab === "snake" && (
             <div className="space-y-6">
               <KsSnakeGame
-                teams={teams}
+                teams={allLeagueTeams}
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}

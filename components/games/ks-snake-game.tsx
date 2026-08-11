@@ -591,43 +591,43 @@ export function KsSnakeGame({
       </div>
 
       {/* Arcade D-Pad Virtual Controller for Mobile */}
-      <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2">
+      <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2 select-none">
         <button
           type="button"
           onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
           onMouseDown={() => changeDirection("UP")}
-          className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
+          className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
         >
-          <ArrowUp className="h-6 w-6" />
+          <ArrowUp className="h-7 w-7" />
         </button>
         <div className="flex items-center gap-4">
           <button
             type="button"
             onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
             onMouseDown={() => changeDirection("LEFT")}
-            className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
+            className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowLeft className="h-6 w-6" />
+            <ArrowLeft className="h-7 w-7" />
           </button>
-          <div className="w-10 h-10 rounded-full bg-slate-900/60 border border-slate-800 flex items-center justify-center">
-            <span className="w-3 h-3 rounded-full bg-emerald-500/50" />
+          <div className="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center shadow-inner">
+            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/60 animate-pulse" />
           </div>
           <button
             type="button"
             onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
             onMouseDown={() => changeDirection("RIGHT")}
-            className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
+            className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
           >
-            <ArrowRight className="h-6 w-6" />
+            <ArrowRight className="h-7 w-7" />
           </button>
         </div>
         <button
           type="button"
           onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
           onMouseDown={() => changeDirection("DOWN")}
-          className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
+          className="w-16 h-13 rounded-2xl bg-slate-800 border-2 border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer"
         >
-          <ArrowDown className="h-6 w-6" />
+          <ArrowDown className="h-7 w-7" />
         </button>
       </div>
 

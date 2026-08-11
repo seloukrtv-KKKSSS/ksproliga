@@ -412,6 +412,35 @@ export function KsDinoRunner({
     ctx.restore()
   }
 
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return
+    const touch = e.changedTouches[0]
+    const dy = touch.clientY - touchStartRef.current.y
+    const dx = touch.clientX - touchStartRef.current.x
+
+    if (Math.abs(dy) > 25 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy > 0) {
+        // Swipe Down -> Quick Slide!
+        setDuck(true)
+        setTimeout(() => setDuck(false), 550)
+      } else {
+        // Swipe Up -> Jump!
+        doJump()
+      }
+    } else {
+      // Tap -> Jump!
+      doJump()
+    }
+    touchStartRef.current = null
+  }
+
   // Main 60 FPS Game Loop
   useEffect(() => {
     const canvas = canvasRef.current
@@ -426,8 +455,11 @@ export function KsDinoRunner({
       if (!canvas || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      width = rect.width || 640
-      height = Math.min(300, Math.max(220, rect.width * 0.42))
+      const isMobile = window.innerWidth < 640
+      width = rect.width || (isMobile ? 360 : 640)
+      height = isMobile
+        ? Math.min(320, Math.max(260, rect.width * 0.75))
+        : Math.min(300, Math.max(220, rect.width * 0.42))
 
       canvas.width = width * dpr
       canvas.height = height * dpr
@@ -437,10 +469,11 @@ export function KsDinoRunner({
     resizeCanvas()
     window.addEventListener("resize", resizeCanvas)
 
-    const playerX = 50
-
     const gameLoop = () => {
-      const groundY = height - 42
+      const isMobile = window.innerWidth < 640
+      const groundY = height - (isMobile ? 48 : 42)
+      const playerX = isMobile ? 38 : 50
+
       frameCountRef.current++
       ctx.clearRect(0, 0, width, height)
 
@@ -618,7 +651,9 @@ export function KsDinoRunner({
       {/* Game Stage Container */}
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[16/8] min-h-[240px] max-h-[360px]"
+        className="relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[4/3] sm:aspect-[16/8] min-h-[260px] sm:min-h-[240px] max-h-[360px]"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         onClick={doJump}
       >
         <canvas ref={canvasRef} className="w-full h-full block cursor-pointer" />

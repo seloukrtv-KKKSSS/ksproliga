@@ -1537,7 +1537,7 @@ export async function clearOrganizerLogs(): Promise<void> {
   }
 }
 
-// KS Games Leaderboard
+// KS Games Leaderboard - Only highest score per player
 export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10): Promise<GameScore[]> {
   if (shouldUseMockData()) return []
   try {
@@ -1547,10 +1547,23 @@ export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10)
       .eq("game_type", gameType)
       .order("score", { ascending: false })
       .order("created_at", { ascending: true })
-      .limit(limit)
+      .limit(limit * 2)
 
     if (error) throw error
-    return data || []
+    if (!data) return []
+
+    // Deduplicate to guarantee strictly 1 entry per unique player (highest score)
+    const seen = new Set<string>()
+    const uniqueScores: GameScore[] = []
+    for (const row of data) {
+      const key = row.player_name.trim().toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        uniqueScores.push(row)
+        if (uniqueScores.length >= limit) break
+      }
+    }
+    return uniqueScores
   } catch (error) {
     console.warn(`Error fetching ${gameType} leaderboard:`, error)
     return []
@@ -1572,6 +1585,36 @@ export async function saveGameScore(playerName: string, gameType: "dino" | "snak
   }
 
   try {
+    // 1. Check if this player already has a score for this game
+    const { data: existing } = await supabase
+      .from("game_scores")
+      .select("*")
+      .ilike("player_name", cleanName)
+      .eq("game_type", gameType)
+      .maybeSingle()
+
+    if (existing) {
+      // Only update if new score is strictly higher than existing best
+      if (score > existing.score) {
+        const { data, error } = await supabase
+          .from("game_scores")
+          .update({
+            player_name: cleanName,
+            score,
+            created_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .select()
+          .single()
+
+        if (error) throw error
+        return data
+      }
+      // If score is not higher, keep existing best record
+      return existing
+    }
+
+    // 2. If new player, insert new high score
     const { data, error } = await supabase
       .from("game_scores")
       .insert([{
