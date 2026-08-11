@@ -202,7 +202,7 @@ export function KsDinoRunner({
   // Start / Restart Game
   const startGame = () => {
     scoreRef.current = 0
-    speedRef.current = 4.6
+    speedRef.current = 4.2
     playerYRef.current = 0
     playerVYRef.current = 0
     isJumpingRef.current = false
@@ -575,7 +575,7 @@ export function KsDinoRunner({
           isJumpingRef.current = false
         }
 
-        // Score & Speed Curve - Starts easy & relaxed to hook player, scales progressively
+        // Score & Speed Curve - Extra long calm easy start (up to 300 points)
         scoreRef.current += 0.15 * timeScale
         const intScore = Math.floor(scoreRef.current)
         setScore(intScore)
@@ -592,8 +592,9 @@ export function KsDinoRunner({
           triggerHaptic("bonus")
         }
 
-        // Smooth progressive acceleration: 4.6 (calm start) -> 12.0 (blazing max)
-        speedRef.current = 4.6 + Math.min(intScore * 0.0075, 7.4)
+        // Progressive acceleration: starts at 4.2, very gentle for first 300 pts, max 11.5
+        const speedBoost = intScore < 300 ? intScore * 0.0033 : 1.0 + (intScore - 300) * 0.007
+        speedRef.current = 4.2 + Math.min(speedBoost, 7.3)
 
         // 4. Obstacles Spawner with progressive scaling
         nextSpawnDistanceRef.current -= speedRef.current * timeScale
@@ -604,15 +605,15 @@ export function KsDinoRunner({
             ? eligibleTeams[Math.floor(Math.random() * eligibleTeams.length)]
             : { name: "KS Team", logo: undefined }
 
-          // Flying air obstacles only appear after 180 points
-          const canAir = intScore >= 180
-          const isAir = canAir && Math.random() < Math.min(0.15 + (intScore - 180) * 0.0006, 0.45)
+          // Flying air obstacles only appear after 400 points!
+          const canAir = intScore >= 400
+          const isAir = canAir && Math.random() < Math.min(0.15 + (intScore - 400) * 0.0006, 0.40)
           const obsSize = isAir
             ? 26
-            : intScore < 150
-            ? 30
-            : intScore < 400
-            ? (Math.random() > 0.5 ? 36 : 32)
+            : intScore < 300
+            ? 28
+            : intScore < 600
+            ? (Math.random() > 0.5 ? 36 : 30)
             : (Math.random() > 0.4 ? 42 : 36)
 
           obstaclesRef.current.push({
@@ -625,9 +626,9 @@ export function KsDinoRunner({
             isAir,
           })
 
-          // Spacing between obstacles: starts wide (260-380px) and tightens as score grows
-          const baseGap = intScore < 150 ? 260 : intScore < 400 ? 210 : 160
-          const randomExtra = intScore < 150 ? 120 : intScore < 400 ? 160 : 190
+          // Spacing between obstacles: generous 320-460px in early game, tightens gradually
+          const baseGap = intScore < 300 ? 320 : intScore < 600 ? 230 : 170
+          const randomExtra = intScore < 300 ? 140 : intScore < 600 ? 160 : 190
           nextSpawnDistanceRef.current = baseGap + Math.random() * randomExtra
         }
 
@@ -644,7 +645,7 @@ export function KsDinoRunner({
           const obsY = obs.isAir ? groundY - obs.y - obs.height : groundY - obs.height
 
           // Circular/Box AABB intersection with progressive padding
-          const padding = intScore < 150 ? 8 : intScore < 400 ? 7 : 6
+          const padding = intScore < 300 ? 9 : intScore < 600 ? 7 : 6
           const pLeft = playerX + padding
           const pRight = playerX + playerW - padding
           const pTop = playerActualY + padding
@@ -902,8 +903,11 @@ export function KsDinoRunner({
       >
         <button
           type="button"
-          onTouchStart={(e) => { e.preventDefault(); doJump(); }}
-          onMouseDown={() => doJump()}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            doJump()
+          }}
           onContextMenu={(e) => e.preventDefault()}
           style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
           className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-500 text-white font-extrabold text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none arcade-no-select"
@@ -914,10 +918,20 @@ export function KsDinoRunner({
 
         <button
           type="button"
-          onTouchStart={(e) => { e.preventDefault(); setDuck(true); }}
-          onTouchEnd={(e) => { e.preventDefault(); setDuck(false); }}
-          onMouseDown={() => setDuck(true)}
-          onMouseUp={() => setDuck(false)}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            setDuck(true)
+          }}
+          onPointerUp={(e) => {
+            e.preventDefault()
+            setDuck(false)
+          }}
+          onPointerCancel={(e) => {
+            e.preventDefault()
+            setDuck(false)
+          }}
+          onPointerLeave={() => setDuck(false)}
           onContextMenu={(e) => e.preventDefault()}
           style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
           className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none arcade-no-select"

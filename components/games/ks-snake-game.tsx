@@ -30,7 +30,7 @@ interface FoodItem {
 }
 
 const GRID_SIZE = 20
-const INITIAL_SPEED = 165 // ms per tick (starts calm and accessible)
+const INITIAL_SPEED = 185 // ms per tick (starts calm and accessible)
 
 export function KsSnakeGame({
   teams,
@@ -63,7 +63,7 @@ export function KsSnakeGame({
     { x: 10, y: 12 },
   ])
   const dirRef = useRef<Direction>("UP")
-  const nextDirRef = useRef<Direction>("UP")
+  const directionQueueRef = useRef<Direction[]>([])
   const foodRef = useRef<FoodItem | null>(null)
   const goldenFoodRef = useRef<FoodItem | null>(null)
   const scoreRef = useRef(0)
@@ -123,20 +123,12 @@ export function KsSnakeGame({
     }
   }, [gameState])
 
-  useEffect(() => {
-    setIsMuted(retroAudio.isMuted)
-    const savedHi = localStorage.getItem("ks_snake_highscore")
-    if (savedHi) {
-      const parsed = parseInt(savedHi, 10) || 0
-      setHighScore(parsed)
-      highScoreRef.current = parsed
-    }
-  }, [])
-
   // Toggle Mute
   const handleToggleMute = () => {
-    const next = retroAudio.toggleMute()
+    const next = !isMuted
     setIsMuted(next)
+    retroAudio.setMuted(next)
+    localStorage.setItem("ks_game_muted", String(next))
   }
 
   const triggerHaptic = (type: "move" | "eat" | "bonus" | "gameover") => {
@@ -201,15 +193,22 @@ export function KsSnakeGame({
     }
   }, [])
 
-  // Direction changer with 180 degree turn prevention
+  // Direction changer with input queue buffer to prevent sticky/missed rapid turns
   const changeDirection = useCallback((newDir: Direction) => {
-    const current = dirRef.current
-    const prev = nextDirRef.current
-    if (newDir === "UP" && current !== "DOWN") nextDirRef.current = "UP"
-    else if (newDir === "DOWN" && current !== "UP") nextDirRef.current = "DOWN"
-    else if (newDir === "LEFT" && current !== "RIGHT") nextDirRef.current = "LEFT"
-    else if (newDir === "RIGHT" && current !== "LEFT") nextDirRef.current = "RIGHT"
-    if (nextDirRef.current !== prev) retroAudio.playMove()
+    const queue = directionQueueRef.current
+    const lastPlannedDir = queue.length > 0 ? queue[queue.length - 1] : dirRef.current
+
+    // Prevent 180° instant self-reversal against the latest planned move
+    const isOpposite =
+      (newDir === "UP" && lastPlannedDir === "DOWN") ||
+      (newDir === "DOWN" && lastPlannedDir === "UP") ||
+      (newDir === "LEFT" && lastPlannedDir === "RIGHT") ||
+      (newDir === "RIGHT" && lastPlannedDir === "LEFT")
+
+    if (!isOpposite && newDir !== lastPlannedDir && queue.length < 2) {
+      queue.push(newDir)
+      retroAudio.playMove()
+    }
   }, [])
 
   // Keyboard Handlers
@@ -272,7 +271,7 @@ export function KsSnakeGame({
       { x: 10, y: 12 },
     ]
     dirRef.current = "UP"
-    nextDirRef.current = "UP"
+    directionQueueRef.current = []
     scoreRef.current = 0
     speedRef.current = INITIAL_SPEED
     foodRef.current = spawnFood()
@@ -288,7 +287,11 @@ export function KsSnakeGame({
   const gameTick = useCallback(() => {
     if (gameState !== "playing") return
 
-    dirRef.current = nextDirRef.current
+    // Extract next direction from queue buffer (prevents missed inputs)
+    if (directionQueueRef.current.length > 0) {
+      dirRef.current = directionQueueRef.current.shift()!
+    }
+
     const head = { ...snakeRef.current[0] }
 
     switch (dirRef.current) {
@@ -374,13 +377,13 @@ export function KsSnakeGame({
 
       foodRef.current = spawnFood()
 
-      // Smooth progressive acceleration based on score brackets
+      // Smooth progressive acceleration - generous long easy start
       const curScore = scoreRef.current
-      const accel = curScore < 50 ? 1.8 : curScore < 150 ? 2.4 : 3.0
-      speedRef.current = Math.max(65, speedRef.current - accel)
+      const accel = curScore < 100 ? 0.7 : curScore < 300 ? 1.4 : 2.2
+      speedRef.current = Math.max(68, speedRef.current - accel)
 
-      // Random Golden Trophy Spawn (Higher 28% chance in early game for instant thrill)
-      const goldenChance = curScore < 60 ? 0.28 : 0.18
+      // Random Golden Trophy Spawn (Higher 30% chance in early game for extra reward)
+      const goldenChance = curScore < 100 ? 0.30 : 0.18
       if (Math.random() < goldenChance && !goldenFoodRef.current) {
         goldenFoodRef.current = spawnGoldenFood()
       }
@@ -709,8 +712,11 @@ export function KsSnakeGame({
       >
         <button
           type="button"
-          onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
-          onMouseDown={() => changeDirection("UP")}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            changeDirection("UP")
+          }}
           onContextMenu={(e) => e.preventDefault()}
           style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
           className="w-28 h-16 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer select-none arcade-no-select"
@@ -720,8 +726,11 @@ export function KsSnakeGame({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
-            onMouseDown={() => changeDirection("LEFT")}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+              changeDirection("LEFT")
+            }}
             onContextMenu={(e) => e.preventDefault()}
             style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
             className="w-28 h-16 rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer select-none arcade-no-select"
@@ -733,8 +742,11 @@ export function KsSnakeGame({
           </div>
           <button
             type="button"
-            onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
-            onMouseDown={() => changeDirection("RIGHT")}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+              changeDirection("RIGHT")
+            }}
             onContextMenu={(e) => e.preventDefault()}
             style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
             className="w-28 h-16 rounded-2xl bg-gradient-to-l from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer select-none arcade-no-select"
@@ -744,8 +756,11 @@ export function KsSnakeGame({
         </div>
         <button
           type="button"
-          onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
-          onMouseDown={() => changeDirection("DOWN")}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            changeDirection("DOWN")
+          }}
           onContextMenu={(e) => e.preventDefault()}
           style={{ touchAction: "none", WebkitTouchCallout: "none", userSelect: "none" }}
           className="w-28 h-16 rounded-2xl bg-gradient-to-t from-slate-800 to-slate-900 border-2 border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-90 active:bg-emerald-600 active:border-emerald-400 transition-all cursor-pointer select-none arcade-no-select"
