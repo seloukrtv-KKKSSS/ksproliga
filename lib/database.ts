@@ -1547,7 +1547,7 @@ export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10)
       .eq("game_type", gameType)
       .order("score", { ascending: false })
       .order("created_at", { ascending: true })
-      .limit(limit * 2)
+      .limit(50)
 
     if (error) throw error
     if (!data) return []
@@ -1556,8 +1556,8 @@ export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10)
     const seen = new Set<string>()
     const uniqueScores: GameScore[] = []
     for (const row of data) {
-      const key = row.player_name.trim().toLowerCase()
-      if (!seen.has(key)) {
+      const key = row.player_name?.trim().toLowerCase()
+      if (key && !seen.has(key)) {
         seen.add(key)
         uniqueScores.push(row)
         if (uniqueScores.length >= limit) break
@@ -1585,13 +1585,20 @@ export async function saveGameScore(playerName: string, gameType: "dino" | "snak
   }
 
   try {
-    // 1. Check if this player already has a score for this game
-    const { data: existing } = await supabase
+    // 1. Check if this player already has a score for this game (get their top score)
+    const { data: existingList, error: fetchError } = await supabase
       .from("game_scores")
       .select("*")
       .ilike("player_name", cleanName)
       .eq("game_type", gameType)
-      .maybeSingle()
+      .order("score", { ascending: false })
+      .limit(1)
+
+    if (fetchError) {
+      console.warn("Error checking existing score:", fetchError)
+    }
+
+    const existing = existingList && existingList.length > 0 ? existingList[0] : null
 
     if (existing) {
       // Only update if new score is strictly higher than existing best
@@ -1607,10 +1614,13 @@ export async function saveGameScore(playerName: string, gameType: "dino" | "snak
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error("Error updating score in DB:", error)
+          throw error
+        }
         return data
       }
-      // If score is not higher, keep existing best record
+      // If score is not higher, return existing best record
       return existing
     }
 
@@ -1625,7 +1635,10 @@ export async function saveGameScore(playerName: string, gameType: "dino" | "snak
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("Error inserting score in DB:", error)
+      throw error
+    }
     return data
   } catch (error) {
     console.error("Error saving game score:", error)

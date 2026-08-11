@@ -226,7 +226,7 @@ export function KsDinoRunner({
     try {
       const saved = await saveGameScore(name, "dino", finalScore)
       if (saved) {
-        lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, finalScore)
+        lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, saved.score)
         setScoreSubmitted(true)
         onScoreSubmitted?.(saved.id)
         localStorage.setItem("ks_player_name", name)
@@ -663,8 +663,8 @@ export function KsDinoRunner({
               localStorage.setItem("ks_dino_highscore", String(finalScore))
             }
 
-            // Auto-save to Supabase if it beats last saved score
-            if (pName && finalScore > 0 && finalScore > lastSavedScoreRef.current) {
+            // Auto-save to Supabase if player name is present
+            if (pName && finalScore > 0) {
               autoSaveScore(pName, finalScore)
             }
             break

@@ -322,14 +322,14 @@ export function KsSnakeGame({
         localStorage.setItem("ks_snake_highscore", String(finalScore))
       }
 
-      // Auto-save to Supabase if it beats last saved score
-      if (nameToUse && finalScore > 0 && finalScore > lastSavedScoreRef.current && !submittingRef.current) {
+      // Auto-save to Supabase if player name is present
+      if (nameToUse && finalScore > 0 && !submittingRef.current) {
         submittingRef.current = true
         setSubmitting(true)
         try {
           const saved = await saveGameScore(nameToUse, "snake", finalScore)
           if (saved) {
-            lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, finalScore)
+            lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, saved.score)
             setScoreSubmitted(true)
             onScoreSubmitted?.(saved.id)
             localStorage.setItem("ks_player_name", nameToUse)
