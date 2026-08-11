@@ -19,12 +19,14 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
   const [tempName, setTempName] = useState("")
   const [isMuted, setIsMuted] = useState(false)
   const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<number | undefined>(undefined)
+  const [nicknameReady, setNicknameReady] = useState(false)
 
   useEffect(() => {
     const savedName = localStorage.getItem("ks_player_name")
     if (savedName) {
       setPlayerName(savedName)
       setTempName(savedName)
+      setNicknameReady(true)
     } else {
       setIsEditingName(true)
     }
@@ -38,6 +40,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       setPlayerName(clean)
       localStorage.setItem("ks_player_name", clean)
       setIsEditingName(false)
+      setNicknameReady(true)
     }
   }
 
@@ -51,7 +54,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
     // Switch to leaderboard tab to show new rank!
     setTimeout(() => {
       setActiveTab("leaderboard")
-    }, 1200)
+    }, 600)
   }
 
   return (
@@ -190,63 +193,103 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       </div>
 
       {/* Active Tab Content Area */}
-      <div className="glass-animate-in">
-        {activeTab === "dino" && (
-          <div className="space-y-6">
-            <KsDinoRunner
-              teams={teams}
-              playerName={playerName}
-              onScoreSubmitted={handleScoreSubmitted}
-              onRequestName={() => setIsEditingName(true)}
-            />
-
-            {/* Quick Rules Card */}
-            <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
-              <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                Як грати в KS Dino Runner:
-              </h4>
-              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                <li><strong className="text-slate-900">ПК</strong>: Пробіл / Стрілка вгору — стрибок. Стрілка вниз — підкат.</li>
-                <li><strong className="text-slate-900">Смартфон</strong>: Тап по екрану або кнопка Стрибок. Кнопка Підкат для низьких перешкод.</li>
-                <li>Перестрибуйте логотипи клубів! Кожні 100 очок змінюється освітлення стадіону.</li>
-              </ul>
+      {!nicknameReady ? (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 shadow-xl border border-white/10 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-44 h-44 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-44 h-44 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
+          
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 to-amber-400 p-0.5 shadow-lg flex items-center justify-center mb-2 z-10">
+            <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
+              <Gamepad2 className="h-8 w-8 text-amber-400" />
             </div>
           </div>
-        )}
-
-        {activeTab === "snake" && (
-          <div className="space-y-6">
-            <KsSnakeGame
-              teams={teams}
-              playerName={playerName}
-              onScoreSubmitted={handleScoreSubmitted}
-              onRequestName={() => setIsEditingName(true)}
-            />
-
-            {/* Quick Rules Card */}
-            <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
-              <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
-                <Flame className="h-4 w-4 text-emerald-600" />
-                Як грати в KS Retro Snake:
-              </h4>
-              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                <li><strong className="text-slate-900">ПК</strong>: Стрілки або клавіші W, A, S, D для руху.</li>
-                <li><strong className="text-slate-900">Смартфон</strong>: Свайпи пальцем по екрану або наекранний неоновий D-Pad.</li>
-                <li>Збирайте емблеми команд (+10 очок) та рідкісні Золоті Кубки (+50 очок)!</li>
-              </ul>
-            </div>
+          
+          <div className="space-y-2 z-10">
+            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Введіть ваш нікнейм</h3>
+            <p className="text-sm text-slate-300 font-medium max-w-sm mx-auto">
+              Потрібно ввести імʼя для збереження рекордів у Зал Слави
+            </p>
           </div>
-        )}
 
-        {activeTab === "leaderboard" && (
-          <KsLeaderboard
-            initialGameType="dino"
-            currentPlayerName={playerName}
-            lastSubmittedScoreId={lastSubmittedScoreId}
-          />
-        )}
-      </div>
+          <form onSubmit={handleSaveName} className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md z-10">
+            <input
+              type="text"
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              placeholder="Введіть ваше ім'я..."
+              maxLength={25}
+              autoFocus
+              className="w-full px-5 py-3.5 rounded-2xl bg-slate-950/80 border border-white/20 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner"
+            />
+            <button
+              type="submit"
+              disabled={!tempName.trim()}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+            >
+              <Check className="h-5 w-5" />
+              <span>Зберегти</span>
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="glass-animate-in">
+          {activeTab === "dino" && (
+            <div className="space-y-6">
+              <KsDinoRunner
+                teams={teams}
+                playerName={playerName}
+                onScoreSubmitted={handleScoreSubmitted}
+                onRequestName={() => setIsEditingName(true)}
+              />
+
+              {/* Quick Rules Card */}
+              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  Як грати в KS Dino Runner:
+                </h4>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+                  <li><strong className="text-slate-900">ПК</strong>: Пробіл / Стрілка вгору — стрибок. Стрілка вниз — підкат.</li>
+                  <li><strong className="text-slate-900">Смартфон</strong>: Тап по екрану або кнопка Стрибок. Кнопка Підкат для низьких перешкод.</li>
+                  <li>Перестрибуйте логотипи клубів! Кожні 100 очок змінюється освітлення стадіону.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "snake" && (
+            <div className="space-y-6">
+              <KsSnakeGame
+                teams={teams}
+                playerName={playerName}
+                onScoreSubmitted={handleScoreSubmitted}
+                onRequestName={() => setIsEditingName(true)}
+              />
+
+              {/* Quick Rules Card */}
+              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-emerald-600" />
+                  Як грати в KS Retro Snake:
+                </h4>
+                <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+                  <li><strong className="text-slate-900">ПК</strong>: Стрілки або клавіші W, A, S, D для руху.</li>
+                  <li><strong className="text-slate-900">Смартфон</strong>: Свайпи пальцем по екрану або наекранний неоновий D-Pad.</li>
+                  <li>Збирайте емблеми команд (+10 очок) та рідкісні Золоті Кубки (+50 очок)!</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "leaderboard" && (
+            <KsLeaderboard
+              initialGameType="dino"
+              currentPlayerName={playerName}
+              lastSubmittedScoreId={lastSubmittedScoreId}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

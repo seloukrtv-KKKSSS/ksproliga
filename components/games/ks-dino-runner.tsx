@@ -46,6 +46,8 @@ export function KsDinoRunner({
   const reqIdRef = useRef<number | null>(null)
   const gameStateRef = useRef<"idle" | "playing" | "gameover">("idle")
   const scoreRef = useRef(0)
+  const highScoreRef = useRef(0)
+  const localPlayerNameRef = useRef(playerName || "")
   const speedRef = useRef(5)
   const isJumpingRef = useRef(false)
   const isDuckingRef = useRef(false)
@@ -64,12 +66,17 @@ export function KsDinoRunner({
 
   useEffect(() => {
     setLocalPlayerName(playerName)
+    localPlayerNameRef.current = playerName || ""
   }, [playerName])
 
   useEffect(() => {
     setIsMuted(retroAudio.isMuted)
     const savedHi = localStorage.getItem("ks_dino_highscore")
-    if (savedHi) setHighScore(parseInt(savedHi, 10) || 0)
+    if (savedHi) {
+      const parsed = parseInt(savedHi, 10) || 0
+      setHighScore(parsed)
+      highScoreRef.current = parsed
+    }
   }, [])
 
   // Preload team logos for canvas rendering
@@ -77,7 +84,7 @@ export function KsDinoRunner({
     teams.forEach((t) => {
       if (t.logo && !cachedTeamImagesRef.current.has(t.logo)) {
         const img = new Image()
-        img.crossOrigin = "anonymous"
+        img.onerror = () => console.warn("Failed to load team logo:", t.logo)
         img.src = t.logo
         cachedTeamImagesRef.current.set(t.logo, img)
       }
@@ -167,22 +174,15 @@ export function KsDinoRunner({
     gameStateRef.current = "playing"
   }
 
-  // Submit High Score
-  const handleSubmitScore = async () => {
-    const nameToUse = localPlayerName.trim()
-    if (!nameToUse) {
-      onRequestName?.()
-      return
-    }
-    if (score <= 0 || submitting || scoreSubmitted) return
-
+  // Auto-save High Score
+  const autoSaveScore = async (name: string, finalScore: number) => {
     setSubmitting(true)
     try {
-      const saved = await saveGameScore(nameToUse, "dino", score)
+      const saved = await saveGameScore(name, "dino", finalScore)
       if (saved) {
         setScoreSubmitted(true)
         onScoreSubmitted?.(saved.id)
-        localStorage.setItem("ks_player_name", nameToUse)
+        localStorage.setItem("ks_player_name", name)
       }
     } catch (err) {
       console.error("Error submitting score:", err)
@@ -371,7 +371,13 @@ export function KsDinoRunner({
       ctx.stroke()
 
       // Try rendering loaded team logo
-      if (obs.teamLogo && cachedTeamImagesRef.current.has(obs.teamLogo)) {
+      if (obs.teamLogo) {
+        if (!cachedTeamImagesRef.current.has(obs.teamLogo)) {
+          const newImg = new Image()
+          newImg.src = obs.teamLogo
+          cachedTeamImagesRef.current.set(obs.teamLogo, newImg)
+        }
+
         const img = cachedTeamImagesRef.current.get(obs.teamLogo)
         if (img && img.complete && img.naturalWidth > 0) {
           ctx.save()
@@ -381,11 +387,18 @@ export function KsDinoRunner({
           ctx.drawImage(img, posX + 2, posY + 2, obs.width - 4, obs.height - 4)
           ctx.restore()
         } else {
-          // Fallback Shield
-          ctx.fillStyle = "#3B82F6"
+          // Fallback Team Initials Shield
+          ctx.fillStyle = "#2563EB"
           ctx.beginPath()
-          ctx.arc(centerX, centerY, radius - 4, 0, Math.PI * 2)
+          ctx.arc(centerX, centerY, radius - 3, 0, Math.PI * 2)
           ctx.fill()
+
+          ctx.fillStyle = "#FFFFFF"
+          ctx.font = `bold ${Math.max(10, Math.floor(obs.width * 0.35))}px sans-serif`
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          const initials = (obs.teamName || "KS").slice(0, 2).toUpperCase()
+          ctx.fillText(initials, centerX, centerY)
         }
       } else {
         // Default Mini Ball
@@ -424,10 +437,10 @@ export function KsDinoRunner({
     resizeCanvas()
     window.addEventListener("resize", resizeCanvas)
 
-    const groundY = height - 42
     const playerX = 50
 
     const gameLoop = () => {
+      const groundY = height - 42
       frameCountRef.current++
       ctx.clearRect(0, 0, width, height)
 
@@ -496,7 +509,8 @@ export function KsDinoRunner({
         const intScore = Math.floor(scoreRef.current)
         setScore(intScore)
 
-        if (intScore > highScore) {
+        if (intScore > highScoreRef.current) {
+          highScoreRef.current = intScore
           setHighScore(intScore)
           localStorage.setItem("ks_dino_highscore", String(intScore))
         }
@@ -523,7 +537,7 @@ export function KsDinoRunner({
 
           obstaclesRef.current.push({
             x: width + 20,
-            y: isAir ? 50 + Math.random() * 25 : 0,
+            y: isAir ? 30 + Math.random() * 15 : 0,
             width: obsSize,
             height: obsSize,
             teamLogo: randomTeam.logo,
@@ -564,6 +578,13 @@ export function KsDinoRunner({
             retroAudio.playGameOver()
             setGameState("gameover")
             gameStateRef.current = "gameover"
+            
+            // Auto-save score
+            const finalScore = Math.floor(scoreRef.current)
+            const pName = localPlayerNameRef.current.trim()
+            if (pName && finalScore > 0) {
+              autoSaveScore(pName, finalScore)
+            }
             break
           }
 
@@ -590,7 +611,7 @@ export function KsDinoRunner({
       if (reqIdRef.current) cancelAnimationFrame(reqIdRef.current)
       window.removeEventListener("resize", resizeCanvas)
     }
-  }, [teams, highScore])
+  }, [teams])
 
   return (
     <div className="space-y-4">
@@ -698,19 +719,16 @@ export function KsDinoRunner({
                       <Sparkles className="h-4 w-4 text-emerald-400" />
                       Рекорд внесено в Зал Слави!
                     </div>
+                  ) : submitting ? (
+                    <div className="py-2 px-3 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                      <Send className="h-4 w-4 text-blue-400 animate-pulse" />
+                      Збереження...
+                    </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSubmitScore()
-                      }}
-                      disabled={submitting}
-                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-md shadow-blue-600/30 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      {submitting ? "Збереження..." : "Записати результат у Зал Слави"}
-                    </button>
+                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-emerald-400" />
+                      Рекорд внесено в Зал Слави!
+                    </div>
                   )}
                 </div>
               )}
@@ -736,7 +754,7 @@ export function KsDinoRunner({
       <div className="grid grid-cols-2 gap-3 sm:hidden">
         <button
           type="button"
-          onTouchStart={() => doJump()}
+          onTouchStart={(e) => { e.preventDefault(); doJump(); }}
           onMouseDown={() => doJump()}
           className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-500 text-white font-extrabold text-sm shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"
         >
@@ -746,8 +764,8 @@ export function KsDinoRunner({
 
         <button
           type="button"
-          onTouchStart={() => setDuck(true)}
-          onTouchEnd={() => setDuck(false)}
+          onTouchStart={(e) => { e.preventDefault(); setDuck(true); }}
+          onTouchEnd={(e) => { e.preventDefault(); setDuck(false); }}
           onMouseDown={() => setDuck(true)}
           onMouseUp={() => setDuck(false)}
           className="py-3.5 px-4 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-extrabold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer select-none"

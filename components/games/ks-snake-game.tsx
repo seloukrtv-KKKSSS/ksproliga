@@ -45,8 +45,11 @@ export function KsSnakeGame({
   const [scoreSubmitted, setScoreSubmitted] = useState(false)
   const [localPlayerName, setLocalPlayerName] = useState(playerName || "")
   const [particles, setParticles] = useState<{ id: number; text: string; x: number; y: number }[]>([])
+  const [scrollLocked, setScrollLocked] = useState(false)
 
   // Engine state in Refs for zero-delay game loop
+  const localPlayerNameRef = useRef(playerName || "")
+  const submittingRef = useRef(false)
   const snakeRef = useRef<Point[]>([
     { x: 10, y: 10 },
     { x: 10, y: 11 },
@@ -66,7 +69,30 @@ export function KsSnakeGame({
 
   useEffect(() => {
     setLocalPlayerName(playerName)
+    localPlayerNameRef.current = playerName
   }, [playerName])
+
+  useEffect(() => {
+    if (scrollLocked) {
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+      document.documentElement.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.documentElement.style.overflow = ""
+    }
+  }, [scrollLocked])
+
+  useEffect(() => {
+    if (gameState === "playing") {
+      setScrollLocked(true)
+    } else {
+      setScrollLocked(false)
+    }
+  }, [gameState])
 
   useEffect(() => {
     setIsMuted(retroAudio.isMuted)
@@ -133,16 +159,18 @@ export function KsSnakeGame({
   // Direction changer with 180 degree turn prevention
   const changeDirection = useCallback((newDir: Direction) => {
     const current = dirRef.current
+    const prev = nextDirRef.current
     if (newDir === "UP" && current !== "DOWN") nextDirRef.current = "UP"
     else if (newDir === "DOWN" && current !== "UP") nextDirRef.current = "DOWN"
     else if (newDir === "LEFT" && current !== "RIGHT") nextDirRef.current = "LEFT"
     else if (newDir === "RIGHT" && current !== "LEFT") nextDirRef.current = "RIGHT"
-    retroAudio.playMove()
+    if (nextDirRef.current !== prev) retroAudio.playMove()
   }, [])
 
   // Keyboard Handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (["ArrowUp", "KeyW"].includes(e.code)) {
         e.preventDefault()
         changeDirection("UP")
@@ -232,17 +260,39 @@ export function KsSnakeGame({
         break
     }
 
-    // 1. Wall Collision (Game Over)
-    if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+    const triggerGameOver = async () => {
       retroAudio.playGameOver()
       setGameState("gameover")
+
+      const nameToUse = localPlayerNameRef.current.trim()
+      if (nameToUse && scoreRef.current > 0 && !submittingRef.current) {
+        submittingRef.current = true
+        setSubmitting(true)
+        try {
+          const saved = await saveGameScore(nameToUse, "snake", scoreRef.current)
+          if (saved) {
+            setScoreSubmitted(true)
+            onScoreSubmitted?.(saved.id)
+            localStorage.setItem("ks_player_name", nameToUse)
+          }
+        } catch (err) {
+          console.error("Error auto-saving score:", err)
+        } finally {
+          submittingRef.current = false
+          setSubmitting(false)
+        }
+      }
+    }
+
+    // 1. Wall Collision (Game Over)
+    if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+      triggerGameOver()
       return
     }
 
     // 2. Self Collision (Game Over)
     if (snakeRef.current.some((s) => s.x === head.x && s.y === head.y)) {
-      retroAudio.playGameOver()
-      setGameState("gameover")
+      triggerGameOver()
       return
     }
 
@@ -318,30 +368,6 @@ export function KsSnakeGame({
     }
   }, [gameState, gameTick, renderTick])
 
-  // Submit Score
-  const handleSubmitScore = async () => {
-    const nameToUse = localPlayerName.trim()
-    if (!nameToUse) {
-      onRequestName?.()
-      return
-    }
-    if (score <= 0 || submitting || scoreSubmitted) return
-
-    setSubmitting(true)
-    try {
-      const saved = await saveGameScore(nameToUse, "snake", score)
-      if (saved) {
-        setScoreSubmitted(true)
-        onScoreSubmitted?.(saved.id)
-        localStorage.setItem("ks_player_name", nameToUse)
-      }
-    } catch (err) {
-      console.error("Error submitting score:", err)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   return (
     <div className="space-y-4">
       {/* Game Screen Container */}
@@ -349,6 +375,7 @@ export function KsSnakeGame({
         className="relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square max-w-[420px] mx-auto p-2 sm:p-3"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        style={{ touchAction: "none" }}
       >
         {/* Top Floating HUD */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
@@ -429,11 +456,18 @@ export function KsSnakeGame({
                 {foodRef.current.teamLogo ? (
                   <img
                     src={foodRef.current.teamLogo}
-                    alt=""
-                    className="w-full h-full object-contain"
+                    alt={foodRef.current.teamName || ""}
+                    loading="eager"
+                    className="w-full h-full object-contain pointer-events-none"
+                    onError={(e) => {
+                      // On error hide broken image and show badge
+                      ;(e.currentTarget as HTMLElement).style.display = "none"
+                    }}
                   />
                 ) : (
-                  <div className="w-full h-full rounded-full bg-blue-600" />
+                  <div className="w-full h-full rounded-full bg-blue-600 flex items-center justify-center text-[7px] font-black text-white">
+                    {(foodRef.current.teamName || "KS").slice(0, 2).toUpperCase()}
+                  </div>
                 )}
               </div>
             </div>
@@ -458,10 +492,10 @@ export function KsSnakeGame({
           {particles.map((p) => (
             <div
               key={p.id}
-              className="absolute pointer-events-none text-xs font-black text-amber-300 font-mono animate-bounce"
+              className="absolute pointer-events-none text-xs font-black text-amber-300 font-mono animate-bounce -translate-x-1/2 -translate-y-1/2"
               style={{
-                left: `${(p.x / GRID_SIZE) * 100}%`,
-                top: `${(p.y / GRID_SIZE) * 100}%`,
+                left: `${((p.x + 0.5) / GRID_SIZE) * 100}%`,
+                top: `${((p.y + 0.5) / GRID_SIZE) * 100}%`,
               }}
             >
               {p.text}
@@ -526,18 +560,18 @@ export function KsSnakeGame({
                   ) : scoreSubmitted ? (
                     <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
                       <Sparkles className="h-4 w-4 text-emerald-400" />
-                      Рекорд записано!
+                      Рекорд авто-збережено!
+                    </div>
+                  ) : submitting ? (
+                    <div className="py-2 px-3 rounded-xl bg-emerald-600/50 text-white font-black text-xs flex items-center justify-center gap-2">
+                      <Send className="h-3.5 w-3.5 animate-pulse" />
+                      Збереження...
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={handleSubmitScore}
-                      disabled={submitting}
-                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all shadow-md shadow-emerald-600/30 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      {submitting ? "Збереження..." : "Записати в Зал Слави"}
-                    </button>
+                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-emerald-400" />
+                      Рекорд авто-збережено!
+                    </div>
                   )}
                 </div>
               )}
@@ -560,7 +594,7 @@ export function KsSnakeGame({
       <div className="flex flex-col items-center justify-center gap-2 sm:hidden pt-2">
         <button
           type="button"
-          onTouchStart={() => changeDirection("UP")}
+          onTouchStart={(e) => { e.preventDefault(); changeDirection("UP"); }}
           onMouseDown={() => changeDirection("UP")}
           className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
         >
@@ -569,7 +603,7 @@ export function KsSnakeGame({
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onTouchStart={() => changeDirection("LEFT")}
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("LEFT"); }}
             onMouseDown={() => changeDirection("LEFT")}
             className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
           >
@@ -580,7 +614,7 @@ export function KsSnakeGame({
           </div>
           <button
             type="button"
-            onTouchStart={() => changeDirection("RIGHT")}
+            onTouchStart={(e) => { e.preventDefault(); changeDirection("RIGHT"); }}
             onMouseDown={() => changeDirection("RIGHT")}
             className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
           >
@@ -589,11 +623,26 @@ export function KsSnakeGame({
         </div>
         <button
           type="button"
-          onTouchStart={() => changeDirection("DOWN")}
+          onTouchStart={(e) => { e.preventDefault(); changeDirection("DOWN"); }}
           onMouseDown={() => changeDirection("DOWN")}
           className="w-14 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg active:scale-90 active:bg-blue-600 transition-all cursor-pointer"
         >
           <ArrowDown className="h-6 w-6" />
+        </button>
+      </div>
+
+      {/* Scroll Lock Toggle */}
+      <div className="flex justify-center pt-4 sm:hidden">
+        <button
+          type="button"
+          onClick={() => setScrollLocked(!scrollLocked)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md ${
+            scrollLocked 
+              ? "bg-amber-500/20 text-amber-500 border border-amber-500/40" 
+              : "bg-slate-800 text-slate-300 border border-slate-700"
+          }`}
+        >
+          {scrollLocked ? "🔓 Розблокувати скрол" : "🔒 Заблокувати скрол"}
         </button>
       </div>
     </div>
