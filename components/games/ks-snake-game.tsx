@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Play, RotateCcw, Volume2, VolumeX, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Sparkles, Send, Flame } from "lucide-react"
+import { Play, RotateCcw, Volume2, VolumeX, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Sparkles, Send, Flame, Maximize2, Minimize2 } from "lucide-react"
 import { retroAudio } from "@/lib/retro-audio"
 import { saveGameScore } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
@@ -11,6 +11,7 @@ interface KsSnakeGameProps {
   playerName: string
   onScoreSubmitted?: (scoreId: number) => void
   onRequestName?: () => void
+  onViewLeaderboard?: () => void
 }
 
 type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT"
@@ -36,11 +37,15 @@ export function KsSnakeGame({
   playerName,
   onScoreSubmitted,
   onRequestName,
+  onViewLeaderboard,
 }: KsSnakeGameProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle")
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(0)
+  const [isNewRecord, setIsNewRecord] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [scoreSubmitted, setScoreSubmitted] = useState(false)
   const [localPlayerName, setLocalPlayerName] = useState(playerName || "")
@@ -50,6 +55,8 @@ export function KsSnakeGame({
   // Engine state in Refs for zero-delay game loop
   const localPlayerNameRef = useRef(playerName || "")
   const submittingRef = useRef(false)
+  const highScoreRef = useRef(0)
+  const lastSavedScoreRef = useRef(0)
   const snakeRef = useRef<Point[]>([
     { x: 10, y: 10 },
     { x: 10, y: 11 },
@@ -63,6 +70,28 @@ export function KsSnakeGame({
   const speedRef = useRef(INITIAL_SPEED)
   const gameLoopTimerRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener("fullscreenchange", handleFsChange)
+    return () => document.removeEventListener("fullscreenchange", handleFsChange)
+  }, [])
+
+  const handleToggleFullscreen = () => {
+    if (!containerRef.current) return
+    if (!document.fullscreenElement) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(console.error)
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(console.error)
+      }
+    }
+  }
 
   // Force canvas rerender trigger
   const [renderTick, setRenderTick] = useState(0)
@@ -97,7 +126,11 @@ export function KsSnakeGame({
   useEffect(() => {
     setIsMuted(retroAudio.isMuted)
     const savedHi = localStorage.getItem("ks_snake_highscore")
-    if (savedHi) setHighScore(parseInt(savedHi, 10) || 0)
+    if (savedHi) {
+      const parsed = parseInt(savedHi, 10) || 0
+      setHighScore(parsed)
+      highScoreRef.current = parsed
+    }
   }, [])
 
   // Toggle Mute
@@ -234,6 +267,7 @@ export function KsSnakeGame({
     goldenFoodRef.current = null
 
     setScore(0)
+    setIsNewRecord(false)
     setScoreSubmitted(false)
     setGameState("playing")
   }
@@ -264,13 +298,25 @@ export function KsSnakeGame({
       retroAudio.playGameOver()
       setGameState("gameover")
 
+      const finalScore = scoreRef.current
       const nameToUse = localPlayerNameRef.current.trim()
-      if (nameToUse && scoreRef.current > 0 && !submittingRef.current) {
+
+      // Check if this was a new record
+      if (finalScore > highScoreRef.current) {
+        setIsNewRecord(true)
+        highScoreRef.current = finalScore
+        setHighScore(finalScore)
+        localStorage.setItem("ks_snake_highscore", String(finalScore))
+      }
+
+      // Auto-save to Supabase if it beats last saved score
+      if (nameToUse && finalScore > 0 && finalScore > lastSavedScoreRef.current && !submittingRef.current) {
         submittingRef.current = true
         setSubmitting(true)
         try {
-          const saved = await saveGameScore(nameToUse, "snake", scoreRef.current)
+          const saved = await saveGameScore(nameToUse, "snake", finalScore)
           if (saved) {
+            lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, finalScore)
             setScoreSubmitted(true)
             onScoreSubmitted?.(saved.id)
             localStorage.setItem("ks_player_name", nameToUse)
@@ -372,7 +418,10 @@ export function KsSnakeGame({
     <div className="space-y-4">
       {/* Game Screen Container */}
       <div
-        className="relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square max-w-[420px] mx-auto p-2 sm:p-3"
+        ref={containerRef}
+        className={`relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/30 shadow-2xl select-none aspect-square w-full max-w-[370px] sm:max-w-[420px] mx-auto p-2 sm:p-3 ${
+          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-w-none border-none flex flex-col justify-center items-center" : ""
+        }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         style={{ touchAction: "none" }}
@@ -383,10 +432,21 @@ export function KsSnakeGame({
             <button
               type="button"
               onClick={handleToggleMute}
+              title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
               className="p-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 hover:bg-slate-800 shadow-md transition-all active:scale-95 cursor-pointer"
             >
               {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
             </button>
+
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              title={isFullscreen ? "Вийти з повного екрану" : "На повний екран"}
+              className="p-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 hover:bg-slate-800 shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4 text-emerald-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
+            </button>
+
             <div className="px-2.5 py-1 rounded-xl bg-slate-900/80 backdrop-blur-md text-white border border-white/10 text-[11px] font-bold flex items-center gap-1.5 shadow-md">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="truncate max-w-[100px]">{localPlayerName || "Гравець"}</span>
@@ -534,57 +594,72 @@ export function KsSnakeGame({
                 <h4 className="text-base font-black text-white">Гра завершена!</h4>
               </div>
 
+              {/* New Personal Record Banner */}
+              {isNewRecord && score > 0 && (
+                <div className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/30 via-yellow-400/30 to-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-black flex items-center justify-center gap-1.5 animate-pulse shadow-md">
+                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <span>НОВИЙ ОСОБИСТИЙ РЕКОРД!</span>
+                </div>
+              )}
+
               <div className="bg-slate-950/80 rounded-2xl p-3 border border-white/10 flex items-center justify-around">
                 <div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Очки</div>
-                  <div className="text-xl font-black text-emerald-400 font-mono">{score}</div>
+                  <div className="text-2xl font-black text-emerald-400 font-mono">{score}</div>
                 </div>
                 <div className="w-px h-8 bg-white/10" />
                 <div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Рекорд</div>
-                  <div className="text-xl font-black text-amber-400 font-mono">{highScore}</div>
+                  <div className="text-2xl font-black text-amber-400 font-mono">{highScore}</div>
                 </div>
               </div>
 
-              {/* Submit to Leaderboard */}
+              {/* Hall of Fame Status */}
               {score > 0 && (
-                <div className="space-y-2">
+                <div className="text-center">
                   {!localPlayerName ? (
                     <button
                       type="button"
                       onClick={() => onRequestName?.()}
-                      className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
+                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
                     >
                       Введіть ім'я, щоб зберегти рекорд
                     </button>
-                  ) : scoreSubmitted ? (
-                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-4 w-4 text-emerald-400" />
-                      Рекорд авто-збережено!
-                    </div>
                   ) : submitting ? (
-                    <div className="py-2 px-3 rounded-xl bg-emerald-600/50 text-white font-black text-xs flex items-center justify-center gap-2">
+                    <div className="py-1.5 px-3 rounded-xl bg-emerald-600/50 text-white font-black text-xs flex items-center justify-center gap-2">
                       <Send className="h-3.5 w-3.5 animate-pulse" />
-                      Збереження...
+                      <span>Збереження рекорду...</span>
                     </div>
                   ) : (
-                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                    <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
                       <Sparkles className="h-4 w-4 text-emerald-400" />
-                      Рекорд авто-збережено!
+                      <span>Рекорд внесено в Зал Слави!</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Retry */}
+              {/* Instant Play Again Button */}
               <button
                 type="button"
                 onClick={startGame}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-300 text-slate-950 font-black text-xs transition-all shadow-lg hover:scale-102 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 text-slate-950 font-black text-sm transition-all shadow-lg hover:scale-102 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <RotateCcw className="h-4 w-4" />
-                Спробувати ще раз
+                <RotateCcw className="h-5 w-5" />
+                <span>Грати знову (Пробіл / Тап)</span>
               </button>
+
+              {/* View Leaderboard Button */}
+              {onViewLeaderboard && (
+                <button
+                  type="button"
+                  onClick={onViewLeaderboard}
+                  className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Переглянути Зал Слави</span>
+                </button>
+              )}
             </div>
           </div>
         )}

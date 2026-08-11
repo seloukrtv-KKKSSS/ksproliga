@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Play, RotateCcw, Volume2, VolumeX, Trophy, ChevronUp, ChevronDown, Sparkles, Send } from "lucide-react"
+import { Play, RotateCcw, Volume2, VolumeX, Trophy, ChevronUp, ChevronDown, Sparkles, Send, Maximize2, Minimize2 } from "lucide-react"
 import { retroAudio } from "@/lib/retro-audio"
 import { saveGameScore } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
@@ -11,6 +11,7 @@ interface KsDinoRunnerProps {
   playerName: string
   onScoreSubmitted?: (scoreId: number) => void
   onRequestName?: () => void
+  onViewLeaderboard?: () => void
 }
 
 interface Obstacle {
@@ -30,6 +31,7 @@ export function KsDinoRunner({
   playerName,
   onScoreSubmitted,
   onRequestName,
+  onViewLeaderboard,
 }: KsDinoRunnerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -37,7 +39,9 @@ export function KsDinoRunner({
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle")
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(0)
+  const [isNewRecord, setIsNewRecord] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [scoreSubmitted, setScoreSubmitted] = useState(false)
   const [localPlayerName, setLocalPlayerName] = useState(playerName || "")
@@ -47,6 +51,7 @@ export function KsDinoRunner({
   const gameStateRef = useRef<"idle" | "playing" | "gameover">("idle")
   const scoreRef = useRef(0)
   const highScoreRef = useRef(0)
+  const lastSavedScoreRef = useRef(0)
   const localPlayerNameRef = useRef(playerName || "")
   const speedRef = useRef(5)
   const isJumpingRef = useRef(false)
@@ -58,6 +63,28 @@ export function KsDinoRunner({
   const groundOffsetRef = useRef(0)
   const frameCountRef = useRef(0)
   const cachedTeamImagesRef = useRef<Map<string, HTMLImageElement>>(new Map())
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener("fullscreenchange", handleFsChange)
+    return () => document.removeEventListener("fullscreenchange", handleFsChange)
+  }, [])
+
+  const handleToggleFullscreen = () => {
+    if (!containerRef.current) return
+    if (!document.fullscreenElement) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(console.error)
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(console.error)
+      }
+    }
+  }
 
   // Keep state refs in sync
   useEffect(() => {
@@ -169,17 +196,20 @@ export function KsDinoRunner({
     frameCountRef.current = 0
 
     setScore(0)
+    setIsNewRecord(false)
     setScoreSubmitted(false)
     setGameState("playing")
     gameStateRef.current = "playing"
   }
 
-  // Auto-save High Score
+  // Optimized Auto-save High Score
   const autoSaveScore = async (name: string, finalScore: number) => {
+    if (finalScore <= 0 || submitting) return
     setSubmitting(true)
     try {
       const saved = await saveGameScore(name, "dino", finalScore)
       if (saved) {
+        lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, finalScore)
         setScoreSubmitted(true)
         onScoreSubmitted?.(saved.id)
         localStorage.setItem("ks_player_name", name)
@@ -611,11 +641,20 @@ export function KsDinoRunner({
             retroAudio.playGameOver()
             setGameState("gameover")
             gameStateRef.current = "gameover"
-            
-            // Auto-save score
+
             const finalScore = Math.floor(scoreRef.current)
             const pName = localPlayerNameRef.current.trim()
-            if (pName && finalScore > 0) {
+
+            // Check if this was a new record
+            if (finalScore > highScoreRef.current) {
+              setIsNewRecord(true)
+              highScoreRef.current = finalScore
+              setHighScore(finalScore)
+              localStorage.setItem("ks_dino_highscore", String(finalScore))
+            }
+
+            // Auto-save to Supabase if it beats last saved score
+            if (pName && finalScore > 0 && finalScore > lastSavedScoreRef.current) {
               autoSaveScore(pName, finalScore)
             }
             break
@@ -651,7 +690,9 @@ export function KsDinoRunner({
       {/* Game Stage Container */}
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[4/3] sm:aspect-[16/8] min-h-[260px] sm:min-h-[240px] max-h-[360px]"
+        className={`relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[4/3] sm:aspect-[16/8] min-h-[260px] sm:min-h-[240px] max-h-[360px] ${
+          isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-h-none border-none" : ""
+        }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={doJump}
@@ -660,7 +701,7 @@ export function KsDinoRunner({
 
         {/* Top HUD Display */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
-          {/* Player & Sound */}
+          {/* Player & Controls */}
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               type="button"
@@ -668,10 +709,24 @@ export function KsDinoRunner({
                 e.stopPropagation()
                 handleToggleMute()
               }}
-              className="p-2 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 hover:bg-slate-900 shadow-md transition-all active:scale-95"
+              title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
+              className="p-2 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 hover:bg-slate-900 shadow-md transition-all active:scale-95 cursor-pointer"
             >
               {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
             </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleToggleFullscreen()
+              }}
+              title={isFullscreen ? "Вийти з повного екрану" : "На повний екран"}
+              className="p-2 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 hover:bg-slate-900 shadow-md transition-all active:scale-95 cursor-pointer"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4 text-amber-400" /> : <Maximize2 className="h-4 w-4 text-slate-300" />}
+            </button>
+
             <div className="px-3 py-1 rounded-xl bg-slate-950/60 backdrop-blur-md text-white border border-white/10 text-xs font-bold flex items-center gap-1.5 shadow-md">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="truncate max-w-[120px]">{localPlayerName || "Гравець"}</span>
@@ -717,27 +772,35 @@ export function KsDinoRunner({
         {/* Game Over Modal Overlay */}
         {gameState === "gameover" && (
           <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20">
-            <div className="bg-white/10 border border-white/20 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl backdrop-blur-xl space-y-4">
+            <div className="bg-white/10 border border-white/20 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl backdrop-blur-xl space-y-3.5">
               <div className="flex items-center justify-center gap-2">
                 <Trophy className="h-6 w-6 text-amber-400" />
                 <h4 className="text-base sm:text-lg font-black text-white">Фінальний свисток!</h4>
               </div>
 
+              {/* New Personal Record Banner */}
+              {isNewRecord && score > 0 && (
+                <div className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/30 via-yellow-400/30 to-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-black flex items-center justify-center gap-1.5 animate-pulse shadow-md">
+                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <span>НОВИЙ ОСОБИСТИЙ РЕКОРД!</span>
+                </div>
+              )}
+
               <div className="bg-slate-950/80 rounded-2xl p-3 border border-white/10 flex items-center justify-around">
                 <div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Очки</div>
-                  <div className="text-xl font-black text-white font-mono">{score}</div>
+                  <div className="text-2xl font-black text-white font-mono">{score}</div>
                 </div>
                 <div className="w-px h-8 bg-white/10" />
                 <div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Ваш Рекорд</div>
-                  <div className="text-xl font-black text-amber-400 font-mono">{highScore}</div>
+                  <div className="text-2xl font-black text-amber-400 font-mono">{highScore}</div>
                 </div>
               </div>
 
-              {/* Submit to Leaderboard */}
+              {/* Hall of Fame Status */}
               {score > 0 && (
-                <div className="space-y-2">
+                <div className="text-center">
                   {!localPlayerName ? (
                     <button
                       type="button"
@@ -745,41 +808,51 @@ export function KsDinoRunner({
                         e.stopPropagation()
                         onRequestName?.()
                       }}
-                      className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
+                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
                     >
                       Введіть ім'я, щоб зберегти рекорд
                     </button>
-                  ) : scoreSubmitted ? (
-                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-4 w-4 text-emerald-400" />
-                      Рекорд внесено в Зал Слави!
-                    </div>
                   ) : submitting ? (
-                    <div className="py-2 px-3 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Send className="h-4 w-4 text-blue-400 animate-pulse" />
-                      Збереження...
+                    <div className="py-1.5 px-3 rounded-xl bg-blue-500/20 text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                      <Send className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
+                      Збереження рекорду в Зал Слави...
                     </div>
                   ) : (
-                    <div className="py-2 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-4 w-4 text-emerald-400" />
+                    <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
                       Рекорд внесено в Зал Слави!
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Play Again */}
+              {/* Instant Play Again Button */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   startGame()
                 }}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg hover:scale-102 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black text-sm transition-all shadow-lg hover:scale-102 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <RotateCcw className="h-4 w-4" />
-                Спробувати ще раз
+                <RotateCcw className="h-5 w-5" />
+                <span>Грати знову (Пробіл / Тап)</span>
               </button>
+
+              {/* View Leaderboard Button */}
+              {onViewLeaderboard && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewLeaderboard()
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Переглянути Зал Слави</span>
+                </button>
+              )}
             </div>
           </div>
         )}

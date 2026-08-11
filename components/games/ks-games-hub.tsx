@@ -60,10 +60,6 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
   const handleScoreSubmitted = (scoreId: number) => {
     setLastSubmittedScoreId(scoreId)
-    // Switch to leaderboard tab to show new rank!
-    setTimeout(() => {
-      setActiveTab("leaderboard")
-    }, 600)
   }
 
   return (
@@ -249,6 +245,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}
+                onViewLeaderboard={() => setActiveTab("leaderboard")}
               />
 
               {/* Quick Rules Card */}
@@ -273,6 +270,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}
+                onViewLeaderboard={() => setActiveTab("leaderboard")}
               />
 
               {/* Quick Rules Card */}
