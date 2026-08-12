@@ -86,12 +86,13 @@ import {
   deleteVotingCandidate,
   toggleVotingCandidateVisibility,
   updateVotingCandidate,
-  getUserAnalytics,
+  getAnalyticsSummary,
   getOrganizerLogs,
   logOrganizerAction,
   clearOrganizerLogs,
 } from "@/lib/database"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog } from "@/lib/supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
+import type { AnalyticsSummary } from "@/lib/database"
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -269,7 +270,9 @@ export function AdminPanel({
   const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<{ [round: number]: boolean }>({})
 
   // Analytics & Logs states
-  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics[]>([])
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary>({
+    totalPageViews: 0, totalPageViewsDisplay: "0", uniqueSessions: 0, avgDurationSeconds: 0, tabBreakdown: [],
+  })
   const [analyticsPeriod, setAnalyticsPeriod] = useState<"24h" | "7d" | "30d">("24h")
   const [organizerLogs, setOrganizerLogs] = useState<OrganizerLog[]>([])
   const [logsSearchTerm, setLogsSearchTerm] = useState("")
@@ -290,7 +293,7 @@ export function AdminPanel({
   }, [currentChampionshipId, isMainAdmin, JSON.stringify(allowedChampionshipIds)])
 
   useEffect(() => {
-    getUserAnalytics(analyticsPeriod).then(setUserAnalytics)
+    getAnalyticsSummary(analyticsPeriod).then(setAnalyticsSummary)
   }, [analyticsPeriod])
 
   const loadData = async () => {
@@ -302,10 +305,10 @@ export function AdminPanel({
 
       setChampionships(filteredChampionships)
 
-      const [organizersData, productsData, analyticsData, logsData] = await Promise.all([
+      const [organizersData, productsData, summaryData, logsData] = await Promise.all([
         isMainAdmin ? getOrganizers() : Promise.resolve([]),
         getProducts(),
-        getUserAnalytics(analyticsPeriod),
+        getAnalyticsSummary(analyticsPeriod),
         getOrganizerLogs(),
       ])
 
@@ -313,7 +316,7 @@ export function AdminPanel({
         setOrganizers(organizersData)
       }
       setProducts(productsData)
-      setUserAnalytics(analyticsData)
+      setAnalyticsSummary(summaryData)
       setOrganizerLogs(logsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
@@ -3863,7 +3866,7 @@ export function AdminPanel({
               </p>
               <p className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
                 <Hourglass className="w-3 h-3" />
-                Статистика автоматично обнуляється кожних 30 днів
+                Статистика автоматично обнуляється кожних 7 днів
               </p>
             </div>
 
@@ -3901,8 +3904,8 @@ export function AdminPanel({
                 size="sm"
                 variant="outline"
                 onClick={async () => {
-                  const data = await getUserAnalytics(analyticsPeriod)
-                  setUserAnalytics(data)
+                  const data = await getAnalyticsSummary(analyticsPeriod)
+                  setAnalyticsSummary(data)
                 }}
                 className="h-8 text-xs font-semibold px-3 rounded-lg border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer"
               >
@@ -3926,7 +3929,7 @@ export function AdminPanel({
               </div>
               <div className="mt-3">
                 <span className="text-3xl font-black text-slate-900">
-                  {new Set(userAnalytics.map((a) => a.session_id)).size}
+                  {analyticsSummary.uniqueSessions}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
                   користувачів за {analyticsPeriod === "24h" ? "24г" : analyticsPeriod === "7d" ? "тиждень" : "місяць"}
@@ -3946,7 +3949,7 @@ export function AdminPanel({
               </div>
               <div className="mt-3">
                 <span className="text-3xl font-black text-slate-900">
-                  {userAnalytics.length}
+                  {analyticsSummary.totalPageViewsDisplay}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
                   переходів між розділами
@@ -3967,10 +3970,8 @@ export function AdminPanel({
               <div className="mt-3">
                 <span className="text-3xl font-black text-slate-900">
                   {(() => {
-                    if (!userAnalytics.length) return "0с"
-                    const avgSec = Math.round(
-                      userAnalytics.reduce((acc, a) => acc + (a.duration_seconds || 0), 0) / userAnalytics.length
-                    )
+                    const avgSec = analyticsSummary.avgDurationSeconds
+                    if (avgSec === 0) return "0с"
                     if (avgSec < 60) return `${avgSec}с`
                     const min = Math.floor(avgSec / 60)
                     const sec = avgSec % 60
@@ -3996,13 +3997,8 @@ export function AdminPanel({
               <div className="mt-3">
                 <span className="text-xl font-bold text-slate-900 truncate block">
                   {(() => {
-                    if (!userAnalytics.length) return "—"
-                    const counts: { [key: string]: number } = {}
-                    userAnalytics.forEach((a) => {
-                      counts[a.active_tab] = (counts[a.active_tab] || 0) + 1
-                    })
-                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
-                    const topKey = sorted[0]?.[0] || "table"
+                    const top = analyticsSummary.tabBreakdown[0]
+                    if (!top) return "—"
                     const names: { [key: string]: string } = {
                       table: "Турнірна таблиця",
                       calendar: "Календар матчів",
@@ -4011,8 +4007,9 @@ export function AdminPanel({
                       lion: "Лев матчу",
                       admin: "Адмінка",
                       shop: "KS Shop",
+                      games: "KS Games",
                     }
-                    return names[topKey] || topKey
+                    return names[top.tab] || top.tab
                   })()}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
@@ -4027,15 +4024,6 @@ export function AdminPanel({
             <h4 className="font-bold text-slate-900 text-base">Розподіл за розділами сайту</h4>
             <div className="space-y-3">
               {(() => {
-                const map: { [key: string]: { views: number; time: number } } = {}
-                userAnalytics.forEach((a) => {
-                  if (!map[a.active_tab]) map[a.active_tab] = { views: 0, time: 0 }
-                  map[a.active_tab].views += 1
-                  map[a.active_tab].time += a.duration_seconds || 0
-                })
-                const entries = Object.entries(map).sort((a, b) => b[1].views - a[1].views)
-                const totalViews = userAnalytics.length || 1
-
                 const sectionNames: { [key: string]: string } = {
                   table: "Турнірна таблиця",
                   calendar: "Календар матчів",
@@ -4044,23 +4032,28 @@ export function AdminPanel({
                   lion: "Голосування (Лев матчу)",
                   admin: "Адмін-панель",
                   shop: "Магазин KS Shop",
+                  games: "KS Games",
+                  cup: "Кубок",
                 }
 
-                if (entries.length === 0) {
+                const breakdown = analyticsSummary.tabBreakdown
+                if (breakdown.length === 0) {
                   return <div className="text-sm text-slate-500 py-4 text-center">Немає даних відвідувань за вибраний період</div>
                 }
 
-                return entries.map(([tabKey, stats]) => {
-                  const percent = Math.round((stats.views / totalViews) * 100)
-                  const avgSec = Math.round(stats.time / (stats.views || 1))
+                const totalViews = analyticsSummary.totalPageViews || 1
+
+                return breakdown.map((entry) => {
+                  const percent = Math.round((entry.views / totalViews) * 100)
+                  const avgSec = Math.round(entry.totalTime / (entry.views || 1))
                   const timeFormatted = avgSec < 60 ? `${avgSec}с` : `${Math.floor(avgSec / 60)}хв ${avgSec % 60}с`
 
                   return (
-                    <div key={tabKey} className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div key={entry.tab} className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
                       <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-slate-900">{sectionNames[tabKey] || tabKey}</span>
+                        <span className="text-slate-900">{sectionNames[entry.tab] || entry.tab}</span>
                         <div className="flex items-center gap-3 text-slate-500">
-                          <span>{stats.views} переглядів ({percent}%)</span>
+                          <span>{entry.views} переглядів ({percent}%)</span>
                           <span>•</span>
                           <span>Сер. час: {timeFormatted}</span>
                         </div>

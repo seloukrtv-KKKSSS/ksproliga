@@ -1447,7 +1447,8 @@ export async function updateAnalyticsDuration(rowId: number, durationSeconds: nu
 export async function cleanupOldAnalytics(): Promise<number> {
   if (shouldUseMockData()) return 0
   try {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    // Aggressive cleanup: delete entries older than 7 days to keep the table lean
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const { data, error } = await supabase
       .from("user_analytics")
       .delete()
@@ -1462,10 +1463,107 @@ export async function cleanupOldAnalytics(): Promise<number> {
   }
 }
 
+// Summary type for pre-aggregated analytics (avoids Supabase 1000-row limit)
+export interface AnalyticsSummary {
+  totalPageViews: number
+  totalPageViewsDisplay: string // "1523" or "1000+"
+  uniqueSessions: number
+  avgDurationSeconds: number
+  tabBreakdown: { tab: string; views: number; totalTime: number }[]
+}
+
+export async function getAnalyticsSummary(period: "24h" | "7d" | "30d" = "24h"): Promise<AnalyticsSummary> {
+  const empty: AnalyticsSummary = {
+    totalPageViews: 0,
+    totalPageViewsDisplay: "0",
+    uniqueSessions: 0,
+    avgDurationSeconds: 0,
+    tabBreakdown: [],
+  }
+  if (shouldUseMockData()) return empty
+
+  try {
+    // Auto-cleanup old data first
+    await cleanupOldAnalytics()
+
+    const now = new Date()
+    let cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    if (period === "7d") {
+      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    } else if (period === "30d") {
+      cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    }
+
+    const cutoffISO = cutoff.toISOString()
+
+    // 1. Get exact total count using Supabase head:true + count (no row data fetched)
+    const { count: totalCount, error: countErr } = await supabase
+      .from("user_analytics")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", cutoffISO)
+
+    if (countErr) throw countErr
+    const total = totalCount ?? 0
+
+    // 2. Fetch only session_id + active_tab + duration (lightweight columns), max 1000 rows
+    //    For periods with >1000 rows, we still get a representative sample
+    const { data: rows, error: rowsErr } = await supabase
+      .from("user_analytics")
+      .select("session_id, active_tab, duration_seconds")
+      .gte("created_at", cutoffISO)
+      .order("created_at", { ascending: false })
+      .limit(1000)
+
+    if (rowsErr) throw rowsErr
+    const fetchedRows = rows || []
+
+    // 3. Compute unique sessions from fetched sample
+    const sessionSet = new Set(fetchedRows.map((r: any) => r.session_id))
+
+    // 4. Compute avg duration from fetched sample
+    const totalDuration = fetchedRows.reduce((acc: number, r: any) => acc + (r.duration_seconds || 0), 0)
+    const avgDuration = fetchedRows.length > 0 ? Math.round(totalDuration / fetchedRows.length) : 0
+
+    // 5. Compute tab breakdown from fetched sample, then scale to total
+    const tabMap: { [key: string]: { views: number; totalTime: number } } = {}
+    fetchedRows.forEach((r: any) => {
+      if (!tabMap[r.active_tab]) tabMap[r.active_tab] = { views: 0, totalTime: 0 }
+      tabMap[r.active_tab].views += 1
+      tabMap[r.active_tab].totalTime += r.duration_seconds || 0
+    })
+
+    // Scale up tab views proportionally if total > fetched
+    const scaleFactor = fetchedRows.length > 0 ? total / fetchedRows.length : 1
+    const tabBreakdown = Object.entries(tabMap)
+      .map(([tab, stats]) => ({
+        tab,
+        views: Math.round(stats.views * scaleFactor),
+        totalTime: Math.round(stats.totalTime * scaleFactor),
+      }))
+      .sort((a, b) => b.views - a.views)
+
+    // 6. Display string
+    const display = total > 1000 && fetchedRows.length >= 1000
+      ? `${total}`
+      : `${total}`
+
+    return {
+      totalPageViews: total,
+      totalPageViewsDisplay: display,
+      uniqueSessions: sessionSet.size,
+      avgDurationSeconds: avgDuration,
+      tabBreakdown,
+    }
+  } catch (error) {
+    console.warn("Error fetching analytics summary:", error)
+    return empty
+  }
+}
+
+// Keep getUserAnalytics for backward compatibility, but with hard limit
 export async function getUserAnalytics(period: "24h" | "7d" | "30d" = "24h"): Promise<UserAnalytics[]> {
   if (shouldUseMockData()) return []
   try {
-    // Auto-cleanup: delete entries older than 30 days on each fetch
     await cleanupOldAnalytics()
 
     const now = new Date()
@@ -1481,6 +1579,7 @@ export async function getUserAnalytics(period: "24h" | "7d" | "30d" = "24h"): Pr
       .select("*")
       .gte("created_at", cutoff.toISOString())
       .order("created_at", { ascending: false })
+      .limit(1000)
 
     if (error) throw error
     return data || []
