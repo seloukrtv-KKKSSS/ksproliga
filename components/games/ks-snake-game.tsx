@@ -103,6 +103,17 @@ export function KsSnakeGame({
   }, [playerName])
 
   useEffect(() => {
+    setIsMuted(retroAudio.isMuted)
+    const savedHi = localStorage.getItem("ks_snake_highscore")
+    if (savedHi) {
+      const parsed = parseInt(savedHi, 10) || 0
+      setHighScore(parsed)
+      highScoreRef.current = parsed
+      lastSavedScoreRef.current = parsed
+    }
+  }, [])
+
+  useEffect(() => {
     if (scrollLocked) {
       document.body.style.overflow = "hidden"
       document.documentElement.style.overflow = "hidden"
@@ -672,29 +683,32 @@ export function KsSnakeGame({
               </div>
 
               {/* Hall of Fame Status */}
-              {score > 0 && (
-                <div className="text-center">
-                  {!localPlayerName ? (
-                    <button
-                      type="button"
-                      onClick={() => onRequestName?.()}
-                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
-                    >
-                      Введіть ім'я, щоб зберегти рекорд
-                    </button>
-                  ) : submitting ? (
-                    <div className="py-1.5 px-3 rounded-xl bg-emerald-600/50 text-white font-black text-xs flex items-center justify-center gap-2">
-                      <Send className="h-3.5 w-3.5 animate-pulse" />
-                      <span>Збереження рекорду...</span>
-                    </div>
-                  ) : (
-                    <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-4 w-4 text-emerald-400" />
-                      <span>Рекорд внесено в Зал Слави!</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="text-center">
+                {!localPlayerName ? (
+                  <button
+                    type="button"
+                    onClick={() => onRequestName?.()}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
+                  >
+                    Введіть ім'я, щоб зберегти рекорд
+                  </button>
+                ) : submitting ? (
+                  <div className="py-1.5 px-3 rounded-xl bg-emerald-600/50 text-white font-black text-xs flex items-center justify-center gap-2">
+                    <Send className="h-3.5 w-3.5 animate-pulse" />
+                    <span>Збереження рекорду в Зал Слави...</span>
+                  </div>
+                ) : isNewRecord && score > 0 ? (
+                  <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs">
+                    <Sparkles className="h-4 w-4 text-emerald-400" />
+                    <span>Новий рекорд внесено в Зал Слави!</span>
+                  </div>
+                ) : highScore > 0 ? (
+                  <div className="py-1 px-3 rounded-xl bg-white/5 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5">
+                    <Trophy className="h-3.5 w-3.5 text-amber-400/70" />
+                    <span>Кращий рекорд у Залі Слави: <strong className="text-white font-mono">{highScore}</strong></span>
+                  </div>
+                ) : null}
+              </div>
 
               {/* Instant Play Again Button */}
               <button

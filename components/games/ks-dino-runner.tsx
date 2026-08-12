@@ -856,32 +856,35 @@ export function KsDinoRunner({
               </div>
 
               {/* Hall of Fame Status */}
-              {score > 0 && (
-                <div className="text-center">
-                  {!localPlayerName ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRequestName?.()
-                      }}
-                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
-                    >
-                      Введіть ім'я, щоб зберегти рекорд
-                    </button>
-                  ) : submitting ? (
-                    <div className="py-1.5 px-3 rounded-xl bg-blue-500/20 text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Send className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
-                      Збереження рекорду в Зал Слави...
-                    </div>
-                  ) : (
-                    <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                      Рекорд внесено в Зал Слави!
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="text-center">
+                {!localPlayerName ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRequestName?.()
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md active:scale-98"
+                  >
+                    Введіть ім'я, щоб зберегти рекорд
+                  </button>
+                ) : submitting ? (
+                  <div className="py-1.5 px-3 rounded-xl bg-blue-500/20 text-blue-300 text-xs font-bold flex items-center justify-center gap-1.5">
+                    <Send className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
+                    Збереження рекорду в Зал Слави...
+                  </div>
+                ) : isNewRecord && score > 0 ? (
+                  <div className="py-1.5 px-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                    Новий рекорд внесено в Зал Слави!
+                  </div>
+                ) : highScore > 0 ? (
+                  <div className="py-1 px-3 rounded-xl bg-white/5 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5">
+                    <Trophy className="h-3.5 w-3.5 text-amber-400/70" />
+                    <span>Кращий рекорд у Залі Слави: <strong className="text-white font-mono">{highScore}</strong></span>
+                  </div>
+                ) : null}
+              </div>
 
               {/* Instant Play Again Button */}
               <button
