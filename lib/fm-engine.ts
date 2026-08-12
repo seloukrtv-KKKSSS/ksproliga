@@ -1,137 +1,310 @@
 import {
-  FMClub,
+  PlayerPosition,
+  FormationType,
+  TeamMentality,
+  PassingStyle,
+  PressingIntensity,
+  TacklingAggression,
   FMPlayer,
   FMTactics,
   FMStadium,
-  FMMatch,
   FMMatchEvent,
   FMMatchStats,
-  FormationType,
-  PlayerPosition,
+  FMMatch,
+  SpecialAbilityId,
+  SpecialAbilityDef,
+  FMTournamentBracket,
+  FMTournamentMatch,
+  FMStaff,
   FMYouthProspect
 } from "./fm-types"
 
-// -------------------------------------------------------------
-// 1. FORMATION SLOTS & COORDINATES (% from top-left of pitch)
-// -------------------------------------------------------------
+// ==========================================
+// 1. 11x11.ru SPECIAL ABILITIES DEFINITION
+// ==========================================
+
+export const SPECIAL_ABILITIES: SpecialAbilityDef[] = [
+  {
+    id: "pass",
+    name: "Пас",
+    shortCode: "PAS",
+    description: "Підвищує точність і культуру передач на +15%",
+    icon: "🎯",
+    allowedPositions: ["MID", "FWD", "DEF"],
+    costXp: 120,
+    costMoney: 15000
+  },
+  {
+    id: "long_shot",
+    name: "Далекий удар",
+    shortCode: "LSH",
+    description: "Небезпечні гарматні постріли з-за меж штрафного майданчика",
+    icon: "🚀",
+    allowedPositions: ["MID", "FWD"],
+    costXp: 150,
+    costMoney: 20000
+  },
+  {
+    id: "tackling",
+    name: "Відбір",
+    shortCode: "TCK",
+    description: "Чистий і безкомпромісний відбір м'яча без порушення правил",
+    icon: "🛡️",
+    allowedPositions: ["DEF", "MID"],
+    costXp: 130,
+    costMoney: 18000
+  },
+  {
+    id: "header",
+    name: "Гра головою",
+    shortCode: "HDR",
+    description: "Домінування у верхових дуелях при кутових та навісах",
+    icon: "🤾",
+    allowedPositions: ["DEF", "FWD"],
+    costXp: 120,
+    costMoney: 15000
+  },
+  {
+    id: "speed",
+    name: "Швидкість",
+    shortCode: "SPD",
+    description: "Вибуховий ривок у вільну зону та відрив від опікуна",
+    icon: "⚡",
+    allowedPositions: ["FWD", "MID", "DEF"],
+    costXp: 160,
+    costMoney: 22000
+  },
+  {
+    id: "playmaker",
+    name: "Розігруючий",
+    shortCode: "PLM",
+    description: "Диригент атак: створює 100% гольові моменти для партнерів",
+    icon: "🪄",
+    allowedPositions: ["MID"],
+    costXp: 180,
+    costMoney: 25000
+  },
+  {
+    id: "penalty",
+    name: "Пенальтист",
+    shortCode: "PEN",
+    description: "Холоднокровна та безпомилкова реалізація 11-метрових",
+    icon: "🥅",
+    allowedPositions: ["FWD", "MID"],
+    costXp: 100,
+    costMoney: 12000
+  },
+  {
+    id: "one_on_one",
+    name: "Один-на-один",
+    shortCode: "1v1",
+    description: "Філігранна реалізація виходів сам-на-сам із голкіпером",
+    icon: "🔥",
+    allowedPositions: ["FWD"],
+    costXp: 160,
+    costMoney: 22000
+  },
+  {
+    id: "interception",
+    name: "Перехоплення",
+    shortCode: "INT",
+    description: "Читання ліній передач суперника та випередження",
+    icon: "👀",
+    allowedPositions: ["DEF", "MID"],
+    costXp: 130,
+    costMoney: 18000
+  },
+  {
+    id: "gk_reaction",
+    name: "Рефлекси",
+    shortCode: "REF",
+    description: "Блискавичні сейви на лінії воріт у безнадійних ситуаціях",
+    icon: "🧤",
+    allowedPositions: ["GK"],
+    costXp: 150,
+    costMoney: 20000
+  },
+  {
+    id: "gk_exit",
+    name: "Вихід з воріт",
+    shortCode: "EXT",
+    description: "Впевнена гра на виходах при навісах та стандартах",
+    icon: "🦅",
+    allowedPositions: ["GK"],
+    costXp: 130,
+    costMoney: 16000
+  },
+  {
+    id: "dribbling",
+    name: "Дриблінг",
+    shortCode: "DRB",
+    description: "Ефектний обіграш захисників 1-в-1 на носовій хустинці",
+    icon: "🌪️",
+    allowedPositions: ["FWD", "MID"],
+    costXp: 140,
+    costMoney: 19000
+  }
+]
+
+export const SPECIAL_ABILITIES_MAP: Record<SpecialAbilityId, SpecialAbilityDef> =
+  SPECIAL_ABILITIES.reduce((acc, def) => {
+    acc[def.id] = def
+    return acc
+  }, {} as Record<SpecialAbilityId, SpecialAbilityDef>)
+
+// ==========================================
+// 2. TACTICAL FORMATIONS WITH 11x11 ROLES
+// ==========================================
+
 export interface PitchSlot {
   slot: number
-  position: PlayerPosition
-  x: number // 0% - 100% horizontal
-  y: number // 0% - 100% vertical (0 = goal, 100 = opponents goal)
-  roleLabel: string
+  x: number // 0-100% horizontal
+  y: number // 0-100% vertical (0 = bottom GK, 100 = top FWD)
+  role: PlayerPosition
+  category: "GK" | "DEF" | "MID" | "FWD"
+  label: string
 }
 
 export const FORMATIONS_MAP: Record<FormationType, PitchSlot[]> = {
   "4-4-2": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "LB", x: 15, y: 70, roleLabel: "ЛЗ" },
-    { slot: 3, position: "CB", x: 38, y: 73, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 62, y: 73, roleLabel: "ЦЗ" },
-    { slot: 5, position: "RB", x: 85, y: 70, roleLabel: "ПЗ" },
-    { slot: 6, position: "LM", x: 15, y: 44, roleLabel: "ЛП" },
-    { slot: 7, position: "CM", x: 38, y: 46, roleLabel: "ЦП" },
-    { slot: 8, position: "CM", x: 62, y: 46, roleLabel: "ЦП" },
-    { slot: 9, position: "RM", x: 85, y: 44, roleLabel: "ПП" },
-    { slot: 10, position: "ST", x: 36, y: 18, roleLabel: "ФРВ" },
-    { slot: 11, position: "ST", x: 64, y: 18, roleLabel: "ФРВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 16, y: 32, role: "LD", category: "DEF", label: "ЛЗ" },
+    { slot: 3, x: 38, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 62, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 5, x: 84, y: 32, role: "RD", category: "DEF", label: "ПЗ" },
+    { slot: 6, x: 16, y: 58, role: "LM", category: "MID", label: "ЛП" },
+    { slot: 7, x: 38, y: 54, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 8, x: 62, y: 54, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 9, x: 84, y: 58, role: "RM", category: "MID", label: "ПП" },
+    { slot: 10, x: 38, y: 84, role: "CF", category: "FWD", label: "ФОР" },
+    { slot: 11, x: 62, y: 84, role: "CF", category: "FWD", label: "ФОР" }
   ],
   "4-3-3": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "LB", x: 15, y: 70, roleLabel: "ЛЗ" },
-    { slot: 3, position: "CB", x: 38, y: 73, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 62, y: 73, roleLabel: "ЦЗ" },
-    { slot: 5, position: "RB", x: 85, y: 70, roleLabel: "ПЗ" },
-    { slot: 6, position: "CDM", x: 50, y: 55, roleLabel: "ОП" },
-    { slot: 7, position: "CM", x: 32, y: 40, roleLabel: "ЦП" },
-    { slot: 8, position: "CAM", x: 68, y: 40, roleLabel: "АП" },
-    { slot: 9, position: "LW", x: 18, y: 22, roleLabel: "ЛВ" },
-    { slot: 10, position: "ST", x: 50, y: 16, roleLabel: "ФРВ" },
-    { slot: 11, position: "RW", x: 82, y: 22, roleLabel: "ПВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 16, y: 32, role: "LD", category: "DEF", label: "ЛЗ" },
+    { slot: 3, x: 38, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 62, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 5, x: 84, y: 32, role: "RD", category: "DEF", label: "ПЗ" },
+    { slot: 6, x: 50, y: 48, role: "CM", category: "MID", label: "ОП" },
+    { slot: 7, x: 30, y: 60, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 8, x: 70, y: 60, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 9, x: 18, y: 82, role: "LF", category: "FWD", label: "ЛВ" },
+    { slot: 10, x: 50, y: 86, role: "CF", category: "FWD", label: "ЦФ" },
+    { slot: 11, x: 82, y: 82, role: "RF", category: "FWD", label: "ПВ" }
   ],
   "3-5-2": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "CB", x: 25, y: 74, roleLabel: "ЦЗ" },
-    { slot: 3, position: "CB", x: 50, y: 75, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 75, y: 74, roleLabel: "ЦЗ" },
-    { slot: 5, position: "LM", x: 12, y: 45, roleLabel: "ЛЛ" },
-    { slot: 6, position: "CDM", x: 38, y: 56, roleLabel: "ОП" },
-    { slot: 7, position: "CAM", x: 50, y: 38, roleLabel: "АП" },
-    { slot: 8, position: "CDM", x: 62, y: 56, roleLabel: "ОП" },
-    { slot: 9, position: "RM", x: 88, y: 45, roleLabel: "ПЛ" },
-    { slot: 10, position: "ST", x: 36, y: 18, roleLabel: "ФРВ" },
-    { slot: 11, position: "ST", x: 64, y: 18, roleLabel: "ФРВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 25, y: 30, role: "CD", category: "DEF", label: "ЛЦЗ" },
+    { slot: 3, x: 50, y: 26, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 75, y: 30, role: "CD", category: "DEF", label: "ПЦЗ" },
+    { slot: 5, x: 14, y: 55, role: "LM", category: "MID", label: "ЛП" },
+    { slot: 6, x: 38, y: 50, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 7, x: 62, y: 50, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 8, x: 86, y: 55, role: "RM", category: "MID", label: "ПП" },
+    { slot: 9, x: 50, y: 66, role: "CM", category: "MID", label: "АП" },
+    { slot: 10, x: 36, y: 85, role: "CF", category: "FWD", label: "ФОР" },
+    { slot: 11, x: 64, y: 85, role: "CF", category: "FWD", label: "ФОР" }
   ],
   "4-2-3-1": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "LB", x: 15, y: 70, roleLabel: "ЛЗ" },
-    { slot: 3, position: "CB", x: 38, y: 73, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 62, y: 73, roleLabel: "ЦЗ" },
-    { slot: 5, position: "RB", x: 85, y: 70, roleLabel: "ПЗ" },
-    { slot: 6, position: "CDM", x: 38, y: 56, roleLabel: "ОП" },
-    { slot: 7, position: "CDM", x: 62, y: 56, roleLabel: "ОП" },
-    { slot: 8, position: "LM", x: 18, y: 35, roleLabel: "ЛП" },
-    { slot: 9, position: "CAM", x: 50, y: 34, roleLabel: "АП" },
-    { slot: 10, position: "RM", x: 82, y: 35, roleLabel: "ПП" },
-    { slot: 11, position: "ST", x: 50, y: 16, roleLabel: "ФРВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 16, y: 32, role: "LD", category: "DEF", label: "ЛЗ" },
+    { slot: 3, x: 38, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 62, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 5, x: 84, y: 32, role: "RD", category: "DEF", label: "ПЗ" },
+    { slot: 6, x: 36, y: 48, role: "CM", category: "MID", label: "ОП" },
+    { slot: 7, x: 64, y: 48, role: "CM", category: "MID", label: "ОП" },
+    { slot: 8, x: 20, y: 68, role: "LM", category: "MID", label: "ЛАП" },
+    { slot: 9, x: 50, y: 68, role: "CM", category: "MID", label: "ЦАП" },
+    { slot: 10, x: 80, y: 68, role: "RM", category: "MID", label: "ПАП" },
+    { slot: 11, x: 50, y: 86, role: "CF", category: "FWD", label: "СТ" }
   ],
   "5-3-2": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "LB", x: 12, y: 66, roleLabel: "ЛЗ" },
-    { slot: 3, position: "CB", x: 32, y: 74, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 50, y: 75, roleLabel: "ЦЗ" },
-    { slot: 5, position: "CB", x: 68, y: 74, roleLabel: "ЦЗ" },
-    { slot: 6, position: "RB", x: 88, y: 66, roleLabel: "ПЗ" },
-    { slot: 7, position: "CM", x: 30, y: 46, roleLabel: "ЦП" },
-    { slot: 8, position: "CAM", x: 50, y: 42, roleLabel: "АП" },
-    { slot: 9, position: "CM", x: 70, y: 46, roleLabel: "ЦП" },
-    { slot: 10, position: "ST", x: 36, y: 18, roleLabel: "ФРВ" },
-    { slot: 11, position: "ST", x: 64, y: 18, roleLabel: "ФРВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 14, y: 38, role: "LD", category: "DEF", label: "ЛЗБ" },
+    { slot: 3, x: 32, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 50, y: 25, role: "CD", category: "DEF", label: "ЛІБ" },
+    { slot: 5, x: 68, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 6, x: 86, y: 38, role: "RD", category: "DEF", label: "ПЗБ" },
+    { slot: 7, x: 30, y: 56, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 8, x: 50, y: 52, role: "CM", category: "MID", label: "ОП" },
+    { slot: 9, x: 70, y: 56, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 10, x: 38, y: 84, role: "CF", category: "FWD", label: "ФОР" },
+    { slot: 11, x: 62, y: 84, role: "CF", category: "FWD", label: "ФОР" }
   ],
   "4-1-4-1": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "LB", x: 15, y: 70, roleLabel: "ЛЗ" },
-    { slot: 3, position: "CB", x: 38, y: 73, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 62, y: 73, roleLabel: "ЦЗ" },
-    { slot: 5, position: "RB", x: 85, y: 70, roleLabel: "ПЗ" },
-    { slot: 6, position: "CDM", x: 50, y: 56, roleLabel: "ОП" },
-    { slot: 7, position: "LM", x: 15, y: 38, roleLabel: "ЛП" },
-    { slot: 8, position: "CM", x: 38, y: 40, roleLabel: "ЦП" },
-    { slot: 9, position: "CM", x: 62, y: 40, roleLabel: "ЦП" },
-    { slot: 10, position: "RM", x: 85, y: 38, roleLabel: "ПП" },
-    { slot: 11, position: "ST", x: 50, y: 16, roleLabel: "ФРВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 16, y: 32, role: "LD", category: "DEF", label: "ЛЗ" },
+    { slot: 3, x: 38, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 62, y: 28, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 5, x: 84, y: 32, role: "RD", category: "DEF", label: "ПЗ" },
+    { slot: 6, x: 50, y: 46, role: "CM", category: "MID", label: "ОП" },
+    { slot: 7, x: 18, y: 64, role: "LM", category: "MID", label: "ЛП" },
+    { slot: 8, x: 38, y: 62, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 9, x: 62, y: 62, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 10, x: 82, y: 64, role: "RM", category: "MID", label: "ПП" },
+    { slot: 11, x: 50, y: 86, role: "CF", category: "FWD", label: "ФОР" }
   ],
   "3-4-3": [
-    { slot: 1, position: "GK", x: 50, y: 90, roleLabel: "ВР" },
-    { slot: 2, position: "CB", x: 25, y: 74, roleLabel: "ЦЗ" },
-    { slot: 3, position: "CB", x: 50, y: 75, roleLabel: "ЦЗ" },
-    { slot: 4, position: "CB", x: 75, y: 74, roleLabel: "ЦЗ" },
-    { slot: 5, position: "LM", x: 15, y: 46, roleLabel: "ЛП" },
-    { slot: 6, position: "CM", x: 38, y: 48, roleLabel: "ЦП" },
-    { slot: 7, position: "CM", x: 62, y: 48, roleLabel: "ЦП" },
-    { slot: 8, position: "RM", x: 85, y: 46, roleLabel: "ПП" },
-    { slot: 9, position: "LW", x: 20, y: 20, roleLabel: "ЛВ" },
-    { slot: 10, position: "ST", x: 50, y: 16, roleLabel: "ФРВ" },
-    { slot: 11, position: "RW", x: 80, y: 20, roleLabel: "ПВ" },
+    { slot: 1, x: 50, y: 12, role: "GK", category: "GK", label: "ВР" },
+    { slot: 2, x: 26, y: 30, role: "CD", category: "DEF", label: "ЛЦЗ" },
+    { slot: 3, x: 50, y: 26, role: "CD", category: "DEF", label: "ЦЗ" },
+    { slot: 4, x: 74, y: 30, role: "CD", category: "DEF", label: "ПЦЗ" },
+    { slot: 5, x: 16, y: 55, role: "LM", category: "MID", label: "ЛП" },
+    { slot: 6, x: 38, y: 52, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 7, x: 62, y: 52, role: "CM", category: "MID", label: "ЦП" },
+    { slot: 8, x: 84, y: 55, role: "RM", category: "MID", label: "ПП" },
+    { slot: 9, x: 20, y: 82, role: "LF", category: "FWD", label: "ЛВ" },
+    { slot: 10, x: 50, y: 86, role: "CF", category: "FWD", label: "ЦФ" },
+    { slot: 11, x: 80, y: 82, role: "RF", category: "FWD", label: "ПВ" }
   ]
 }
 
-// -------------------------------------------------------------
-// 2. REALISTIC NAME GENERATOR
-// -------------------------------------------------------------
+// Map position to category (GK, DEF, MID, FWD)
+export function getPositionCategory(pos: string): "GK" | "DEF" | "MID" | "FWD" {
+  if (pos === "GK") return "GK"
+  if (["LD", "CD", "RD", "LB", "CB", "RB"].includes(pos)) return "DEF"
+  if (["LM", "CM", "RM", "CDM", "CAM"].includes(pos)) return "MID"
+  return "FWD"
+}
+
+// Check if player position matches slot role (with secondary position & side tolerance)
+export function getPositionSuitability(player: FMPlayer, targetRole: PlayerPosition): {
+  isMatch: boolean
+  penalty: number // 1.0 = perfect, 0.85 = acceptable side, 0.70 = wrong category
+  note: string
+} {
+  const pPos = player.position
+  const sPos = player.secondary_position
+
+  if (pPos === targetRole || sPos === targetRole) {
+    return { isMatch: true, penalty: 1.0, note: "Ідеальна позиція" }
+  }
+
+  const pCat = getPositionCategory(pPos)
+  const tCat = getPositionCategory(targetRole)
+
+  if (pCat === tCat) {
+    return { isMatch: true, penalty: 0.88, note: "Суміжний фланг / позиція (-12%)" }
+  }
+
+  return { isMatch: false, penalty: 0.65, note: "Не рідна позиція! Штраф (-35%)" }
+}
+
+// ==========================================
+// 3. NAME GENERATOR
+// ==========================================
+
 const UA_FIRST_NAMES = [
-  "Андрій", "Олександр", "Михайло", "Тарас", "Іван", "Дмитро", "Віталій", "Богдан",
-  "Максим", "Роман", "Сергій", "Артем", "Назар", "Ярослав", "Владислав", "Олег",
-  "Василь", "Юрій", "Денис", "Ігор", "Вадим", "Руслан", "Павло", "Євген", "Микола",
-  "Данило", "Гліб", "Тимофій", "Олексій", "Ілля", "Кирило", "Маркіян"
+  "Андрій", "Олександр", "Максим", "Дмитро", "Сергій", "Артем", "Владислав", "Тарас",
+  "Богдан", "Ярослав", "Роман", "Віталій", "Олег", "Назар", "Денис", "Михайло",
+  "Іван", "Євген", "Василь", "Вадим", "Юрій", "Ілля", "Павло", "Руслан", "Степан"
 ]
 
 const UA_LAST_NAMES = [
-  "Шевченко", "Ярмоленко", "Зінченко", "Мудрик", "Довбик", "Трубін", "Забарний", "Миколенко",
-  "Степаненко", "Шапаренко", "Судаков", "Бущан", "Циганков", "Матвієнко", "Конопля", "Тимчик",
-  "Сидорчук", "Караваєв", "Ванат", "Гуцуляк", "Бондаренко", "Криськів", "Бражко", "Таловєров",
-  "Карпюк", "Ковальчук", "Мельник", "Ткачук", "Кравченко", "Лисенко", "Олійник", "Поліщук",
-  "Савченко", "Гончарук", "Мороз", "Клименко", "Петренко", "Бойко", "Козак", "Данилюк"
+  "Шевченко", "Ярмоленко", "Зінченко", "Мудрик", "Циганков", "Забарний", "Миколенко",
+  "Лунін", "Трубін", "Довбик", "Шапаренко", "Бондаренко", "Судаков", "Сидорчук",
+  "Степаненко", "Матвієнко", "Тимчик", "Караваєв", "Бущан", "Конопля", "Гуцуляк",
+  "Піхальонок", "Ванат", "Яремчук", "Бражко", "Таловєров", "Сич", "Батагов"
 ]
 
 export function getRandomInt(min: number, max: number): number {
@@ -139,59 +312,77 @@ export function getRandomInt(min: number, max: number): number {
 }
 
 export function generateRandomName(): string {
-  const f = UA_FIRST_NAMES[Math.floor(Math.random() * UA_FIRST_NAMES.length)]
-  const l = UA_LAST_NAMES[Math.floor(Math.random() * UA_LAST_NAMES.length)]
-  return `${f} ${l}`
+  const fn = UA_FIRST_NAMES[getRandomInt(0, UA_FIRST_NAMES.length - 1)]
+  const ln = UA_LAST_NAMES[getRandomInt(0, UA_LAST_NAMES.length - 1)]
+  return `${fn} ${ln}`
 }
 
-// -------------------------------------------------------------
-// 3. STARTING SQUAD GENERATOR (16 players for new club)
-// -------------------------------------------------------------
+// ==========================================
+// 4. 11x11.ru STARTER SQUAD GENERATOR
+// ==========================================
+
 export function generateStarterSquad(clubId: number): Omit<FMPlayer, "id">[] {
-  const templatePositions: PlayerPosition[] = [
-    "GK", "GK",
-    "LB", "CB", "CB", "RB", "CB",
-    "CDM", "CM", "CM", "CAM", "LM", "RM",
-    "ST", "ST", "LW"
+  const squadLayout: { pos: PlayerPosition; sec?: PlayerPosition; roleLabel: string }[] = [
+    // 2 Goalkeepers
+    { pos: "GK", roleLabel: "ВР" },
+    { pos: "GK", roleLabel: "ВР" },
+    // 5 Defenders
+    { pos: "LD", sec: "CD", roleLabel: "ЛЗ" },
+    { pos: "CD", roleLabel: "ЦЗ" },
+    { pos: "CD", sec: "RD", roleLabel: "ЦЗ" },
+    { pos: "RD", roleLabel: "ПЗ" },
+    { pos: "CD", sec: "LD", roleLabel: "ЦЗ" },
+    // 5 Midfielders
+    { pos: "LM", sec: "LF", roleLabel: "ЛП" },
+    { pos: "CM", roleLabel: "ЦП" },
+    { pos: "CM", sec: "RM", roleLabel: "ЦП" },
+    { pos: "RM", roleLabel: "ПП" },
+    { pos: "CM", sec: "LM", roleLabel: "ЦП" },
+    // 4 Forwards
+    { pos: "LF", sec: "CF", roleLabel: "ЛВ" },
+    { pos: "CF", roleLabel: "ЦФ" },
+    { pos: "RF", sec: "CF", roleLabel: "ПВ" },
+    { pos: "CF", roleLabel: "ЦФ" }
   ]
 
-  return templatePositions.map((pos, idx) => {
-    const isGK = pos === "GK"
+  return squadLayout.map((slotInfo, idx) => {
     const isStarter = idx < 11
-    const age = getRandomInt(18, 29)
-    const baseRating = isStarter ? getRandomInt(63, 70) : getRandomInt(58, 64)
+    const pitchSlot = isStarter ? idx + 1 : 0
+    const age = getRandomInt(19, 29)
+    const talent = getRandomInt(2, 4) // 2-4 stars for starter
+    const skill = getRandomInt(130, 230) // 130 - 230 starting skill
 
-    const pace = isGK ? getRandomInt(35, 52) : (pos === "LW" || pos === "RM" || pos === "LM" ? getRandomInt(68, 85) : getRandomInt(58, 76))
-    const shooting = isGK ? getRandomInt(15, 25) : (pos === "ST" || pos === "LW" ? getRandomInt(65, 78) : getRandomInt(45, 68))
-    const passing = isGK ? getRandomInt(45, 65) : (pos.includes("M") ? getRandomInt(65, 78) : getRandomInt(52, 68))
-    const dribbling = isGK ? getRandomInt(20, 40) : (pos === "LW" || pos === "CAM" ? getRandomInt(66, 80) : getRandomInt(54, 72))
-    const defending = isGK ? getRandomInt(20, 40) : (pos.includes("B") || pos === "CDM" ? getRandomInt(64, 76) : getRandomInt(35, 58))
-    const physical = getRandomInt(58, 80)
-    const goalkeeping = isGK ? baseRating : getRandomInt(10, 20)
+    // 1-2 random special abilities on higher talent players
+    const special_abilities: SpecialAbilityId[] = []
+    if (talent >= 3 && Math.random() > 0.4) {
+      if (slotInfo.pos === "GK") {
+        special_abilities.push(Math.random() > 0.5 ? "gk_reaction" : "gk_exit")
+      } else if (getPositionCategory(slotInfo.pos) === "DEF") {
+        special_abilities.push(Math.random() > 0.5 ? "tackling" : "interception")
+      } else if (getPositionCategory(slotInfo.pos) === "MID") {
+        special_abilities.push(Math.random() > 0.5 ? "pass" : "playmaker")
+      } else {
+        special_abilities.push(Math.random() > 0.5 ? "one_on_one" : "speed")
+      }
+    }
 
-    const marketValue = baseRating * baseRating * 12 + getRandomInt(5000, 15000)
-    const wage = Math.round(baseRating * 25)
-    const potential = Math.min(92, baseRating + (30 - age) * 2 + getRandomInt(2, 6))
+    const market_value = Math.round(skill * talent * 450)
+    const wage = Math.round(skill * 8)
 
     return {
       club_id: clubId,
       name: generateRandomName(),
       nationality: "Україна",
       age,
-      position: pos,
-      overall_rating: baseRating,
-      pace,
-      shooting,
-      passing,
-      dribbling,
-      defending,
-      physical,
-      goalkeeping,
-      stamina: 100,
+      position: slotInfo.pos,
+      secondary_position: slotInfo.sec || null,
+      skill,
+      talent,
+      special_abilities,
+      energy: 100,
       morale: 100,
-      form: 80,
-      potential,
-      market_value: marketValue,
+      xp: 50,
+      market_value,
       wage,
       matches_played: 0,
       goals: 0,
@@ -199,19 +390,21 @@ export function generateStarterSquad(clubId: number): Omit<FMPlayer, "id">[] {
       yellow_cards: 0,
       red_cards: 0,
       is_starter: isStarter,
-      pitch_slot: isStarter ? idx + 1 : 0,
+      pitch_slot: pitchSlot,
       is_on_transfer: false,
       transfer_price: 0,
       is_injured: false,
       injury_matches: 0,
-      created_at: new Date().toISOString()
+      overall_rating: Math.round(skill / 3), // legacy fallback
+      stamina: 100
     }
   })
 }
 
-// -------------------------------------------------------------
-// 4. TEAM RATINGS & STRENGTH CALCULATION
-// -------------------------------------------------------------
+// ==========================================
+// 5. 11x11.ru TEAM POWER CALCULATOR
+// ==========================================
+
 export interface TeamPower {
   attack: number
   midfield: number
@@ -220,111 +413,134 @@ export interface TeamPower {
   overall: number
 }
 
-export function calculateTeamPower(players: FMPlayer[], tactics?: FMTactics): TeamPower {
-  const starters = players.filter((p) => p.is_starter && !p.is_injured)
+export function calculateTeamPower(
+  players: FMPlayer[],
+  tactics?: FMTactics | null
+): TeamPower {
+  const starters = players.filter((p) => p.is_starter && p.pitch_slot > 0)
+
   if (starters.length === 0) {
-    return { attack: 50, midfield: 50, defense: 50, goalkeeper: 50, overall: 50 }
+    return { attack: 30, midfield: 30, defense: 30, goalkeeper: 30, overall: 30 }
   }
 
-  let attSum = 0, attCount = 0
-  let midSum = 0, midCount = 0
-  let defSum = 0, defCount = 0
-  let gkSum = 0, gkCount = 0
+  const formation = tactics?.formation || "4-4-2"
+  const formationSlots = FORMATIONS_MAP[formation] || FORMATIONS_MAP["4-4-2"]
 
-  starters.forEach((p) => {
-    // Condition multiplier (stamina & morale & form)
-    const condition = ((p.stamina / 100) * 0.4 + (p.morale / 100) * 0.3 + (p.form / 100) * 0.3)
-    const effectiveRating = p.overall_rating * condition
+  let attackSum = 0
+  let attackCount = 0
+  let midSum = 0
+  let midCount = 0
+  let defSum = 0
+  let defCount = 0
+  let gkSum = 0
+  let gkCount = 0
 
-    if (p.position === "GK") {
-      gkSum += effectiveRating
+  for (const player of starters) {
+    const slotDef = formationSlots.find((s) => s.slot === player.pitch_slot)
+    const targetRole = slotDef?.role || player.position
+    const { penalty } = getPositionSuitability(player, targetRole)
+
+    // Effective skill calculation
+    const baseSkill = player.skill || (player.overall_rating ? player.overall_rating * 3 : 150)
+    const energyMod = Math.max(0.4, (player.energy ?? player.stamina ?? 100) / 100)
+    const moraleMod = 0.9 + ((player.morale ?? 100) / 100) * 0.2 // 0.9 - 1.1
+
+    // Special abilities bonus (+4% per ability)
+    const abilitiesCount = (player.special_abilities || []).length
+    const abilityMod = 1 + abilitiesCount * 0.04
+
+    const effectivePower = baseSkill * penalty * energyMod * moraleMod * abilityMod
+
+    const category = slotDef?.category || getPositionCategory(player.position)
+
+    if (category === "GK") {
+      gkSum += effectivePower
       gkCount++
-    } else if (p.position === "CB" || p.position === "LB" || p.position === "RB") {
-      defSum += effectiveRating
+    } else if (category === "DEF") {
+      defSum += effectivePower
       defCount++
-    } else if (p.position === "CDM" || p.position === "CM" || p.position === "CAM" || p.position === "LM" || p.position === "RM") {
-      midSum += effectiveRating
+    } else if (category === "MID") {
+      midSum += effectivePower
       midCount++
     } else {
-      attSum += effectiveRating
-      attCount++
-    }
-  })
-
-  let att = attCount > 0 ? Math.round(attSum / attCount) : 55
-  let mid = midCount > 0 ? Math.round(midSum / midCount) : 55
-  let def = defCount > 0 ? Math.round(defSum / defCount) : 55
-  let gk = gkCount > 0 ? Math.round(gkSum / gkCount) : 55
-
-  // Tactical modifiers
-  if (tactics) {
-    if (tactics.mentality === "all_out_attack") {
-      att = Math.round(att * 1.15)
-      def = Math.round(def * 0.88)
-    } else if (tactics.mentality === "attacking") {
-      att = Math.round(att * 1.08)
-      def = Math.round(def * 0.94)
-    } else if (tactics.mentality === "defensive") {
-      att = Math.round(att * 0.92)
-      def = Math.round(def * 1.08)
-    } else if (tactics.mentality === "very_defensive") {
-      att = Math.round(att * 0.85)
-      def = Math.round(def * 1.15)
-    }
-
-    if (tactics.pressing === "intense" || tactics.pressing === "high") {
-      mid = Math.round(mid * 1.06)
+      attackSum += effectivePower
+      attackCount++
     }
   }
 
-  const overall = Math.round((att * 0.3) + (mid * 0.35) + (def * 0.25) + (gk * 0.1))
+  // Tactical modifiers
+  let atkMod = 1.0
+  let defMod = 1.0
+  let midMod = 1.0
 
-  return { attack: att, midfield: mid, defense: def, goalkeeper: gk, overall }
+  if (tactics?.mentality === "all_out_attack") {
+    atkMod *= 1.15
+    defMod *= 0.88
+  } else if (tactics?.mentality === "attacking") {
+    atkMod *= 1.08
+    defMod *= 0.94
+  } else if (tactics?.mentality === "defensive") {
+    atkMod *= 0.92
+    defMod *= 1.10
+  } else if (tactics?.mentality === "very_defensive") {
+    atkMod *= 0.82
+    defMod *= 1.18
+  }
+
+  if (tactics?.pressing === "intense" || tactics?.pressing === "high") {
+    midMod *= 1.08
+    defMod *= 1.05
+  }
+
+  const finalGk = Math.round((gkCount > 0 ? gkSum / gkCount : 40))
+  const finalDef = Math.round((defCount > 0 ? defSum / defCount : 40) * defMod)
+  const finalMid = Math.round((midCount > 0 ? midSum / midCount : 40) * midMod)
+  const finalAtk = Math.round((attackCount > 0 ? attackSum / attackCount : 40) * atkMod)
+
+  const overall = Math.round(finalGk * 0.15 + finalDef * 0.3 + finalMid * 0.3 + finalAtk * 0.25)
+
+  return {
+    attack: finalAtk,
+    midfield: finalMid,
+    defense: finalDef,
+    goalkeeper: finalGk,
+    overall
+  }
 }
 
-// -------------------------------------------------------------
-// 5. MATCH SIMULATION ENGINE
-// -------------------------------------------------------------
+// ==========================================
+// 6. 11x11.ru FULL 90-MIN MATCH SIMULATOR
+// ==========================================
+
 export interface SimulationResult {
   match: FMMatch
-  updatedHomePlayers: FMPlayer[]
-  updatedAwayPlayers: FMPlayer[]
-  homeRevenue: number
-  managerXpEarned: number
+  homePower: TeamPower
+  awayPower: TeamPower
+  playerFatigueDrained: { id: number; newEnergy: number; xpGained: number }[]
 }
 
 export function simulateFullMatch(
-  homeClub: FMClub,
-  awayClub: FMClub,
+  homeClub: { id: number; name: string },
   homePlayers: FMPlayer[],
+  homeTactics: FMTactics | null,
+  homeStadium: FMStadium | null,
+  awayClub: { id: number; name: string },
   awayPlayers: FMPlayer[],
-  homeTactics?: FMTactics,
-  awayTactics?: FMTactics,
-  homeStadium?: FMStadium,
-  matchType: "friendly" | "league" | "cup" = "friendly"
+  awayTactics: FMTactics | null,
+  matchType: "friendly" | "league" | "cup" = "cup",
+  tournamentId?: number
 ): SimulationResult {
   const homePower = calculateTeamPower(homePlayers, homeTactics)
   const awayPower = calculateTeamPower(awayPlayers, awayTactics)
 
-  const homeStarters = homePlayers.filter((p) => p.is_starter && !p.is_injured)
-  const awayStarters = awayPlayers.filter((p) => p.is_starter && !p.is_injured)
-
-  // Midfield possession dominance
-  const totalMid = homePower.midfield + awayPower.midfield
-  let homePossession = Math.round((homePower.midfield / Math.max(1, totalMid)) * 100)
-  // Home advantage (+3%)
-  homePossession = Math.min(75, Math.max(25, homePossession + 3))
-  const awayPossession = 100 - homePossession
-
   const events: FMMatchEvent[] = []
   let homeScore = 0
   let awayScore = 0
+
   let homeShots = 0
   let awayShots = 0
   let homeShotsOnTarget = 0
   let awayShotsOnTarget = 0
-  let homeXg = 0
-  let awayXg = 0
   let homeFouls = 0
   let awayFouls = 0
   let homeCorners = 0
@@ -333,188 +549,190 @@ export function simulateFullMatch(
   let awayYellows = 0
   let homeReds = 0
   let awayReds = 0
+  let homeXg = 0
+  let awayXg = 0
 
-  const clonedHomePlayers = JSON.parse(JSON.stringify(homePlayers)) as FMPlayer[]
-  const clonedAwayPlayers = JSON.parse(JSON.stringify(awayPlayers)) as FMPlayer[]
+  // Midfield possession balance
+  const totalMid = homePower.midfield + awayPower.midfield
+  const homePossession = Math.round(
+    Math.min(75, Math.max(25, (homePower.midfield / (totalMid || 1)) * 100 + getRandomInt(-4, 6)))
+  )
+  const awayPossession = 100 - homePossession
 
-  // Kickoff event
   events.push({
-    minute: 1,
+    minute: 0,
     type: "whistle",
-    text: `🔔 Суддя дає свисток про початок матчу! На полі зустрічаються ${homeClub.name} та ${awayClub.name}.`,
+    text: `🔔 Свисток арбітра! Матч розпочався: ${homeClub.name} приймає ${awayClub.name}. Поле в чудовому стані!`,
     team: "home",
     is_home: true,
     home_score_at_time: 0,
     away_score_at_time: 0
   })
 
-  // Timeline events distribution (approx 12-18 checkpoints across 90 mins)
-  const eventMinutes = [6, 14, 21, 28, 35, 42, 45, 52, 59, 67, 74, 81, 88, 90]
+  // 14 Key simulation minute checkpoints
+  const simMinutes = [7, 14, 22, 29, 36, 43, 45, 53, 61, 68, 75, 82, 88, 90]
 
-  for (const minute of eventMinutes) {
-    if (minute === 45) {
-      events.push({
-        minute: 45,
-        type: "whistle",
-        text: `⏱️ Перерва! Перший тайм завершено. Рахунок: ${homeClub.name} ${homeScore}:${awayScore} ${awayClub.name}.`,
-        team: "home",
-        is_home: true,
-        home_score_at_time: homeScore,
-        away_score_at_time: awayScore
-      })
-      continue
+  const homeStarters = homePlayers.filter((p) => p.is_starter && p.pitch_slot > 0)
+  const awayStarters = awayPlayers.filter((p) => p.is_starter && p.pitch_slot > 0)
+
+  const getRandomPlayer = (list: FMPlayer[], category?: "GK" | "DEF" | "MID" | "FWD") => {
+    if (list.length === 0) return null
+    if (category) {
+      const filtered = list.filter((p) => getPositionCategory(p.position) === category)
+      if (filtered.length > 0) return filtered[getRandomInt(0, filtered.length - 1)]
+    }
+    return list[getRandomInt(0, list.length - 1)]
+  }
+
+  for (const minute of simMinutes) {
+    const isHomeAttack = Math.random() * 100 < homePossession
+
+    if (isHomeAttack) {
+      // Home team creates opportunity
+      homeShots++
+      const attackAdvantage = (homePower.attack - awayPower.defense) / 100
+      const shotXg = Math.min(0.85, Math.max(0.08, 0.22 + attackAdvantage * 0.25 + (Math.random() * 0.2 - 0.1)))
+      homeXg += Number(shotXg.toFixed(2))
+
+      const shooter = getRandomPlayer(homeStarters, "FWD") || getRandomPlayer(homeStarters, "MID") || getRandomPlayer(homeStarters)
+      const passer = getRandomPlayer(homeStarters, "MID") || getRandomPlayer(homeStarters)
+      const awayGk = getRandomPlayer(awayStarters, "GK")
+
+      // Check special abilities trigger
+      const hasPlaymaker = passer?.special_abilities?.includes("playmaker")
+      const hasLongShot = shooter?.special_abilities?.includes("long_shot")
+      const hasOneOnOne = shooter?.special_abilities?.includes("one_on_one")
+      const hasGkReaction = awayGk?.special_abilities?.includes("gk_reaction")
+
+      const isGoal = Math.random() < shotXg * 0.75 + (hasPlaymaker || hasLongShot || hasOneOnOne ? 0.12 : 0) - (hasGkReaction ? 0.08 : 0)
+
+      if (isGoal) {
+        homeScore++
+        homeShotsOnTarget++
+        let commentary = `⚽ ГОООЛ! [${homeClub.name}] ${shooter?.name || "Нападник"} вражає ворота!`
+        if (hasPlaymaker && passer) {
+          commentary = `✨ [${homeClub.name}] 🪄 ${passer.name} активує 'Розігруючий' і видає шедевральний пас — ⚽ ${shooter?.name} в один дотик забиває ГОЛ!`
+        } else if (hasLongShot) {
+          commentary = `🚀 [${homeClub.name}] 🎯 ${shooter?.name} запускає гармату з-за меж штрафного (спецуміння 'Далекий удар') — м'яч у самій дев'ятці! ГОЛ!`
+        } else if (hasOneOnOne) {
+          commentary = `🔥 [${homeClub.name}] ⚡ ${shooter?.name} завдяки навичці 'Один-на-один' холоднокровно переграє голкіпера! ГОЛ!`
+        }
+
+        events.push({
+          minute,
+          type: "goal",
+          text: commentary,
+          team: "home",
+          player_name: shooter?.name,
+          assist_player_name: passer?.name,
+          is_home: true,
+          home_score_at_time: homeScore,
+          away_score_at_time: awayScore
+        })
+      } else if (Math.random() < 0.55) {
+        homeShotsOnTarget++
+        const saveComment = hasGkReaction && awayGk
+          ? `🧤 Фантастичний сейв! Голкіпер ${awayGk.name} завдяки 'Рефлексам' тягне м'яч з під поперечини після удару ${shooter?.name}!`
+          : `🧤 Сейв! Воротар ${awayGk?.name || "гостей"} відбиває небезпечний удар ${shooter?.name} на кутовий.`
+        homeCorners++
+        events.push({
+          minute,
+          type: "save",
+          text: saveComment,
+          team: "away",
+          player_name: awayGk?.name,
+          is_home: false
+        })
+      } else {
+        events.push({
+          minute,
+          type: "shot_miss",
+          text: `💨 ${shooter?.name || "Гравець"} пробиває вище поперечини після розіграшу позиційної атаки.`,
+          team: "home",
+          is_home: true
+        })
+      }
+    } else {
+      // Away team creates opportunity
+      awayShots++
+      const attackAdvantage = (awayPower.attack - homePower.defense) / 100
+      const shotXg = Math.min(0.85, Math.max(0.08, 0.22 + attackAdvantage * 0.25 + (Math.random() * 0.2 - 0.1)))
+      awayXg += Number(shotXg.toFixed(2))
+
+      const shooter = getRandomPlayer(awayStarters, "FWD") || getRandomPlayer(awayStarters, "MID") || getRandomPlayer(awayStarters)
+      const passer = getRandomPlayer(awayStarters, "MID") || getRandomPlayer(awayStarters)
+      const homeGk = getRandomPlayer(homeStarters, "GK")
+
+      const hasGkReaction = homeGk?.special_abilities?.includes("gk_reaction")
+      const isGoal = Math.random() < shotXg * 0.75 - (hasGkReaction ? 0.08 : 0)
+
+      if (isGoal) {
+        awayScore++
+        awayShotsOnTarget++
+        events.push({
+          minute,
+          type: "goal",
+          text: `⚽ Гол суперника! [${awayClub.name}] ${shooter?.name || "Нападник"} замикає простріл у ворота.`,
+          team: "away",
+          player_name: shooter?.name,
+          assist_player_name: passer?.name,
+          is_home: false,
+          home_score_at_time: homeScore,
+          away_score_at_time: awayScore
+        })
+      } else if (Math.random() < 0.55) {
+        awayShotsOnTarget++
+        awayCorners++
+        events.push({
+          minute,
+          type: "save",
+          text: `🧤 Наш голкіпер ${homeGk?.name || "воротар"} рятує команду від пропущеного м'яча!`,
+          team: "home",
+          player_name: homeGk?.name,
+          is_home: true
+        })
+      } else {
+        events.push({
+          minute,
+          type: "shot_miss",
+          text: `⚠️ [${awayClub.name}] Удар повз ворота після небезпечної контратаки.`,
+          team: "away",
+          is_home: false
+        })
+      }
     }
 
-    // Determine which team creates the action
-    const isHomeAction = Math.random() * 100 < homePossession
-    const attackingTeam = isHomeAction ? homeClub.name : awayClub.name
-    const defendingTeam = isHomeAction ? awayClub.name : homeClub.name
-    const attackers = isHomeAction ? homeStarters : awayStarters
-    const defenders = isHomeAction ? awayStarters : homeStarters
-    const attPower = isHomeAction ? homePower.attack : awayPower.attack
-    const defPower = isHomeAction ? awayPower.defense : homePower.defense
-    const gkPower = isHomeAction ? awayPower.goalkeeper : homePower.goalkeeper
-
-    const attacker = attackers.length > 0 ? attackers[Math.floor(Math.random() * attackers.length)] : null
-    const assistMan = attackers.length > 1 ? attackers.filter((p) => p.name !== attacker?.name)[Math.floor(Math.random() * (attackers.length - 1))] : null
-    const defender = defenders.length > 0 ? defenders[Math.floor(Math.random() * defenders.length)] : null
-    const keeper = defenders.find((p) => p.position === "GK") || defenders[0]
-
-    const roll = Math.random() * 100
-
-    if (roll < 40) {
-      // Dangerous shot / Goal chance
-      if (isHomeAction) {
-        homeShots++
-        homeXg += 0.15 + (attPower > defPower ? 0.15 : 0)
-      } else {
-        awayShots++
-        awayXg += 0.15 + (attPower > defPower ? 0.15 : 0)
-      }
-
-      // Shot accuracy check
-      const onTarget = Math.random() * 100 < 55 + (attPower - defPower) * 0.3
-      if (onTarget) {
-        if (isHomeAction) homeShotsOnTarget++
-        else awayShotsOnTarget++
-
-        // Goal check vs GK
-        const goalProbability = 35 + (attPower - gkPower) * 0.5
-        const isGoal = Math.random() * 100 < goalProbability
-
-        if (isGoal && attacker) {
-          if (isHomeAction) homeScore++
-          else awayScore++
-
-          // Update player stats
-          const pList = isHomeAction ? clonedHomePlayers : clonedAwayPlayers
-          const pMatch = pList.find((p) => p.name === attacker.name)
-          if (pMatch) pMatch.goals++
-          if (assistMan) {
-            const aMatch = pList.find((p) => p.name === assistMan.name)
-            if (aMatch) aMatch.assists++
-          }
-
-          const commentary = [
-            `⚽ ГООООЛ! ${attacker.name} фантастичним гарматним ударом прошиває сітку воріт! (Асист: ${assistMan ? assistMan.name : "індивідуальний прохід"})`,
-            `⚽ ГООООЛ! Філігранна комбінація ${attackingTeam}! ${attacker.name} замикає простріл у дотик!`,
-            `⚽ ГООООЛ! ${attacker.name} виграє верхову дуель після навісу та відправляє м'яч під поперечину!`,
-            `⚽ ГООООЛ! Помилка захисту ${defendingTeam}, яку блискавично карає ${attacker.name}!`
-          ]
-          const chosenText = commentary[Math.floor(Math.random() * commentary.length)]
-
+    // Occasional foul/card
+    if (Math.random() < 0.28) {
+      const isHomeFoul = Math.random() > 0.5
+      if (isHomeFoul) {
+        homeFouls++
+        const fouler = getRandomPlayer(homeStarters, "DEF") || getRandomPlayer(homeStarters)
+        if (Math.random() < 0.35) {
+          homeYellows++
           events.push({
-            minute,
-            type: "goal",
-            text: `${minute}' ${chosenText}`,
-            team: isHomeAction ? "home" : "away",
-            player_name: attacker.name,
-            assist_player_name: assistMan?.name,
-            is_home: isHomeAction,
-            home_score_at_time: homeScore,
-            away_score_at_time: awayScore
-          })
-        } else {
-          // Goalkeeper Save
-          const saveCommentary = [
-            `🧤 Блискучий сейв! ${keeper ? keeper.name : "Воротар"} у неймовірному стрибку витягує м'яч із "дев'ятки" після удару ${attacker ? attacker.name : "нападника"}!`,
-            `🧤 Сейв! ${attacker ? attacker.name : "Гравець"} пробивав з близької відстані, але ${keeper ? keeper.name : "голкіпер"} рятує команду!`,
-            `🧤 Надійний воротар: ${keeper ? keeper.name : "Голкіпер"} фіксує м'яч після дальнього удару.`
-          ]
-          events.push({
-            minute,
-            type: "save",
-            text: `${minute}' ${saveCommentary[Math.floor(Math.random() * saveCommentary.length)]}`,
-            team: isHomeAction ? "home" : "away",
-            player_name: attacker?.name,
-            is_home: isHomeAction,
-            home_score_at_time: homeScore,
-            away_score_at_time: awayScore
+            minute: Math.min(89, minute + 1),
+            type: "yellow_card",
+            text: `🟨 Жовта картка: ${fouler?.name || "Гравець"} попереджений за грубий підкат.`,
+            team: "home",
+            player_name: fouler?.name,
+            is_home: true
           })
         }
       } else {
-        // Shot Miss / Corner
-        if (Math.random() > 0.5) {
-          if (isHomeAction) homeCorners++
-          else awayCorners++
+        awayFouls++
+        const fouler = getRandomPlayer(awayStarters, "DEF") || getRandomPlayer(awayStarters)
+        if (Math.random() < 0.35) {
+          awayYellows++
           events.push({
-            minute,
-            type: "chance",
-            text: `${minute}' Небезпечний рикошет після удару ${attacker ? attacker.name : "атаки"} — м'яч іде на кутовий.`,
-            team: isHomeAction ? "home" : "away",
-            player_name: attacker?.name,
-            is_home: isHomeAction,
-            home_score_at_time: homeScore,
-            away_score_at_time: awayScore
-          })
-        } else {
-          events.push({
-            minute,
-            type: "shot_miss",
-            text: `${minute}' ${attacker ? attacker.name : "Форвард"} вискочив на ударну позицію, але пробив поруч зі стійкою.`,
-            team: isHomeAction ? "home" : "away",
-            player_name: attacker?.name,
-            is_home: isHomeAction,
-            home_score_at_time: homeScore,
-            away_score_at_time: awayScore
+            minute: Math.min(89, minute + 1),
+            type: "yellow_card",
+            text: `🟨 Жовта картка суперника: ${fouler?.name || "Гравець"} порушив правила.`,
+            team: "away",
+            player_name: fouler?.name,
+            is_home: false
           })
         }
-      }
-    } else if (roll < 65) {
-      // Foul / Card check
-      if (isHomeAction) awayFouls++
-      else homeFouls++
-
-      const cardRoll = Math.random() * 100
-      if (cardRoll < 25 && defender) {
-        // Yellow card
-        if (isHomeAction) awayYellows++
-        else homeYellows++
-
-        const pList = isHomeAction ? clonedAwayPlayers : clonedHomePlayers
-        const pMatch = pList.find((p) => p.name === defender.name)
-        if (pMatch) pMatch.yellow_cards++
-
-        events.push({
-          minute,
-          type: "yellow_card",
-          text: `${minute}' 🟨 Жовта картка: ${defender.name} грубим підкатом зриває швидку атаку.`,
-          team: isHomeAction ? "away" : "home",
-          player_name: defender.name,
-          is_home: !isHomeAction,
-          home_score_at_time: homeScore,
-          away_score_at_time: awayScore
-        })
-      } else {
-        events.push({
-          minute,
-          type: "foul",
-          text: `${minute}' Фол у центрі поля: ${defender ? defender.name : "захисник"} порушує правила проти ${attacker ? attacker.name : "суперника"}.`,
-          team: isHomeAction ? "away" : "home",
-          is_home: !isHomeAction,
-          home_score_at_time: homeScore,
-          away_score_at_time: awayScore
-        })
       }
     }
   }
@@ -523,65 +741,41 @@ export function simulateFullMatch(
   events.push({
     minute: 90,
     type: "whistle",
-    text: `🏁 Фінальний свисток! Матч завершено. Підсумковий рахунок: ${homeClub.name} ${homeScore}:${awayScore} ${awayClub.name}.`,
+    text: `🏁 Фінальний свисток! Підсумок матчу: ${homeClub.name} ${homeScore}:${awayScore} ${awayClub.name}`,
     team: "home",
     is_home: true,
     home_score_at_time: homeScore,
     away_score_at_time: awayScore
   })
 
-  // Post-match player stamina & matches played update
-  const homeMedicalLevel = homeStadium?.medical_level || 1
-  const staminaDrain = Math.max(4, 12 - homeMedicalLevel)
-
-  clonedHomePlayers.forEach((p) => {
-    if (p.is_starter) {
-      p.matches_played++
-      p.stamina = Math.max(10, p.stamina - staminaDrain)
-      // Form & morale change based on result
-      if (homeScore > awayScore) {
-        p.morale = Math.min(100, p.morale + 5)
-        p.form = Math.min(100, p.form + 4)
-      } else if (homeScore < awayScore) {
-        p.morale = Math.max(40, p.morale - 4)
-        p.form = Math.max(40, p.form - 2)
-      }
-    } else {
-      // Bench players recover slightly
-      p.stamina = Math.min(100, p.stamina + 8)
-    }
-  })
-
-  clonedAwayPlayers.forEach((p) => {
-    if (p.is_starter) {
-      p.matches_played++
-      p.stamina = Math.max(10, p.stamina - 10)
-    }
-  })
-
-  // Stadium ticket revenue calculation
+  // Stadium Ticket Revenue
   const capacity = homeStadium?.capacity || 5000
-  const ticketPrice = homeStadium?.ticket_price || 15
-  const fanCount = homeClub.fans_count || 1500
-  const attendanceRate = Math.min(1, (fanCount * 1.5) / capacity + (homeClub.reputation / 300))
-  const attendance = Math.min(capacity, Math.round(capacity * Math.max(0.3, attendanceRate)))
-  const ticketRevenue = Math.round(attendance * ticketPrice)
+  const ticketPrice = homeStadium?.ticket_price || 20
+  const attendanceRate = 0.65 + (homeScore > awayScore ? 0.3 : 0.15)
+  const attendance = Math.round(capacity * Math.min(1.0, attendanceRate))
+  const ticketRevenue = attendance * ticketPrice
 
-  // Manager XP & match win bonuses
-  let managerXpEarned = 50
-  let bonusCash = 0
-  if (homeScore > awayScore) {
-    managerXpEarned = 150
-    bonusCash = 25000
-  } else if (homeScore === awayScore) {
-    managerXpEarned = 80
-    bonusCash = 10000
-  } else {
-    managerXpEarned = 35
-    bonusCash = 3000
-  }
+  // Win/Loss XP & Bonus Money
+  const isWin = homeScore > awayScore
+  const isDraw = homeScore === awayScore
 
-  const totalHomeRevenue = ticketRevenue + bonusCash
+  const baseReward = isWin ? 35000 : isDraw ? 15000 : 5000
+  const totalRevenue = ticketRevenue + baseReward
+  const managerXpReward = isWin ? 150 : isDraw ? 75 : 35
+
+  // Calculate stamina / energy drain and player XP gains
+  const playerFatigueDrained = homeStarters.map((p) => {
+    const drain = getRandomInt(12, 20) // -12% to -20% energy
+    const currentEnergy = p.energy ?? p.stamina ?? 100
+    const newEnergy = Math.max(10, currentEnergy - drain)
+    const xpGained = (isWin ? 35 : isDraw ? 20 : 12) + (p.goals > 0 ? 15 : 0)
+
+    return {
+      id: p.id,
+      newEnergy,
+      xpGained
+    }
+  })
 
   const stats: FMMatchStats = {
     home_possession: homePossession,
@@ -590,8 +784,8 @@ export function simulateFullMatch(
     away_shots: awayShots,
     home_shots_on_target: homeShotsOnTarget,
     away_shots_on_target: awayShotsOnTarget,
-    home_xg: parseFloat(homeXg.toFixed(2)),
-    away_xg: parseFloat(awayXg.toFixed(2)),
+    home_xg: Number(homeXg.toFixed(2)),
+    away_xg: Number(awayXg.toFixed(2)),
     home_fouls: homeFouls,
     away_fouls: awayFouls,
     home_corners: homeCorners,
@@ -611,145 +805,239 @@ export function simulateFullMatch(
     away_score: awayScore,
     is_played: true,
     match_type: matchType,
-    league_id: homeClub.league_id,
+    tournament_id: tournamentId,
     events_log: events,
     stats,
-    revenue: totalHomeRevenue,
-    xp_reward: managerXpEarned,
-    created_at: new Date().toISOString(),
+    revenue: totalRevenue,
+    xp_reward: managerXpReward,
     played_at: new Date().toISOString()
   }
 
   return {
     match,
-    updatedHomePlayers: clonedHomePlayers,
-    updatedAwayPlayers: clonedAwayPlayers,
-    homeRevenue: totalHomeRevenue,
-    managerXpEarned
+    homePower,
+    awayPower,
+    playerFatigueDrained
   }
 }
 
-// -------------------------------------------------------------
-// 6. YOUTH ACADEMY PROSPECTS GENERATOR
-// -------------------------------------------------------------
-export function generateYouthProspect(clubId: number, academyLevel = 1): Omit<FMYouthProspect, "id"> {
-  const positions: PlayerPosition[] = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "ST", "LW", "RW"]
-  const pos = positions[Math.floor(Math.random() * positions.length)]
-  const isGK = pos === "GK"
-  const age = getRandomInt(15, 17)
+// ==========================================
+// 7. TOURNAMENT GENERATOR (8-TEAM BRACKET)
+// ==========================================
 
-  const minRating = 52 + academyLevel * 2
-  const maxRating = 64 + academyLevel * 3
-  const rating = getRandomInt(minRating, maxRating)
+export function generateTournamentBracket(
+  userClub: { id: number; name: string; badge?: string; color?: string },
+  botClubs: { id: number; name: string; badge?: string; color?: string }[]
+): FMTournamentBracket {
+  const selectedBots = [...botClubs].sort(() => Math.random() - 0.5).slice(0, 7)
 
-  const minPotential = 72 + academyLevel * 3
-  const maxPotential = Math.min(95, 82 + academyLevel * 3)
-  const potential = getRandomInt(minPotential, maxPotential)
+  const teams = [userClub, ...selectedBots]
 
-  const pace = isGK ? getRandomInt(35, 55) : getRandomInt(65, 88)
-  const shooting = isGK ? getRandomInt(15, 25) : (pos === "ST" ? getRandomInt(60, 78) : getRandomInt(45, 68))
-  const passing = isGK ? getRandomInt(45, 65) : getRandomInt(55, 75)
-  const dribbling = isGK ? getRandomInt(20, 40) : getRandomInt(60, 78)
-  const defending = isGK ? getRandomInt(20, 40) : (pos.includes("B") ? getRandomInt(60, 76) : getRandomInt(40, 60))
-  const physical = getRandomInt(55, 75)
-  const goalkeeping = isGK ? rating : getRandomInt(10, 20)
+  const quarter_finals: FMTournamentMatch[] = [
+    {
+      home_club_id: teams[0].id,
+      home_club_name: teams[0].name,
+      home_club_badge: teams[0].badge || "shield",
+      home_club_color: teams[0].color || "#0F5E10",
+      away_club_id: teams[1].id,
+      away_club_name: teams[1].name,
+      away_club_badge: teams[1].badge || "trophy",
+      away_club_color: teams[1].color || "#1E40AF",
+      is_played: false
+    },
+    {
+      home_club_id: teams[2].id,
+      home_club_name: teams[2].name,
+      home_club_badge: teams[2].badge || "crown",
+      home_club_color: teams[2].color || "#DC2626",
+      away_club_id: teams[3].id,
+      away_club_name: teams[3].name,
+      away_club_badge: teams[3].badge || "star",
+      away_club_color: teams[3].color || "#7C3AED",
+      is_played: false
+    },
+    {
+      home_club_id: teams[4].id,
+      home_club_name: teams[4].name,
+      home_club_badge: teams[4].badge || "anchor",
+      home_club_color: teams[4].color || "#0284C7",
+      away_club_id: teams[5].id,
+      away_club_name: teams[5].name,
+      away_club_badge: teams[5].badge || "flag",
+      away_club_color: teams[5].color || "#16A34A",
+      is_played: false
+    },
+    {
+      home_club_id: teams[6].id,
+      home_club_name: teams[6].name,
+      home_club_badge: teams[6].badge || "award",
+      home_club_color: teams[6].color || "#EA580C",
+      away_club_id: teams[7].id,
+      away_club_name: teams[7].name,
+      away_club_badge: teams[7].badge || "shield",
+      away_club_color: teams[7].color || "#4B5563",
+      is_played: false
+    }
+  ]
 
   return {
+    quarter_finals,
+    semi_finals: [],
+    final: {
+      home_club_id: 0,
+      home_club_name: "Переможець ПФ 1",
+      away_club_id: 0,
+      away_club_name: "Переможець ПФ 2",
+      is_played: false
+    }
+  }
+}
+
+// ==========================================
+// 8. 11x11 FOOTBALL CITY BUILDINGS INFO
+// ==========================================
+
+export interface CityBuildingInfo {
+  id: string
+  name: string
+  level: number
+  maxLevel: number
+  icon: string
+  color: string
+  description: string
+  benefitText: string
+  nextUpgradeCost: number
+}
+
+export function getCityBuildings(stadium: FMStadium | null): CityBuildingInfo[] {
+  const s = stadium || ({} as FMStadium)
+
+  const capacity = s.capacity || 5000
+  const pitchLvl = s.pitch_level || 1
+  const baseLvl = s.base_level || 1
+  const fitLvl = s.fitness_level || 1
+  const medLvl = s.medical_level || 1
+  const youthLvl = s.youth_academy_level || 1
+  const officeLvl = s.office_level || 1
+  const commLvl = s.commercial_level || 1
+
+  return [
+    {
+      id: "stadium",
+      name: "Головний Стадіон",
+      level: Math.floor(capacity / 5000),
+      maxLevel: 10,
+      icon: "🏟️",
+      color: "from-emerald-600 to-teal-700",
+      description: "Місткість глядацьких трибун. Збільшує дохід від продажу квитків на домашні матчі.",
+      benefitText: `Поточна місткість: ${capacity.toLocaleString()} глядачів`,
+      nextUpgradeCost: (Math.floor(capacity / 5000) + 1) * 35000
+    },
+    {
+      id: "base",
+      name: "Клубна База",
+      level: baseLvl,
+      maxLevel: 5,
+      icon: "🏰",
+      color: "from-blue-600 to-indigo-700",
+      description: "Серце клубу. Визначає максимальний розмір складу та ліміт рівнів усіх інших споруд.",
+      benefitText: `Макс. гравців: ${16 + baseLvl * 2}, ліміт будівель: рівень ${baseLvl + 1}`,
+      nextUpgradeCost: (baseLvl + 1) * 45000
+    },
+    {
+      id: "fitness",
+      name: "Фітнес-Центр",
+      level: fitLvl,
+      maxLevel: 5,
+      icon: "🏋️",
+      color: "from-amber-600 to-orange-700",
+      description: "Тренажерні зали та СПА. Прискорює природне відновлення енергії (фізичної форми) гравців.",
+      benefitText: `Відновлення сил: +${fitLvl * 15}% швидше між турнірами`,
+      nextUpgradeCost: (fitLvl + 1) * 30000
+    },
+    {
+      id: "medical",
+      name: "Медичний Центр",
+      level: medLvl,
+      maxLevel: 5,
+      icon: "🏥",
+      color: "from-rose-600 to-red-700",
+      description: "Сучасна спортивна клініка. Знижує ризик отримання травм у матчах та пришвидшує лікування.",
+      benefitText: `Захист від травм: -${medLvl * 18}%, швидке лікування`,
+      nextUpgradeCost: (medLvl + 1) * 25000
+    },
+    {
+      id: "youth",
+      name: "Школа Юніорів",
+      level: youthLvl,
+      maxLevel: 5,
+      icon: "🎓",
+      color: "from-purple-600 to-pink-700",
+      description: "Академія виховання молодих талантів. Дозволяє скаутувати гравців із 4-6 зірками таланту.",
+      benefitText: `Талант випускників: до ${Math.min(6, youthLvl + 2)} ⭐ зірок`,
+      nextUpgradeCost: (youthLvl + 1) * 40000
+    },
+    {
+      id: "office",
+      name: "Офіс Клубу",
+      level: officeLvl,
+      maxLevel: 5,
+      icon: "💼",
+      color: "from-cyan-600 to-blue-700",
+      description: "Адміністративний центр. Відкриває додаткові слоти для найму спеціалізованого персоналу.",
+      benefitText: `Доступно слотів персоналу: ${officeLvl} із 4`,
+      nextUpgradeCost: (officeLvl + 1) * 32000
+    },
+    {
+      id: "commercial",
+      name: "Торговий Центр",
+      level: commLvl,
+      maxLevel: 5,
+      icon: "🛍️",
+      color: "from-yellow-600 to-amber-700",
+      description: "Фан-шопи та продаж клубної атрибутики. Генерує щоденний пасивний дохід у скарбницю клубу.",
+      benefitText: `Пасивний дохід: +${commLvl * 7500} ₴ за турнір`,
+      nextUpgradeCost: (commLvl + 1) * 28000
+    }
+  ]
+}
+
+// ==========================================
+// 9. YOUTH PROSPECT GENERATOR (11x11 STYLE)
+// ==========================================
+
+export function generateYouthProspect(clubId: number, academyLevel: number = 1): FMYouthProspect {
+  const positions: PlayerPosition[] = ["GK", "LD", "CD", "RD", "LM", "CM", "RM", "LF", "CF", "RF"]
+  const pos = positions[getRandomInt(0, positions.length - 1)]
+  const age = getRandomInt(15, 17)
+
+  // Talent scale with academy level
+  const minTalent = Math.min(5, Math.max(1, academyLevel))
+  const maxTalent = Math.min(6, academyLevel + 1)
+  const talent = getRandomInt(minTalent, maxTalent)
+
+  const skill = getRandomInt(100 + academyLevel * 15, 180 + academyLevel * 20)
+
+  const special_abilities: SpecialAbilityId[] = []
+  if (talent >= 4 && Math.random() > 0.45) {
+    if (pos === "GK") special_abilities.push("gk_reaction")
+    else if (getPositionCategory(pos) === "DEF") special_abilities.push("tackling")
+    else if (getPositionCategory(pos) === "MID") special_abilities.push("pass")
+    else special_abilities.push("one_on_one")
+  }
+
+  const signingCost = Math.round(skill * talent * 120)
+
+  return {
+    id: Date.now() + getRandomInt(1, 9999),
     club_id: clubId,
     name: generateRandomName(),
     age,
     position: pos,
-    potential,
-    rating,
-    attributes: {
-      pace,
-      shooting,
-      passing,
-      dribbling,
-      defending,
-      physical,
-      goalkeeping
-    },
-    scouted_at: new Date().toISOString(),
+    skill,
+    talent,
+    special_abilities,
+    signing_cost: signingCost,
     is_signed: false
   }
-}
-
-// -------------------------------------------------------------
-// 7. STADIUM & INFRASTRUCTURE UPGRADE CALCULATOR
-// -------------------------------------------------------------
-export interface FacilityInfo {
-  name: string
-  key: keyof FMStadium
-  description: string
-  currentLevel: number
-  maxLevel: number
-  upgradeCost: number
-  benefitText: string
-  icon: string
-}
-
-export function getFacilityDetails(stadium: FMStadium): FacilityInfo[] {
-  return [
-    {
-      name: "Місткість Трибун",
-      key: "capacity",
-      description: "Розширення стадіону збільшує кількість відвідувачів та дохід від продажу квитків на домашні матчі.",
-      currentLevel: Math.round(stadium.capacity / 2500),
-      maxLevel: 10,
-      upgradeCost: (Math.round(stadium.capacity / 2500) + 1) * 75000,
-      benefitText: `Поточна місткість: ${stadium.capacity.toLocaleString()} глядачів (+2,500 місць за рівень)`,
-      icon: "building"
-    },
-    {
-      name: "Якість Газону",
-      key: "pitch_level",
-      description: "Ідеальне поле знижує ризик травмування гравців та підвищує точність передач.",
-      currentLevel: stadium.pitch_level || 1,
-      maxLevel: 5,
-      upgradeCost: (stadium.pitch_level + 1) * 45000,
-      benefitText: `Рівень ${stadium.pitch_level}/5 (-${stadium.pitch_level * 15}% ризик травм)`,
-      icon: "sparkles"
-    },
-    {
-      name: "Тренувальна База",
-      key: "training_level",
-      description: "Сучасні тренажери та поля прискорюють прогрес гравців та зростання характеристик.",
-      currentLevel: stadium.training_level || 1,
-      maxLevel: 5,
-      upgradeCost: (stadium.training_level + 1) * 60000,
-      benefitText: `Рівень ${stadium.training_level}/5 (+${stadium.training_level * 20}% досвіду на тренуваннях)`,
-      icon: "dumbbell"
-    },
-    {
-      name: "Медичний Центр",
-      key: "medical_level",
-      description: "Кваліфіковані лікарі та відновлювальні процедури швидше відновлюють витривалість між матчами.",
-      currentLevel: stadium.medical_level || 1,
-      maxLevel: 5,
-      upgradeCost: (stadium.medical_level + 1) * 50000,
-      benefitText: `Рівень ${stadium.medical_level}/5 (+${stadium.medical_level * 25}% швидкість регенерації сил)`,
-      icon: "heart-pulse"
-    },
-    {
-      name: "Академія Молоді",
-      key: "youth_academy_level",
-      description: "Скаути та дитячі тренери приводять у клуб перспективних вихованців із вищим потенціалом.",
-      currentLevel: stadium.youth_academy_level || 1,
-      maxLevel: 5,
-      upgradeCost: (stadium.youth_academy_level + 1) * 80000,
-      benefitText: `Рівень ${stadium.youth_academy_level}/5 (Шанс знайти зірку з потенціалом 90+)`,
-      icon: "graduation-cap"
-    },
-    {
-      name: "Маркетинг & Фан-Шоп",
-      key: "marketing_level",
-      description: "Робота з вболівальниками та реклама збільшують армію фанатів та спонсорські виплати.",
-      currentLevel: stadium.marketing_level || 1,
-      maxLevel: 5,
-      upgradeCost: (stadium.marketing_level + 1) * 55000,
-      benefitText: `Рівень ${stadium.marketing_level}/5 (+${stadium.marketing_level * 500} нових фанатів щотижня)`,
-      icon: "store"
-    }
-  ]
 }

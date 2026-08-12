@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   FMUser,
   FMClub,
@@ -20,7 +20,7 @@ import { fmAudio } from "@/lib/fm-audio"
 import { FMOnboarding } from "./fm-onboarding"
 import { FMDashboard } from "./fm-dashboard"
 import { FMSquadTactics } from "./fm-squad-tactics"
-import { FMMatchCenter } from "./fm-match-center"
+import { FMTournamentsView } from "./fm-tournaments"
 import { FMTraining } from "./fm-training"
 import { FMStadiumInfrastructure } from "./fm-stadium"
 import { FMTransferMarket } from "./fm-transfers"
@@ -30,20 +30,19 @@ import {
   Shield,
   LayoutDashboard,
   SlidersHorizontal,
-  PlayCircle,
+  Trophy,
   Dumbbell,
   Building2,
   ShoppingBag,
   GraduationCap,
-  Trophy,
   Volume2,
   VolumeX,
   Maximize2,
   Minimize2,
   LogOut,
   Sparkles,
-  DollarSign,
-  Award
+  Award,
+  Zap
 } from "lucide-react"
 
 export function FMHub() {
@@ -52,55 +51,92 @@ export function FMHub() {
   const [players, setPlayers] = useState<FMPlayer[]>([])
   const [tactics, setTactics] = useState<FMTactics | null>(null)
   const [stadium, setStadium] = useState<FMStadium | null>(null)
-  const [activeTab, setActiveTab] = useState<string>("dashboard")
+  const [loading, setLoading] = useState(true)
 
-  const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "squad" | "tournaments" | "training" | "city" | "transfers" | "youth" | "league"
+  >("dashboard")
+
   const [isMuted, setIsMuted] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Initialize session and club data
-  const loadClubData = async (user: FMUser) => {
-    setIsLoading(true)
+  // Fullscreen event listener to sync state with native browser Esc / F11
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!document.fullscreenElement
+      setIsFullScreen(isCurrentlyFullscreen)
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    }
+  }, [])
+
+  // Initialize session
+  useEffect(() => {
+    const stored = fmGetStoredUser()
+    if (stored) {
+      setCurrentUser(stored)
+      loadClubData(stored.id)
+    } else {
+      setLoading(false)
+    }
+  }, [])
+
+  const loadClubData = async (userId: number) => {
+    setLoading(true)
     try {
-      const userClub = await fmGetClubByUserId(user.id)
+      const userClub = await fmGetClubByUserId(userId)
       if (userClub) {
         setClub(userClub)
-        const [clubPlayers, clubTactics, clubStadium] = await Promise.all([
+        const [pList, tData, sData] = await Promise.all([
           fmGetClubPlayers(userClub.id),
           fmGetTactics(userClub.id),
           fmGetStadium(userClub.id)
         ])
-        setPlayers(clubPlayers)
-        setTactics(clubTactics)
-        setStadium(clubStadium)
-      } else {
-        setClub(null)
+        setPlayers(pList)
+        setTactics(tData)
+        setStadium(sData)
       }
     } catch (err) {
-      console.error("Error loading FM club data:", err)
+      console.error("Error loading club data:", err)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  useEffect(() => {
-    const stored = fmGetStoredUser()
-    setIsMuted(fmAudio.isMuted)
-    if (stored) {
-      setCurrentUser(stored)
-      loadClubData(stored)
-    } else {
-      setIsLoading(false)
-    }
-  }, [])
+  const handleSoundToggle = () => {
+    const newMuted = fmAudio.toggleMute()
+    setIsMuted(newMuted)
+    if (!newMuted) fmAudio.playClick()
+  }
 
-  const handleOnboardingSuccess = (user: FMUser, newClub: FMClub, initialPlayers?: FMPlayer[]) => {
-    setCurrentUser(user)
-    setClub(newClub)
-    if (initialPlayers) {
-      setPlayers(initialPlayers)
+  // Native HTML5 Fullscreen API Handler
+  const toggleFullScreen = async () => {
+    fmAudio.playClick()
+    try {
+      if (!document.fullscreenElement) {
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen()
+        } else if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen()
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+        }
+      }
+    } catch (err) {
+      console.warn("Native fullscreen toggle error, falling back to CSS overlay:", err)
+      setIsFullScreen(!isFullScreen)
     }
-    loadClubData(user)
+  }
+
+  const handleTabChange = (tab: any) => {
+    fmAudio.playClick()
+    setActiveTab(tab)
   }
 
   const handleLogout = () => {
@@ -109,157 +145,169 @@ export function FMHub() {
     setCurrentUser(null)
     setClub(null)
     setPlayers([])
+    setTactics(null)
+    setStadium(null)
   }
 
-  const handleToggleMute = () => {
-    const next = fmAudio.toggleMute()
-    setIsMuted(next)
-  }
-
-  // If loading session
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="w-full py-16 flex flex-col items-center justify-center space-y-3 text-white">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 flex items-center justify-center animate-spin">
-          <Shield className="h-6 w-6" />
-        </div>
-        <div className="text-xs font-bold text-slate-400">Завантаження KSLIGA Football Manager...</div>
+      <div className="flex flex-col items-center justify-center min-h-[500px] space-y-4 text-emerald-400">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium tracking-wide text-slate-300">
+          Завантаження клубу KSLIGA FM (11x11)...
+        </p>
       </div>
     )
   }
 
-  // If not logged in or no club created yet
-  if (!currentUser || !club || !tactics || !stadium) {
-    return <FMOnboarding onSuccess={handleOnboardingSuccess} />
+  // If no user or no club found, show Onboarding Wizard
+  if (!currentUser || !club) {
+    return (
+      <FMOnboarding
+        onComplete={(user, newClub) => {
+          setCurrentUser(user)
+          setClub(newClub)
+          loadClubData(user.id)
+        }}
+      />
+    )
   }
+
+  const navItems = [
+    { id: "dashboard", label: "Огляд", icon: LayoutDashboard },
+    { id: "squad", label: "Склад & Поле", icon: SlidersHorizontal },
+    { id: "tournaments", label: "Кубки 11x11", icon: Trophy, badge: "ТОП" },
+    { id: "city", label: "Футбольне Місто", icon: Building2 },
+    { id: "training", label: "Тренування & СПА", icon: Dumbbell },
+    { id: "transfers", label: "Аукціон", icon: ShoppingBag },
+    { id: "youth", label: "Академія", icon: GraduationCap },
+    { id: "league", label: "Чемпіонат", icon: Award }
+  ]
 
   return (
     <div
+      ref={containerRef}
       className={`w-full transition-all duration-300 ${
         isFullScreen
-          ? "fixed inset-0 z-50 bg-slate-950/98 overflow-y-auto p-4 sm:p-6"
+          ? "fixed inset-0 z-[100] bg-slate-950 overflow-y-auto p-4 sm:p-6"
           : "space-y-6"
       }`}
     >
-      {/* ─── Top Master HUD Bar ─── */}
-      <div className="relative overflow-hidden rounded-3xl bg-slate-950/90 border border-emerald-950/80 shadow-2xl p-4 sm:p-5 text-white backdrop-blur-xl">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-          {/* Left: Club Crest, Name & Manager Level */}
-          <div className="flex items-center gap-3 min-w-0">
+      {/* TOP MASTER HUD BAR */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-4 sm:p-5 shadow-2xl backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Club Info & Crest */}
+          <div className="flex items-center gap-3.5">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border shrink-0"
+              className="w-13 h-13 rounded-2xl flex items-center justify-center shadow-lg border-2 border-emerald-400/40"
               style={{
-                background: `linear-gradient(135deg, ${club.primary_color}, ${club.secondary_color})`,
-                borderColor: club.secondary_color
+                background: `linear-gradient(135deg, ${club.primary_color}, ${club.secondary_color})`
               }}
             >
-              <Shield className="h-6 w-6 text-white drop-shadow" />
+              <Shield className="w-7 h-7 text-white drop-shadow-md" />
             </div>
-
-            <div className="min-w-0">
+            <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black text-white truncate">{club.name}</h2>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-400 shrink-0">
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow">
+                  {club.name}
+                </h2>
+                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                   Рівень {club.manager_level}
                 </span>
+                {(club.cups_won || 0) > 0 && (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    🏆 {club.cups_won}
+                  </span>
+                )}
               </div>
-              <div className="text-[11px] text-slate-400 font-medium truncate">
-                Менеджер: {currentUser.username} • {club.city}
-              </div>
+              <p className="text-xs text-slate-400 font-medium">
+                Тренер: <span className="text-slate-200 font-semibold">{currentUser.username}</span> | {club.city}
+              </p>
             </div>
           </div>
 
-          {/* Center/Right: Balance, Controls & Actions */}
-          <div className="flex items-center justify-between md:justify-end gap-3 flex-wrap">
-            {/* Club Balance Chip */}
-            <div className="p-2.5 px-3.5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 flex items-center gap-2 shadow-inner">
-              <DollarSign className="h-4 w-4 text-emerald-400" />
-              <div className="text-xs sm:text-sm font-black text-emerald-400">
+          {/* Wallet & HUD Actions */}
+          <div className="flex items-center gap-2.5 sm:gap-3 ml-auto">
+            {/* Club Balance */}
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/80 border border-emerald-500/40 shadow-inner">
+              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                Бюджет:
+              </span>
+              <span className="text-base sm:text-lg font-black text-emerald-300">
                 {club.balance.toLocaleString()} ₴
-              </div>
+              </span>
             </div>
 
-            {/* Audio Toggle */}
+            {/* Sound Toggle */}
             <button
-              type="button"
-              onClick={handleToggleMute}
+              onClick={handleSoundToggle}
               title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
-              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 border border-slate-800"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-emerald-400 transition-colors shadow-md"
             >
-              {isMuted ? <VolumeX className="h-4 w-4 text-red-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
+              {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5" />}
             </button>
 
-            {/* Fullscreen Toggle */}
+            {/* Native Fullscreen Button */}
             <button
-              type="button"
-              onClick={() => {
-                setIsFullScreen(!isFullScreen)
-                fmAudio.playClick()
-              }}
-              title={isFullScreen ? "Звичайний режим" : "Повноекранний режим менеджера"}
-              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 border border-slate-800"
+              onClick={toggleFullScreen}
+              title={isFullScreen ? "Вийти з повного екрану (Esc)" : "Повноекранний режим"}
+              className={`p-2.5 rounded-xl border transition-all shadow-md ${
+                isFullScreen
+                  ? "bg-emerald-600 text-white border-emerald-400 animate-pulse"
+                  : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300 hover:text-emerald-400"
+              }`}
             >
-              {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4 text-emerald-400" />}
+              {isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>
 
             {/* Logout */}
             <button
-              type="button"
               onClick={handleLogout}
-              title="Вийти з клубу"
-              className="p-2.5 rounded-xl bg-slate-900 hover:bg-red-950/60 text-slate-400 hover:text-red-400 transition-all active:scale-95 border border-slate-800"
+              title="Вийти з профілю"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500 text-slate-400 hover:text-rose-300 transition-colors shadow-md"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* NAVIGATION TABS */}
+        <div className="mt-5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-t border-slate-800/80 pt-3">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = activeTab === item.id
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                  isActive
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-950 border border-emerald-400/50 scale-[1.02]"
+                    : "bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-100 border border-slate-800/80"
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? "text-emerald-200" : "text-slate-400"}`} />
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-black uppercase rounded-md bg-amber-500 text-slate-950 animate-pulse">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* ─── Navigation Tabs Bar ─── */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 shadow-lg overflow-x-auto select-none">
-        {[
-          { id: "dashboard", label: "Огляд", icon: LayoutDashboard },
-          { id: "squad", label: "Склад & Тактика", icon: SlidersHorizontal },
-          { id: "matches", label: "Матч-Центр", icon: PlayCircle },
-          { id: "training", label: "Тренування", icon: Dumbbell },
-          { id: "stadium", label: "Стадіон", icon: Building2 },
-          { id: "transfers", label: "Трансфери", icon: ShoppingBag },
-          { id: "youth", label: "Академія", icon: GraduationCap },
-          { id: "league", label: "Ліга", icon: Trophy }
-        ].map((tab) => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setActiveTab(tab.id)
-                fmAudio.playClick()
-              }}
-              className={`flex-1 min-w-[100px] py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
-                isActive
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-950 scale-102"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
-              }`}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span>{tab.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ─── Active Tab Content ─── */}
-      <div className="animate-in fade-in duration-200">
+      {/* ACTIVE TAB CONTENT */}
+      <div className="w-full">
         {activeTab === "dashboard" && (
           <FMDashboard
             club={club}
             players={players}
             stadium={stadium}
-            tactics={tactics}
-            onNavigateTab={setActiveTab}
+            onNavigate={(tab) => handleTabChange(tab)}
           />
         )}
 
@@ -268,22 +316,25 @@ export function FMHub() {
             club={club}
             players={players}
             tactics={tactics}
-            onUpdateSquad={setPlayers}
-            onUpdateTactics={setTactics}
-            onUpdateClub={setClub}
+            onSquadUpdated={() => loadClubData(currentUser.id)}
           />
         )}
 
-        {activeTab === "matches" && (
-          <FMMatchCenter
-            userClub={club}
-            userPlayers={players}
-            userTactics={tactics}
-            userStadium={stadium}
-            onMatchFinished={(updatedClub, updatedPlayers) => {
-              setClub(updatedClub)
-              setPlayers(updatedPlayers)
-            }}
+        {activeTab === "tournaments" && (
+          <FMTournamentsView
+            club={club}
+            players={players}
+            tactics={tactics}
+            stadium={stadium}
+            onClubUpdated={() => loadClubData(currentUser.id)}
+          />
+        )}
+
+        {activeTab === "city" && (
+          <FMStadiumInfrastructure
+            club={club}
+            stadium={stadium}
+            onUpdated={() => loadClubData(currentUser.id)}
           />
         )}
 
@@ -292,24 +343,15 @@ export function FMHub() {
             club={club}
             players={players}
             stadium={stadium}
-            onSquadUpdated={setPlayers}
-          />
-        )}
-
-        {activeTab === "stadium" && (
-          <FMStadiumInfrastructure
-            club={club}
-            stadium={stadium}
-            onClubUpdated={setClub}
-            onStadiumUpdated={setStadium}
+            onSquadUpdated={() => loadClubData(currentUser.id)}
           />
         )}
 
         {activeTab === "transfers" && (
           <FMTransferMarket
             club={club}
-            onClubUpdated={setClub}
-            onSquadUpdated={setPlayers}
+            players={players}
+            onPurchased={() => loadClubData(currentUser.id)}
           />
         )}
 
@@ -317,11 +359,15 @@ export function FMHub() {
           <FMYouthAcademy
             club={club}
             stadium={stadium}
-            onSquadUpdated={setPlayers}
+            onSigned={() => loadClubData(currentUser.id)}
           />
         )}
 
-        {activeTab === "league" && <FMLeagueStandingsView userClub={club} />}
+        {activeTab === "league" && (
+          <FMLeagueStandingsView
+            club={club}
+          />
+        )}
       </div>
     </div>
   )

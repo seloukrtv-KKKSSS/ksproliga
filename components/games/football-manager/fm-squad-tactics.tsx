@@ -9,365 +9,317 @@ import {
   TeamMentality,
   PassingStyle,
   PressingIntensity,
-  TacklingAggression
+  TacklingAggression,
+  PlayerPosition
 } from "@/lib/fm-types"
-import { FORMATIONS_MAP, calculateTeamPower, PitchSlot } from "@/lib/fm-engine"
-import { fmSaveSquadSlots, fmSaveTactics, fmListPlayerOnMarket } from "@/lib/fm-database"
+import {
+  FORMATIONS_MAP,
+  PitchSlot,
+  calculateTeamPower,
+  getPositionSuitability,
+  SPECIAL_ABILITIES_MAP
+} from "@/lib/fm-engine"
+import {
+  fmSaveSquadSlots,
+  fmSaveTactics,
+  fmListPlayerOnMarket
+} from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import {
-  SlidersHorizontal,
   Shield,
   Zap,
-  Activity,
-  UserCheck,
-  Award,
-  ChevronRight,
-  TrendingUp,
-  Heart,
-  DollarSign,
-  AlertCircle,
+  Sliders,
+  Users,
+  Check,
+  Star,
+  AlertTriangle,
+  Sparkles,
+  ArrowUpDown,
   Tag,
-  Check
+  Info
 } from "lucide-react"
 
 interface FMSquadTacticsProps {
   club: FMClub
   players: FMPlayer[]
-  tactics: FMTactics
-  onUpdateSquad: (players: FMPlayer[]) => void
-  onUpdateTactics: (tactics: FMTactics) => void
-  onUpdateClub: (club: FMClub) => void
+  tactics: FMTactics | null
+  onSquadUpdated: () => void
 }
-
-const FORMATIONS: FormationType[] = ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2", "4-1-4-1", "3-4-3"]
 
 export function FMSquadTactics({
   club,
   players,
   tactics,
-  onUpdateSquad,
-  onUpdateTactics
+  onSquadUpdated
 }: FMSquadTacticsProps) {
-  const [currentFormation, setCurrentFormation] = useState<FormationType>(tactics.formation || "4-4-2")
-  const [mentality, setMentality] = useState<TeamMentality>(tactics.mentality || "balanced")
-  const [passingStyle, setPassingStyle] = useState<PassingStyle>(tactics.passing_style || "mixed")
-  const [pressing, setPressing] = useState<PressingIntensity>(tactics.pressing || "normal")
-  const [tackling, setTackling] = useState<TacklingAggression>(tactics.tackling || "normal")
+  const [selectedFormation, setSelectedFormation] = useState<FormationType>(
+    tactics?.formation || "4-4-2"
+  )
+  const [mentality, setMentality] = useState<TeamMentality>(
+    tactics?.mentality || "balanced"
+  )
+  const [passingStyle, setPassingStyle] = useState<PassingStyle>(
+    tactics?.passing_style || "mixed"
+  )
+  const [pressing, setPressing] = useState<PressingIntensity>(
+    tactics?.pressing || "normal"
+  )
+  const [tackling, setTackling] = useState<TacklingAggression>(
+    tactics?.tackling || "normal"
+  )
 
-  const [selectedSlot, setSelectedSlot] = useState<PitchSlot | null>(null)
-  const [inspectedPlayer, setInspectedPlayer] = useState<FMPlayer | null>(null)
-  const [transferPriceInput, setTransferPriceInput] = useState<number>(0)
-  const [transferSuccess, setTransferSuccess] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [activeSlot, setActiveSlot] = useState<number | null>(null)
+  const [inspectingPlayer, setInspectingPlayer] = useState<FMPlayer | null>(null)
+  const [transferPrice, setTransferPrice] = useState<string>("")
+  const [saving, setSaving] = useState(false)
+  const [notification, setNotification] = useState<string | null>(null)
 
-  const teamPower = calculateTeamPower(players, {
+  const formationSlots = FORMATIONS_MAP[selectedFormation] || FORMATIONS_MAP["4-4-2"]
+
+  const currentTacticsState: FMTactics = {
     club_id: club.id,
-    formation: currentFormation,
+    formation: selectedFormation,
     mentality,
     passing_style: passingStyle,
     pressing,
     tackling
-  })
-
-  const slots = FORMATIONS_MAP[currentFormation] || FORMATIONS_MAP["4-4-2"]
-
-  // Get player currently occupying a pitch slot
-  const getPlayerInSlot = (slotNumber: number): FMPlayer | undefined => {
-    return players.find((p) => p.is_starter && p.pitch_slot === slotNumber)
   }
 
-  // Substitutes and bench players
-  const benchPlayers = players.filter((p) => !p.is_starter)
+  const teamPower = calculateTeamPower(players, currentTacticsState)
 
-  // Handle slot assignment
-  const handleAssignPlayerToSlot = async (playerToAssign: FMPlayer, targetSlot: number) => {
-    fmAudio.playTacticalSwap()
-    const updated = [...players]
-
-    // If player was already in another slot, clear it
-    const currentPlayerInTarget = getPlayerInSlot(targetSlot)
-
-    // Remove playerToAssign from their previous spot
-    const assignTarget = updated.find((p) => p.id === playerToAssign.id)
-    if (assignTarget) {
-      assignTarget.is_starter = true
-      assignTarget.pitch_slot = targetSlot
-    }
-
-    // If there was a player in that slot, bench them
-    if (currentPlayerInTarget && currentPlayerInTarget.id !== playerToAssign.id) {
-      const benched = updated.find((p) => p.id === currentPlayerInTarget.id)
-      if (benched) {
-        benched.is_starter = false
-        benched.pitch_slot = 0
-      }
-    }
-
-    onUpdateSquad(updated)
-    setSelectedSlot(null)
-
-    // Persist slots to database
-    await fmSaveSquadSlots(
-      club.id,
-      updated.map((p) => ({ id: p.id, is_starter: p.is_starter, pitch_slot: p.pitch_slot }))
-    )
-  }
-
-  // Handle tactics change
-  const handleSaveTacticsChange = async (
-    newFormation = currentFormation,
-    newMentality = mentality,
-    newPassing = passingStyle,
-    newPressing = pressing,
-    newTackling = tackling
-  ) => {
-    setIsSaving(true)
-    const newTactics: FMTactics = {
-      club_id: club.id,
-      formation: newFormation,
-      mentality: newMentality,
-      passing_style: newPassing,
-      pressing: newPressing,
-      tackling: newTackling,
-      captain_player_id: tactics.captain_player_id
-    }
-    const saved = await fmSaveTactics(club.id, newTactics)
-    onUpdateTactics(saved)
-    setIsSaving(false)
+  const handleFormationChange = async (fmt: FormationType) => {
     fmAudio.playClick()
+    setSelectedFormation(fmt)
+    await fmSaveTactics(club.id, { ...currentTacticsState, formation: fmt })
+    onSquadUpdated()
   }
 
-  // Handle listing player for transfer
-  const handleListOnTransfer = async () => {
-    if (!inspectedPlayer || transferPriceInput <= 0) return
-    const success = await fmListPlayerOnMarket(inspectedPlayer, transferPriceInput)
-    if (success) {
+  const handleTacticsSave = async (updates: Partial<FMTactics>) => {
+    fmAudio.playClick()
+    await fmSaveTactics(club.id, { ...currentTacticsState, ...updates })
+    onSquadUpdated()
+  }
+
+  const handleAssignPlayerToSlot = async (player: FMPlayer, targetSlot: number) => {
+    fmAudio.playTacticalSwap()
+    setSaving(true)
+
+    const updatedAssignments = [...players].map((p) => {
+      if (p.id === player.id) {
+        return { playerId: p.id, isStarter: true, pitchSlot: targetSlot }
+      }
+      // If someone else occupied targetSlot, move them to bench
+      if (p.pitch_slot === targetSlot) {
+        return { playerId: p.id, isStarter: false, pitchSlot: 0 }
+      }
+      return { playerId: p.id, isStarter: p.is_starter, pitchSlot: p.pitch_slot }
+    })
+
+    await fmSaveSquadSlots(club.id, updatedAssignments)
+    setActiveSlot(null)
+    setSaving(false)
+    onSquadUpdated()
+  }
+
+  const handleListOnTransfer = async (player: FMPlayer) => {
+    fmAudio.playClick()
+    const buyout = parseInt(transferPrice) || Math.round(player.skill * (player.talent || 3) * 500)
+    const initialBid = Math.round(buyout * 0.7)
+
+    const ok = await fmListPlayerOnMarket(player.id, initialBid, buyout, club.id, club.name)
+    if (ok) {
       fmAudio.playCoins()
-      setTransferSuccess(true)
-      const updated = players.map((p) =>
-        p.id === inspectedPlayer.id ? { ...p, is_on_transfer: true, transfer_price: transferPriceInput } : p
-      )
-      onUpdateSquad(updated)
-      setTimeout(() => {
-        setTransferSuccess(false)
-        setInspectedPlayer(null)
-      }, 1500)
+      setNotification(`Футболіста ${player.name} виставлено на аукціон!`)
+      setInspectingPlayer(null)
+      onSquadUpdated()
     }
   }
+
+  const benchPlayers = players.filter((p) => !p.is_starter || p.pitch_slot === 0)
 
   return (
-    <div className="space-y-6 w-full max-w-5xl mx-auto pb-10 text-white">
-      {/* ─── Top Team Power HUD ─── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Сила команди</div>
-            <div className="text-xl font-black text-emerald-400">{teamPower.overall}</div>
-          </div>
-          <Award className="h-6 w-6 text-emerald-400/70" />
+    <div className="space-y-6">
+      {/* TEAM POWER HUD */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg">
+        <div className="col-span-2 sm:col-span-1 p-3 rounded-xl bg-slate-950 border border-emerald-500/40 text-center">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Сила Команди</span>
+          <span className="text-2xl font-black text-emerald-300">{teamPower.overall}</span>
         </div>
-
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Атака</div>
-            <div className="text-xl font-black text-amber-400">{teamPower.attack}</div>
-          </div>
-          <Zap className="h-6 w-6 text-amber-400/70" />
+        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Атака (АТК)</span>
+          <span className="text-xl font-black text-white">{teamPower.attack}</span>
         </div>
-
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Півзахист</div>
-            <div className="text-xl font-black text-blue-400">{teamPower.midfield}</div>
-          </div>
-          <Activity className="h-6 w-6 text-blue-400/70" />
+        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Півзахист (ПЗ)</span>
+          <span className="text-xl font-black text-white">{teamPower.midfield}</span>
         </div>
-
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Захист</div>
-            <div className="text-xl font-black text-emerald-400">{teamPower.defense}</div>
-          </div>
-          <Shield className="h-6 w-6 text-emerald-400/70" />
+        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Захист (ЗАХ)</span>
+          <span className="text-xl font-black text-white">{teamPower.defense}</span>
         </div>
-
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400">Воротар</div>
-            <div className="text-xl font-black text-teal-400">{teamPower.goalkeeper}</div>
-          </div>
-          <UserCheck className="h-6 w-6 text-teal-400/70" />
+        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Воротар (ВР)</span>
+          <span className="text-xl font-black text-white">{teamPower.goalkeeper}</span>
         </div>
       </div>
 
-      {/* ─── Formation & Tactical Pitch Area ─── */}
+      {notification && (
+        <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-bold text-center">
+          {notification}
+        </div>
+      )}
+
+      {/* MAIN PITCH & TACTICAL CONTROLS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: 2D Tactical Football Pitch (7 cols) */}
-        <div className="lg:col-span-7 space-y-3">
-          {/* Formation Selector Bar */}
-          <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-wider pl-2">Схема:</span>
-              <div className="flex flex-wrap gap-1">
-                {FORMATIONS.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => {
-                      setCurrentFormation(f)
-                      handleSaveTacticsChange(f)
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
-                      currentFormation === f
-                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-950 scale-105"
-                        : "bg-slate-800/80 text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* 2D TACTICAL PITCH (7 COLS) */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Formation Picker */}
+          <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+            <span className="text-xs font-bold text-slate-400 px-2">Схема:</span>
+            {(["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2", "4-1-4-1", "3-4-3"] as FormationType[]).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => handleFormationChange(fmt)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  selectedFormation === fmt
+                    ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950 scale-105"
+                    : "bg-slate-950 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                {fmt}
+              </button>
+            ))}
           </div>
 
-          {/* Authentic Tactical Pitch Canvas */}
-          <div className="relative w-full aspect-[3/4] max-h-[520px] rounded-3xl bg-gradient-to-b from-[#0e4b10] via-[#0b3c0c] to-[#072608] border-2 border-emerald-500/40 p-4 overflow-hidden shadow-2xl flex flex-col justify-between">
+          {/* 2D Pitch Canvas */}
+          <div className="relative aspect-[3/4] w-full rounded-2xl bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-950 border-4 border-emerald-950 shadow-2xl overflow-hidden p-4">
             {/* Pitch Markings */}
-            <div className="absolute inset-4 border border-white/25 rounded-2xl pointer-events-none" />
-            {/* Center Line */}
-            <div className="absolute top-1/2 left-4 right-4 h-[1px] bg-white/25 pointer-events-none" />
-            {/* Center Circle */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 border border-white/25 rounded-full pointer-events-none" />
-            {/* Center Dot */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white/40 rounded-full pointer-events-none" />
-            {/* Top Penalty Area */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-48 h-24 border-b border-x border-white/25 rounded-b-xl pointer-events-none" />
-            {/* Bottom Penalty Area */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-48 h-24 border-t border-x border-white/25 rounded-t-xl pointer-events-none" />
+            <div className="absolute inset-4 border-2 border-white/25 rounded-lg pointer-events-none" />
+            <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 border-t-2 border-white/25 pointer-events-none" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-white/25 rounded-full pointer-events-none" />
+            {/* Penalty areas */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-4 w-44 h-20 border-2 border-white/25 pointer-events-none" />
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-4 w-44 h-20 border-2 border-white/25 pointer-events-none" />
 
-            {/* Pitch Slots Placement */}
-            {slots.map((slot) => {
-              const player = getPlayerInSlot(slot.slot)
-              const isSelected = selectedSlot?.slot === slot.slot
+            {/* 11 Player Tokens */}
+            {formationSlots.map((slot) => {
+              const player = players.find((p) => p.is_starter && p.pitch_slot === slot.slot)
+              const suitability = player ? getPositionSuitability(player, slot.role) : null
+              const isSelected = activeSlot === slot.slot
 
               return (
-                <button
+                <div
                   key={slot.slot}
-                  type="button"
-                  onClick={() => {
-                    fmAudio.playClick()
-                    setSelectedSlot(slot)
-                  }}
                   style={{
-                    position: "absolute",
                     left: `${slot.x}%`,
-                    top: `${slot.y}%`,
-                    transform: "translate(-50%, -50%)"
+                    bottom: `${slot.y}%`,
+                    transform: "translate(-50%, 50%)"
                   }}
-                  className={`group flex flex-col items-center justify-center transition-all duration-200 z-10 ${
-                    isSelected ? "scale-115 z-20" : "hover:scale-105"
-                  }`}
+                  className="absolute z-10 flex flex-col items-center cursor-pointer group"
+                  onClick={() => setActiveSlot(isSelected ? null : slot.slot)}
                 >
-                  {/* Position Circle Token */}
+                  {/* Token Circle */}
                   <div
-                    className={`w-11 h-11 rounded-2xl flex flex-col items-center justify-center font-black text-xs shadow-xl border-2 transition-all ${
+                    className={`relative w-11 h-11 sm:w-13 sm:h-13 rounded-full flex flex-col items-center justify-center border-2 transition-all shadow-xl ${
                       isSelected
-                        ? "bg-amber-400 border-white text-slate-950 ring-4 ring-amber-400/50"
+                        ? "border-amber-400 bg-amber-500 text-slate-950 scale-110 ring-4 ring-amber-400/40"
                         : player
-                        ? "bg-slate-950/90 border-emerald-400 text-white hover:border-amber-400"
-                        : "bg-emerald-950/80 border-dashed border-white/40 text-slate-300"
+                        ? suitability?.isMatch
+                          ? "border-emerald-300 bg-slate-950 text-white hover:scale-105"
+                          : "border-rose-400 bg-slate-950 text-rose-300 hover:scale-105"
+                        : "border-dashed border-slate-400/60 bg-slate-950/70 text-slate-400 hover:bg-slate-900"
                     }`}
                   >
-                    <span className="text-[9px] font-black text-emerald-400 leading-none">{slot.roleLabel}</span>
-                    <span className="text-xs font-black leading-none mt-0.5">
-                      {player ? player.overall_rating : "+"}
-                    </span>
+                    {player ? (
+                      <>
+                        <span className="text-[9px] font-bold text-emerald-400">{slot.label}</span>
+                        <span className="text-xs sm:text-sm font-black tracking-tight">{player.skill}</span>
+                        {/* Energy dot */}
+                        <div
+                          className="absolute -top-1 -right-1 w-3 h-3 rounded-full border border-slate-950"
+                          style={{
+                            backgroundColor:
+                              (player.energy ?? 100) > 70
+                                ? "#10B981"
+                                : (player.energy ?? 100) > 40
+                                ? "#F59E0B"
+                                : "#EF4444"
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <span className="text-xs font-bold">{slot.label}</span>
+                    )}
                   </div>
 
-                  {/* Player Name Pill */}
-                  <div className="mt-1 px-2 py-0.5 rounded-md bg-slate-950/90 border border-white/20 text-[10px] font-black text-white whitespace-nowrap shadow-md max-w-[85px] truncate flex items-center gap-1">
-                    {player ? player.name.split(" ")[1] || player.name : "Вільне місце"}
-                  </div>
-
-                  {/* Player Stamina Mini Bar */}
+                  {/* Name Tag Pill */}
                   {player && (
-                    <div className="w-9 h-1 rounded-full bg-slate-900 border border-black/40 overflow-hidden mt-0.5">
-                      <div
-                        className={`h-full ${
-                          player.stamina > 70 ? "bg-emerald-400" : player.stamina > 40 ? "bg-amber-400" : "bg-red-500"
-                        }`}
-                        style={{ width: `${player.stamina}%` }}
-                      />
+                    <div className="mt-1 px-2 py-0.5 rounded-md bg-slate-950/90 border border-slate-800 text-[10px] font-bold text-white max-w-[90px] truncate shadow-md text-center">
+                      {player.name.split(" ")[1] || player.name}
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
         </div>
 
-        {/* Right: Tactics Settings & Slot Swap Panel (5 cols) */}
+        {/* RIGHT PANEL: SLOT DRAWER / TACTICAL SLIDERS (5 COLS) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* If a slot is clicked: Slot Assign Drawer */}
-          {selectedSlot ? (
-            <div className="p-4 rounded-3xl bg-slate-900/90 border border-emerald-500/40 shadow-xl space-y-3 animate-in fade-in">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="text-sm font-black text-white">
-                  Оберіть гравця на позицію: <span className="text-emerald-400">{selectedSlot.roleLabel}</span>
-                </div>
+          {activeSlot ? (
+            /* SLOT SWAP DRAWER */
+            <div className="p-5 rounded-2xl bg-slate-900 border border-amber-500/40 shadow-xl space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <h3 className="text-sm font-black text-amber-300">
+                  Вибір гравця на позицію: #{activeSlot} ({formationSlots.find((s) => s.slot === activeSlot)?.label})
+                </h3>
                 <button
-                  onClick={() => setSelectedSlot(null)}
-                  className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800"
+                  onClick={() => setActiveSlot(null)}
+                  className="text-xs text-slate-400 hover:text-white"
                 >
-                  Закрити
+                  Закрити ✕
                 </button>
               </div>
 
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                 {players.map((p) => {
-                  const isCurrent = p.is_starter && p.pitch_slot === selectedSlot.slot
+                  const targetRole = formationSlots.find((s) => s.slot === activeSlot)?.role || "CF"
+                  const suitability = getPositionSuitability(p, targetRole)
+                  const isCurrent = p.pitch_slot === activeSlot
+
                   return (
                     <div
                       key={p.id}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                      onClick={() => handleAssignPlayerToSlot(p, activeSlot)}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
                         isCurrent
-                          ? "bg-emerald-950/60 border-emerald-500/60"
-                          : "bg-slate-950/60 border-slate-800/80 hover:border-slate-700"
+                          ? "bg-amber-950/40 border-amber-500"
+                          : "bg-slate-950/80 border-slate-800 hover:border-emerald-500/50"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[8px] font-black text-emerald-400 uppercase">{p.position}</span>
-                          <span className="text-xs font-black text-white leading-none">{p.overall_rating}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex flex-col items-center justify-center">
+                          <span className="text-[9px] font-bold text-slate-400">{p.position}</span>
+                          <span className="text-xs font-black text-white">{p.skill}</span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-white truncate">{p.name}</div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                            <span>Вік: {p.age}</span>
-                            <span>Сили: {p.stamina}%</span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-white">{p.name}</span>
+                            <span className="text-amber-400 text-[10px]">
+                              {Array.from({ length: p.talent || 3 }).map((_, i) => (
+                                <span key={i}>⭐</span>
+                              ))}
+                            </span>
                           </div>
+                          <span className={`text-[10px] font-medium ${suitability.isMatch ? "text-emerald-400" : "text-rose-400"}`}>
+                            {suitability.note}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setInspectedPlayer(p)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
-                          title="Характеристики"
-                        >
-                          Інфо
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAssignPlayerToSlot(p, selectedSlot.slot)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
-                            isCurrent
-                              ? "bg-emerald-600 text-white"
-                              : "bg-amber-500 hover:bg-amber-400 text-slate-950"
-                          }`}
-                        >
-                          {isCurrent ? "В основі" : "Поставити"}
-                        </button>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-slate-300 block">⚡ {p.energy ?? 100}%</span>
+                        <span className="text-[10px] text-amber-300">{p.xp || 0} XP</span>
                       </div>
                     </div>
                   )
@@ -375,270 +327,184 @@ export function FMSquadTactics({
               </div>
             </div>
           ) : (
-            /* Tactical Controls Panel */
-            <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-5 w-5 text-emerald-400" />
-                  <span className="font-black text-sm text-white">Тактичні настанови</span>
+            /* TACTICAL INSTRUCTIONS & BENCH SUMMARY */
+            <div className="space-y-4">
+              {/* Tactical Instructions Card */}
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                  <Sliders className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Тактичні Налаштування
+                  </h3>
                 </div>
-                {isSaving && <span className="text-[10px] text-emerald-400 font-bold animate-pulse">Збереження...</span>}
-              </div>
 
-              {/* Mentality */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Настрій команди:</span>
-                  <span className="text-emerald-400 uppercase text-[11px] font-black">
-                    {mentality === "all_out_attack" && "Усі в атаку"}
-                    {mentality === "attacking" && "Атакувальний"}
-                    {mentality === "balanced" && "Збалансований"}
-                    {mentality === "defensive" && "Оборонний"}
-                    {mentality === "very_defensive" && "Автобус"}
-                  </span>
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["defensive", "balanced", "attacking"] as TeamMentality[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        setMentality(m)
-                        handleSaveTacticsChange(currentFormation, m)
-                      }}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                        mentality === m
-                          ? "bg-emerald-600 text-white shadow-md"
-                          : "bg-slate-800/80 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {m === "defensive" && "Захист"}
-                      {m === "balanced" && "Баланс"}
-                      {m === "attacking" && "Атака"}
-                    </button>
-                  ))}
+                {/* Mentality */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Настрій команди:
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs font-bold">
+                    {(["defensive", "balanced", "attacking"] as TeamMentality[]).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setMentality(m)
+                          handleTacticsSave({ mentality: m })
+                        }}
+                        className={`py-1.5 rounded-lg border transition-all ${
+                          mentality === m
+                            ? "bg-emerald-500 text-slate-950 border-emerald-400"
+                            : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {m === "defensive" ? "Захисний" : m === "balanced" ? "Баланс" : "Атакуючий"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Pressing */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Інтенсивність пресингу:</span>
-                  <span className="text-amber-400 uppercase text-[11px] font-black">{pressing}</span>
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["low", "normal", "high"] as PressingIntensity[]).map((pr) => (
-                    <button
-                      key={pr}
-                      type="button"
-                      onClick={() => {
-                        setPressing(pr)
-                        handleSaveTacticsChange(currentFormation, mentality, passingStyle, pr)
-                      }}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                        pressing === pr
-                          ? "bg-amber-500 text-slate-950 font-black shadow-md"
-                          : "bg-slate-800/80 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {pr === "low" && "Низький"}
-                      {pr === "normal" && "Стандартний"}
-                      {pr === "high" && "Високий"}
-                    </button>
-                  ))}
+                {/* Pressing */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Пресинг:
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs font-bold">
+                    {(["low", "normal", "high"] as PressingIntensity[]).map((pr) => (
+                      <button
+                        key={pr}
+                        onClick={() => {
+                          setPressing(pr)
+                          handleTacticsSave({ pressing: pr })
+                        }}
+                        className={`py-1.5 rounded-lg border transition-all ${
+                          pressing === pr
+                            ? "bg-emerald-500 text-slate-950 border-emerald-400"
+                            : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {pr === "low" ? "Слабкий" : pr === "normal" ? "Норма" : "Високий"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Passing Style */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Стиль передач:</span>
-                  <span className="text-blue-400 uppercase text-[11px] font-black">{passingStyle}</span>
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["short", "mixed", "direct"] as PassingStyle[]).map((ps) => (
-                    <button
-                      key={ps}
-                      type="button"
-                      onClick={() => {
-                        setPassingStyle(ps)
-                        handleSaveTacticsChange(currentFormation, mentality, ps)
-                      }}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                        passingStyle === ps
-                          ? "bg-blue-600 text-white shadow-md"
-                          : "bg-slate-800/80 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      {ps === "short" && "Короткий"}
-                      {ps === "mixed" && "Змішаний"}
-                      {ps === "direct" && "Прямий"}
-                    </button>
-                  ))}
+              {/* Bench Players List */}
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-400" />
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                      Запасні Гравці ({benchPlayers.length})
+                    </h3>
+                  </div>
                 </div>
-              </div>
 
-              {/* Tackling Aggression */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Жорсткість відбору:</span>
-                  <span className="text-red-400 uppercase text-[11px] font-black">{tackling}</span>
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["cautious", "normal", "aggressive"] as TacklingAggression[]).map((tk) => (
-                    <button
-                      key={tk}
-                      type="button"
-                      onClick={() => {
-                        setTackling(tk)
-                        handleSaveTacticsChange(currentFormation, mentality, passingStyle, pressing, tk)
-                      }}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                        tackling === tk
-                          ? "bg-red-600 text-white shadow-md"
-                          : "bg-slate-800/80 text-slate-400 hover:text-white"
-                      }`}
+                <div className="space-y-1.5 max-h-56 overflow-y-auto scrollbar-thin">
+                  {benchPlayers.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => setInspectingPlayer(p)}
+                      className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 flex items-center justify-between cursor-pointer transition-all"
                     >
-                      {tk === "cautious" && "Акуратний"}
-                      {tk === "normal" && "Нормальний"}
-                      {tk === "aggressive" && "Агресивний"}
-                    </button>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-bold text-slate-400 w-6">{p.position}</span>
+                        <span className="text-xs font-bold text-white">{p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black text-emerald-400">{p.skill}</span>
+                        <span className="text-xs text-slate-400">⚡ {p.energy ?? 100}%</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
           )}
-
-          {/* Bench Summary */}
-          <div className="p-4 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-2">
-            <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-              Лава запасних ({benchPlayers.length} гравців)
-            </div>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-              {benchPlayers.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setInspectedPlayer(p)}
-                  className="p-2 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 flex items-center justify-between text-left transition-all"
-                >
-                  <div className="min-w-0">
-                    <span className="text-[9px] font-black text-emerald-400 uppercase mr-1">{p.position}</span>
-                    <span className="text-xs font-bold text-white truncate">{p.name.split(" ")[1] || p.name}</span>
-                  </div>
-                  <span className="text-xs font-black text-amber-400 ml-1 shrink-0">{p.overall_rating}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ─── Player Attributes Inspector Modal ─── */}
-      {inspectedPlayer && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 space-y-5 shadow-2xl text-white relative animate-in fade-in zoom-in duration-200">
-            {/* Header */}
-            <div className="flex items-start justify-between">
+      {/* PLAYER INSPECTOR MODAL */}
+      {inspectingPlayer && (
+        <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5 animate-fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-500 flex flex-col items-center justify-center font-black">
-                  <span className="text-[10px] text-emerald-400 uppercase">{inspectedPlayer.position}</span>
-                  <span className="text-base text-white leading-none">{inspectedPlayer.overall_rating}</span>
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-bold text-emerald-400">{inspectingPlayer.position}</span>
+                  <span className="text-sm font-black text-white">{inspectingPlayer.skill}</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">{inspectedPlayer.name}</h3>
-                  <div className="text-xs text-slate-400">
-                    {inspectedPlayer.nationality} • {inspectedPlayer.age} років • Потенціал {inspectedPlayer.potential}
+                  <h3 className="text-base font-bold text-white">{inspectingPlayer.name}</h3>
+                  <div className="flex text-amber-400 text-xs">
+                    {Array.from({ length: inspectingPlayer.talent || 3 }).map((_, i) => (
+                      <span key={i}>⭐</span>
+                    ))}
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => setInspectedPlayer(null)}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
-              >
+              <button onClick={() => setInspectingPlayer(null)} className="text-slate-400 hover:text-white">
                 ✕
               </button>
             </div>
 
-            {/* Condition Bars */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold">Витривалість</div>
-                <div className="text-sm font-black text-emerald-400">{inspectedPlayer.stamina}%</div>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-slate-400 block">Енергія</span>
+                <span className="font-bold text-emerald-300">⚡ {inspectingPlayer.energy ?? 100}%</span>
               </div>
-              <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold">Мораль</div>
-                <div className="text-sm font-black text-amber-400">{inspectedPlayer.morale}%</div>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-slate-400 block">Вільний XP</span>
+                <span className="font-bold text-amber-300">{inspectingPlayer.xp || 0} XP</span>
               </div>
-              <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] text-slate-400 font-bold">Форма</div>
-                <div className="text-sm font-black text-blue-400">{inspectedPlayer.form}%</div>
+              <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-slate-400 block">Матчів</span>
+                <span className="font-bold text-white">{inspectingPlayer.matches_played}</span>
               </div>
             </div>
 
-            {/* Core Stats Progress Bars */}
-            <div className="space-y-2.5">
-              {[
-                { label: "Швидкість", val: inspectedPlayer.pace },
-                { label: "Удар", val: inspectedPlayer.shooting },
-                { label: "Пас", val: inspectedPlayer.passing },
-                { label: "Дриблінг", val: inspectedPlayer.dribbling },
-                { label: "Захист", val: inspectedPlayer.defending },
-                { label: "Фізика", val: inspectedPlayer.physical },
-                { label: "Воротарська гра", val: inspectedPlayer.goalkeeping }
-              ].map((stat) => (
-                <div key={stat.label} className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-slate-400">{stat.label}</span>
-                    <span className="text-white">{stat.val}</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden border border-slate-800">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
-                      style={{ width: `${Math.min(100, stat.val)}%` }}
-                    />
-                  </div>
+            {/* Special Abilities */}
+            {inspectingPlayer.special_abilities?.length > 0 && (
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Спецуміння гравця:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {inspectingPlayer.special_abilities.map((abId) => {
+                    const def = SPECIAL_ABILITIES_MAP[abId]
+                    return (
+                      <span
+                        key={abId}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/40 flex items-center gap-1"
+                      >
+                        <span>{def?.icon || "✨"}</span>
+                        <span>{def?.name || abId}</span>
+                      </span>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
-
-            {/* Financials & Transfer Listing */}
-            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Ринкова вартість:</span>
-                <span className="font-black text-emerald-400">{inspectedPlayer.market_value.toLocaleString()} ₴</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Тижнева зарплата:</span>
-                <span className="font-black text-white">{inspectedPlayer.wage.toLocaleString()} ₴</span>
-              </div>
+            )}
 
-              {!inspectedPlayer.is_on_transfer ? (
-                <div className="space-y-2 pt-2 border-t border-slate-800">
-                  <div className="text-[11px] font-bold text-slate-300">Виставити на трансферний ринок:</div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Ціна (₴)"
-                      defaultValue={inspectedPlayer.market_value}
-                      onChange={(e) => setTransferPriceInput(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-white focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleListOnTransfer}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shrink-0 flex items-center gap-1"
-                    >
-                      {transferSuccess ? <Check className="h-4 w-4" /> : <Tag className="h-4 w-4" />}
-                      <span>{transferSuccess ? "Виставлено!" : "Продати"}</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-amber-400 font-bold text-center p-2 rounded-xl bg-amber-950/40 border border-amber-500/30">
-                  Гравець вже виставлений на ринок за {inspectedPlayer.transfer_price.toLocaleString()} ₴
-                </div>
-              )}
+            {/* Put on Transfer Auction */}
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <span className="text-xs font-bold text-slate-300 block">Виставити на трансферний аукціон:</span>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Ціна викупу (₴)"
+                  value={transferPrice}
+                  onChange={(e) => setTransferPrice(e.target.value)}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+                <button
+                  onClick={() => handleListOnTransfer(inspectingPlayer)}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                >
+                  На ринок
+                </button>
+              </div>
             </div>
           </div>
         </div>

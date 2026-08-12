@@ -1,275 +1,319 @@
 "use client"
 
 import { useState } from "react"
-import { FMClub, FMPlayer, FMStadium } from "@/lib/fm-types"
-import { fmTrainSquad, fmRestSquad } from "@/lib/fm-database"
+import { FMClub, FMPlayer, FMStadium, SpecialAbilityId } from "@/lib/fm-types"
+import { SPECIAL_ABILITIES, SPECIAL_ABILITIES_MAP } from "@/lib/fm-engine"
+import {
+  fmUpgradePlayerSkill,
+  fmLearnPlayerSpecialAbility,
+  fmRestoreSquadEnergy
+} from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import {
   Dumbbell,
   Zap,
-  Target,
-  Shield,
-  HeartPulse,
   Sparkles,
-  Check,
+  Heart,
+  Plus,
+  Star,
+  CheckCircle2,
+  ChevronRight,
   Flame,
-  Activity,
   Award
 } from "lucide-react"
 
 interface FMTrainingProps {
   club: FMClub
   players: FMPlayer[]
-  stadium: FMStadium
-  onSquadUpdated: (players: FMPlayer[]) => void
+  stadium: FMStadium | null
+  onSquadUpdated: () => void
 }
 
-const DRILLS = [
-  {
-    id: "attack",
-    title: "Атакувальна майстерність",
-    desc: "Відпрацювання ударів по воротах, дриблінгу 1-в-1 та завершення атак.",
-    focus: "Удар, Дриблінг, Швидкість",
-    icon: Target,
-    color: "from-amber-500 to-orange-600"
-  },
-  {
-    id: "defense",
-    title: "Залізобетонна оборона",
-    desc: "Позиційний захист, підкати, перехоплення та верхові єдиноборства.",
-    focus: "Захист, Фізика, Відбір",
-    icon: Shield,
-    color: "from-emerald-500 to-teal-600"
-  },
-  {
-    id: "tactics",
-    title: "Тактичний аналіз і комбінації",
-    desc: "Розіграш швидких пасів у дотик, контроль м'яча та командна зіграність.",
-    focus: "Пас, Бачення поля, Мораль",
-    icon: Zap,
-    color: "from-blue-500 to-indigo-600"
-  },
-  {
-    id: "fitness",
-    title: "Атлетизм та швидкість",
-    desc: "Фізична підготовка, інтервальний біг та витривалість.",
-    focus: "Швидкість, Фізика, Витривалість",
-    icon: Flame,
-    color: "from-rose-500 to-red-600"
-  }
-]
+export function FMTraining({
+  club,
+  players,
+  stadium,
+  onSquadUpdated
+}: FMTrainingProps) {
+  const [selectedPlayer, setSelectedPlayer] = useState<FMPlayer | null>(players[0] || null)
+  const [loading, setLoading] = useState(false)
+  const [notification, setNotification] = useState<string | null>(null)
 
-export function FMTraining({ club, players, stadium, onSquadUpdated }: FMTrainingProps) {
-  const [selectedDrill, setSelectedDrill] = useState("attack")
-  const [intensity, setIntensity] = useState<"light" | "normal" | "heavy">("normal")
-  const [isTraining, setIsTraining] = useState(false)
-  const [isResting, setIsResting] = useState(false)
-  const [trainingMessage, setTrainingMessage] = useState<string | null>(null)
+  const handleUpgradeSkill = async (p: FMPlayer) => {
+    fmAudio.playClick()
+    const costXp = 30
+    if ((p.xp || 0) < costXp) {
+      alert(`Недостатньо XP! Потрібно ${costXp} XP для підвищення Майстерності. Гравці заробляють XP у турнірах!`)
+      return
+    }
 
-  const trainingBaseLevel = stadium.training_level || 1
-  const medicalLevel = stadium.medical_level || 1
+    setLoading(true)
+    const ok = await fmUpgradePlayerSkill(p.id, costXp, 2)
+    setLoading(false)
 
-  const staminaCost = intensity === "light" ? 6 : intensity === "normal" ? 14 : 24
-  const xpMultiplier = intensity === "light" ? 1 : intensity === "normal" ? 2 : 3.5
-
-  const handleRunTraining = async () => {
-    setIsTraining(true)
-    setTrainingMessage(null)
-    fmAudio.playWhistle()
-
-    try {
-      const boostXp = Math.round(50 * xpMultiplier * (1 + trainingBaseLevel * 0.2))
-      const updated = await fmTrainSquad(club.id, boostXp, staminaCost)
-
-      onSquadUpdated(updated)
+    if (ok) {
       fmAudio.playLevelUp()
-      setTrainingMessage("✅ Тренування успішно завершено! Характеристики гравців покращено.")
-    } catch {
-      setTrainingMessage("Помилка під час проведення тренування")
-    } finally {
-      setIsTraining(false)
+      setNotification(`🎉 Майстерність ${p.name} зросла на +2!`)
+      onSquadUpdated()
     }
   }
 
-  const handleRestSquad = async () => {
-    setIsResting(true)
-    setTrainingMessage(null)
-    fmAudio.playCoins()
+  const handleLearnAbility = async (p: FMPlayer, abilityId: SpecialAbilityId) => {
+    fmAudio.playClick()
+    const def = SPECIAL_ABILITIES_MAP[abilityId]
+    if (!def) return
 
-    try {
-      const updated = await fmRestSquad(club.id)
-      onSquadUpdated(updated)
+    if ((p.xp || 0) < def.costXp) {
+      alert(`У гравця недостатньо вільного XP (${p.xp || 0} / ${def.costXp} XP)!`)
+      return
+    }
+    if (club.balance < def.costMoney) {
+      alert(`У скарбниці клубу недостатньо коштів (${club.balance.toLocaleString()} / ${def.costMoney.toLocaleString()} ₴)!`)
+      return
+    }
+
+    setLoading(true)
+    const res = await fmLearnPlayerSpecialAbility(p.id, abilityId, def.costXp, def.costMoney, club.id)
+    setLoading(false)
+
+    if (res.success) {
       fmAudio.playLevelUp()
-      setTrainingMessage("🌿 Відновлювальні процедури завершено! Витривалість усіх гравців повернута на 100%.")
-    } catch {
-      setTrainingMessage("Помилка відновлення гравців")
-    } finally {
-      setIsResting(false)
+      setNotification(`✨ ${p.name} успішно вивчив нове спецуміння: "${def.name}"!`)
+      onSquadUpdated()
+    } else {
+      alert(res.error || "Помилка при вивченні спецуміння")
+    }
+  }
+
+  const handleRestoreSquadEnergy = async () => {
+    fmAudio.playClick()
+    const cost = 12000
+    if (club.balance < cost) {
+      alert("Недостатньо коштів для СПА-процедур!")
+      return
+    }
+
+    setLoading(true)
+    const res = await fmRestoreSquadEnergy(club.id, cost)
+    setLoading(false)
+
+    if (res.success) {
+      fmAudio.playCoins()
+      setNotification("⚡ Уся команда пройшла повний курс відновлення у СПА! Енергія 100%!")
+      onSquadUpdated()
+    } else {
+      alert(res.error || "Помилка відновлення")
     }
   }
 
   return (
-    <div className="space-y-6 w-full max-w-5xl mx-auto pb-10 text-white">
-      {/* Header Info Card */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
-            <Dumbbell className="h-6 w-6" />
+    <div className="space-y-6">
+      {/* HEADER & SPA RESTORE BANNER */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950/80 border border-amber-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="w-7 h-7 text-amber-400" />
+            <h2 className="text-2xl font-black text-white">Тренувальна База & СПА 11x11</h2>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-white">Тренувальний Центр Клубу</h2>
-            <p className="text-xs text-slate-400">
-              База {trainingBaseLevel}/5 рівня (+{trainingBaseLevel * 20}% досвіду) • Медцентр {medicalLevel}/5 рівня
-            </p>
-          </div>
+          <p className="text-xs sm:text-sm text-slate-300">
+            Витрачайте зароблений у кубках XP на підвищення Майстерності та вивчення унікальних Спецумінь!
+          </p>
         </div>
 
-        {/* Quick Recovery Button */}
+        {/* Restore Energy CTA */}
         <button
-          type="button"
-          onClick={handleRestSquad}
-          disabled={isResting}
-          className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs transition-all shadow-lg flex items-center gap-2 active:scale-95 disabled:opacity-50"
+          onClick={handleRestoreSquadEnergy}
+          disabled={loading}
+          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950 transition-all flex items-center gap-2 shrink-0 scale-100 hover:scale-105"
         >
-          <HeartPulse className="h-4 w-4" />
-          <span>{isResting ? "Відновлення..." : "СПА & Відновити сили (100%)"}</span>
+          <Zap className="w-5 h-5 fill-slate-950" />
+          <span>Відновити СПА (100% сил за 12,000 ₴)</span>
         </button>
       </div>
 
-      {trainingMessage && (
-        <div className="p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center animate-in fade-in">
-          {trainingMessage}
+      {notification && (
+        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-bold text-center">
+          {notification}
         </div>
       )}
 
-      {/* Drill Selection Cards */}
-      <div className="space-y-3">
-        <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-          Оберіть тип тренувальної сесії:
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {DRILLS.map((d) => {
-            const Icon = d.icon
-            const isSelected = selectedDrill === d.id
-
-            return (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => {
-                  setSelectedDrill(d.id)
-                  fmAudio.playClick()
-                }}
-                className={`p-4 rounded-3xl border text-left transition-all space-y-3 relative overflow-hidden ${
-                  isSelected
-                    ? "bg-slate-900 border-emerald-500 ring-2 ring-emerald-500/40 shadow-xl"
-                    : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${d.color} flex items-center justify-center text-white shadow-md`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-black text-white">{d.title}</div>
-                      <div className="text-[10px] text-emerald-400 font-bold">Фокус: {d.focus}</div>
-                    </div>
-                  </div>
-                  {isSelected && <Check className="h-5 w-5 text-emerald-400" />}
-                </div>
-
-                <p className="text-xs text-slate-400 leading-relaxed">{d.desc}</p>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Intensity Selector & Execution */}
-      <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs font-black text-slate-300">Інтенсивність навантаження:</div>
-            <div className="flex gap-2">
-              {[
-                { id: "light", label: "Легка (-6% сил)", color: "text-emerald-400" },
-                { id: "normal", label: "Стандартна (-14% сил)", color: "text-amber-400" },
-                { id: "heavy", label: "Висока (-24% сил)", color: "text-red-400" }
-              ].map((lvl) => (
-                <button
-                  key={lvl.id}
-                  type="button"
-                  onClick={() => {
-                    setIntensity(lvl.id as any)
-                    fmAudio.playClick()
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    intensity === lvl.id
-                      ? "bg-slate-800 text-white border border-emerald-500"
-                      : "bg-slate-950/60 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {lvl.label}
-                </button>
-              ))}
-            </div>
+      {/* 2-COLUMN TRAINING INTERFACE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* SQUAD ROSTER (5 COLS) */}
+        <div className="lg:col-span-5 p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Оберіть футболіста для тренування:
+            </h3>
+            <span className="text-xs text-emerald-400 font-bold">{players.length} гравців</span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleRunTraining}
-            disabled={isTraining}
-            className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm transition-all shadow-xl shadow-emerald-950 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>{isTraining ? "Виконання вправ..." : "Провести тренування команди"}</span>
-          </button>
-        </div>
-      </div>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+            {players.map((p) => {
+              const isSelected = selectedPlayer?.id === p.id
 
-      {/* Squad Energy Status List */}
-      <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
-        <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-          Фізичний стан футболістів ({players.length} гравців):
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto pr-1">
-          {players.map((p) => (
-            <div
-              key={p.id}
-              className="p-2.5 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-black text-emerald-400 uppercase">{p.position}</span>
-                  <span className="text-xs font-bold text-white truncate">{p.name}</span>
-                </div>
-                <div className="text-[10px] text-slate-400">Рейтинг: {p.overall_rating}</div>
-              </div>
-
-              {/* Stamina Pill */}
-              <div className="text-right shrink-0">
+              return (
                 <div
-                  className={`text-xs font-black ${
-                    p.stamina > 70 ? "text-emerald-400" : p.stamina > 40 ? "text-amber-400" : "text-red-400"
+                  key={p.id}
+                  onClick={() => setSelectedPlayer(p)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                    isSelected
+                      ? "bg-amber-950/40 border-amber-500 shadow-md ring-2 ring-amber-500/30"
+                      : "bg-slate-950/80 border-slate-800 hover:border-slate-700"
                   }`}
                 >
-                  {p.stamina}%
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center">
+                      <span className="text-[9px] font-bold text-slate-400">{p.position}</span>
+                      <span className="text-xs font-black text-white">{p.skill}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-white">{p.name}</span>
+                        <span className="text-amber-400 text-[10px]">
+                          {Array.from({ length: p.talent || 3 }).map((_, i) => (
+                            <span key={i}>⭐</span>
+                          ))}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        Вільний XP: <span className="text-amber-300 font-bold">{p.xp || 0} XP</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-slate-300 block">⚡ {p.energy ?? 100}%</span>
+                    <span className="text-[10px] text-emerald-400 font-medium">
+                      {(p.special_abilities || []).length} умінь
+                    </span>
+                  </div>
                 </div>
-                <div className="w-12 h-1.5 rounded-full bg-slate-900 overflow-hidden mt-0.5 border border-slate-800">
-                  <div
-                    className={`h-full ${
-                      p.stamina > 70 ? "bg-emerald-400" : p.stamina > 40 ? "bg-amber-400" : "bg-red-500"
-                    }`}
-                    style={{ width: `${p.stamina}%` }}
-                  />
+              )
+            })}
+          </div>
+        </div>
+
+        {/* UPGRADE & SPECIAL ABILITIES PANEL (7 COLS) */}
+        {selectedPlayer ? (
+          <div className="lg:col-span-7 space-y-5">
+            {/* Player Hero Card */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex flex-col items-center justify-center">
+                    <span className="text-[10px] font-bold text-emerald-400">{selectedPlayer.position}</span>
+                    <span className="text-lg font-black text-white">{selectedPlayer.skill}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{selectedPlayer.name}</h3>
+                    <p className="text-xs text-slate-400">
+                      Вік: {selectedPlayer.age} р. • Талант:{" "}
+                      <span className="text-amber-400">
+                        {Array.from({ length: selectedPlayer.talent || 3 }).map((_, i) => (
+                          <span key={i}>⭐</span>
+                        ))}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-amber-500/40 text-center min-w-[120px]">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Вільний XP</span>
+                  <span className="text-xl font-black text-amber-300">{selectedPlayer.xp || 0} XP</span>
                 </div>
               </div>
+
+              {/* Upgrade Skill Button */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Підвищити Майстерність (+2)</h4>
+                  <p className="text-xs text-slate-400">Витрачає 30 вільного XP гравця</p>
+                </div>
+                <button
+                  onClick={() => handleUpgradeSkill(selectedPlayer)}
+                  disabled={(selectedPlayer.xp || 0) < 30 || loading}
+                  className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all ${
+                    (selectedPlayer.xp || 0) >= 30
+                      ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-950"
+                      : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  }`}
+                >
+                  +2 Майстерність (30 XP)
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
+
+            {/* Special Abilities Academy */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Академія Спецумінь (11x11.ru)
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {SPECIAL_ABILITIES.map((ab) => {
+                  const alreadyLearned = (selectedPlayer.special_abilities || []).includes(ab.id)
+                  const canAfford = (selectedPlayer.xp || 0) >= ab.costXp && club.balance >= ab.costMoney
+
+                  return (
+                    <div
+                      key={ab.id}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2 ${
+                        alreadyLearned
+                          ? "bg-emerald-950/30 border-emerald-500/40"
+                          : "bg-slate-950/70 border-slate-800"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                            <span>{ab.icon}</span>
+                            <span>{ab.name}</span>
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">
+                            {ab.shortCode}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{ab.description}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-900 flex items-center justify-between">
+                        <span className="text-[10px] text-amber-300 font-bold">
+                          {ab.costXp} XP • {ab.costMoney.toLocaleString()} ₴
+                        </span>
+
+                        {alreadyLearned ? (
+                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Вивчено
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleLearnAbility(selectedPlayer, ab.id)}
+                            disabled={!canAfford || loading}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                              canAfford
+                                ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                                : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                            }`}
+                          >
+                            Вивчити
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="lg:col-span-7 p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-center">
+            <p className="text-slate-400 text-sm">Оберіть гравця зі списку для тренування</p>
+          </div>
+        )}
       </div>
     </div>
   )

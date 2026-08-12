@@ -6,17 +6,22 @@ import { fmGetLeagueStandings, fmGetRecentMatches } from "@/lib/fm-database"
 import { Trophy, Shield, Medal, Flame, Calendar } from "lucide-react"
 
 interface FMLeagueProps {
-  userClub: FMClub
+  club?: FMClub
+  userClub?: FMClub
 }
 
-export function FMLeagueStandingsView({ userClub }: FMLeagueProps) {
+export function FMLeagueStandingsView({ club, userClub }: FMLeagueProps) {
+  const activeClub = club || userClub
   const [standings, setStandings] = useState<FMLeagueStanding[]>([])
   const [recentMatches, setRecentMatches] = useState<FMMatch[]>([])
 
   useEffect(() => {
-    fmGetLeagueStandings(userClub.league_id || 1).then(setStandings)
-    fmGetRecentMatches(userClub.id).then(setRecentMatches)
-  }, [userClub])
+    if (!activeClub) return
+    fmGetLeagueStandings(activeClub.league_id || 1).then(setStandings)
+    fmGetRecentMatches(activeClub.id).then(setRecentMatches)
+  }, [activeClub])
+
+  if (!activeClub) return null
 
   return (
     <div className="space-y-6 w-full max-w-5xl mx-auto pb-10 text-white">
@@ -33,7 +38,7 @@ export function FMLeagueStandingsView({ userClub }: FMLeagueProps) {
         </div>
 
         <div className="px-4 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-black text-emerald-400">
-          Ваш клуб: {userClub.name}
+          Ваш клуб: {activeClub.name}
         </div>
       </div>
 
@@ -60,7 +65,7 @@ export function FMLeagueStandingsView({ userClub }: FMLeagueProps) {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {standings.map((row, idx) => {
-                const isUserClub = row.club_id === userClub.id
+                const isUserClub = row.club_id === activeClub.id
                 const goalDiff = row.goals_for - row.goals_against
 
                 return (

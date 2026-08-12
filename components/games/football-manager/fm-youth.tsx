@@ -1,8 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FMClub, FMPlayer, FMStadium, FMYouthProspect } from "@/lib/fm-types"
-import { fmGetYouthProspects, fmScoutNewYouth, fmSignYouthToFirstTeam, fmGetClubPlayers } from "@/lib/fm-database"
+import { FMClub, FMStadium, FMYouthProspect } from "@/lib/fm-types"
+import { SPECIAL_ABILITIES_MAP } from "@/lib/fm-engine"
+import {
+  fmGetYouthProspects,
+  fmScoutNewYouth,
+  fmSignYouthToFirstTeam
+} from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import {
   GraduationCap,
@@ -10,181 +15,192 @@ import {
   Star,
   UserPlus,
   Compass,
-  Check,
-  AlertCircle,
-  Zap,
-  Award
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react"
 
 interface FMYouthProps {
   club: FMClub
-  stadium: FMStadium
-  onSquadUpdated: (players: FMPlayer[]) => void
+  stadium: FMStadium | null
+  onSigned: () => void
 }
 
-export function FMYouthAcademy({ club, stadium, onSquadUpdated }: FMYouthProps) {
+export function FMYouthAcademy({ club, stadium, onSigned }: FMYouthProps) {
   const [prospects, setProspects] = useState<FMYouthProspect[]>([])
-  const [isScouting, setIsScouting] = useState(false)
-  const [isSigning, setIsSigning] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [scouting, setScouting] = useState(false)
+  const [notification, setNotification] = useState<string | null>(null)
 
-  const academyLevel = stadium.youth_academy_level || 1
-  const scoutingCost = 15000
-
-  const loadProspects = () => {
-    fmGetYouthProspects(club.id).then(setProspects)
-  }
+  const academyLevel = stadium?.youth_academy_level || 1
 
   useEffect(() => {
     loadProspects()
-  }, [club.id])
+  }, [])
 
-  const handleSendScouts = async () => {
-    if (club.balance < scoutingCost) {
-      setMessage(`Недостатньо коштів! Пошук талантів коштує ${scoutingCost.toLocaleString()} ₴`)
+  const loadProspects = async () => {
+    setLoading(true)
+    const list = await fmGetYouthProspects(club.id)
+    setProspects(list)
+    setLoading(false)
+  }
+
+  const handleScoutNew = async () => {
+    fmAudio.playClick()
+    const cost = 18000
+    if (club.balance < cost) {
+      alert("Недостатньо коштів для відправки скаутів Академії!")
       return
     }
 
-    setIsScouting(true)
-    setMessage(null)
-    fmAudio.playWhistle()
+    setScouting(true)
+    const newItems = await fmScoutNewYouth(club.id, academyLevel)
+    setScouting(false)
 
-    try {
-      const created = await fmScoutNewYouth(club.id, academyLevel)
-      fmAudio.playLevelUp()
-      setProspects((prev) => [...created, ...prev])
-      setMessage("⭐ Скаути повернулися зі свіжими звітами про юних вихованців!")
-    } catch {
-      setMessage("Помилка під час пошуку талантів")
-    } finally {
-      setIsScouting(false)
+    if (newItems.length > 0) {
+      fmAudio.playCoins()
+      setNotification(`🎉 Скаути знайшли ${newItems.length} нових юних талантів для Академії!`)
+      loadProspects()
+      onSigned()
     }
   }
 
-  const handleSignProspect = async (prospect: FMYouthProspect) => {
-    setIsSigning(true)
-    setMessage(null)
-    fmAudio.playCoins()
+  const handleSignContract = async (p: FMYouthProspect) => {
+    fmAudio.playClick()
+    if (club.balance < p.signing_cost) {
+      alert("Недостатньо коштів для оформлення контракту!")
+      return
+    }
 
-    try {
-      const newPlayer = await fmSignYouthToFirstTeam(prospect)
-      if (newPlayer) {
-        fmAudio.playLevelUp()
-        const updatedSquad = await fmGetClubPlayers(club.id)
-        onSquadUpdated(updatedSquad)
-        setProspects((prev) => prev.filter((p) => p.id !== prospect.id))
-        setMessage(`🎉 Гравець ${prospect.name} підписав контракт та переведений до основного складу!`)
-      }
-    } catch {
-      setMessage("Помилка підписання контракту")
-    } finally {
-      setIsSigning(false)
+    const res = await fmSignYouthToFirstTeam(p.id, club.id)
+    if (res.success) {
+      fmAudio.playLevelUp()
+      setNotification(`✨ Вітаємо! Юніор ${p.name} підписав контракт та приєднався до основного складу!`)
+      loadProspects()
+      onSigned()
+    } else {
+      alert(res.error || "Помилка підписання")
     }
   }
 
   return (
-    <div className="space-y-6 w-full max-w-5xl mx-auto pb-10 text-white">
-      {/* Header Banner */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
-            <GraduationCap className="h-6 w-6" />
+    <div className="space-y-6">
+      {/* HEADER BANNER */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-purple-950/80 border border-purple-500/30 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-7 h-7 text-purple-400" />
+            <h2 className="text-2xl font-black text-white">Школа Юніорів 11x11</h2>
+            <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              Рівень {academyLevel}
+            </span>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-white">Дитячо-Юнацька Академія</h2>
-            <p className="text-xs text-slate-400">
-              Рівень академії: {academyLevel}/5 • Скаутинг майбутніх зірок українського футболу
-            </p>
-          </div>
+          <p className="text-xs sm:text-sm text-slate-300">
+            Виховуйте та скаутуйте юних вундеркіндів (15–17 років) із талантом до 6 зірок!
+          </p>
         </div>
 
+        {/* Scout Button */}
         <button
-          type="button"
-          onClick={handleSendScouts}
-          disabled={isScouting}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs transition-all shadow-xl shadow-emerald-950 flex items-center gap-2 active:scale-95 disabled:opacity-50"
+          onClick={handleScoutNew}
+          disabled={scouting}
+          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-purple-950 transition-all flex items-center gap-2 shrink-0 scale-100 hover:scale-105"
         >
-          <Compass className="h-4 w-4" />
-          <span>{isScouting ? "Скаутинг триває..." : `Відправити скаутів (${scoutingCost.toLocaleString()} ₴)`}</span>
+          <Compass className="w-5 h-5" />
+          <span>Відправити Скаутів (18,000 ₴)</span>
         </button>
       </div>
 
-      {message && (
-        <div className="p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center animate-in fade-in">
-          {message}
+      {notification && (
+        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-bold text-center">
+          {notification}
         </div>
       )}
 
-      {/* Prospects Grid */}
-      <div className="space-y-3">
-        <div className="text-xs font-black text-slate-400 uppercase tracking-wider">
-          Знайдені вихованці академії ({prospects.length}):
+      {/* PROSPECTS GRID */}
+      {loading ? (
+        <div className="flex justify-center py-16 text-purple-400">
+          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
         </div>
-
-        {prospects.length === 0 ? (
-          <div className="p-10 rounded-3xl bg-slate-900/40 border border-slate-800 text-center space-y-2">
-            <GraduationCap className="h-8 w-8 text-slate-500 mx-auto" />
-            <div className="text-sm font-bold text-slate-400">В академії зараз немає вільних звітів</div>
-            <p className="text-xs text-slate-500">Натисніть «Відправити скаутів», щоб знайти нових обдарованих юніорів</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {prospects.map((p) => {
-              const stars = p.potential >= 88 ? 5 : p.potential >= 80 ? 4 : 3
-
-              return (
-                <div
-                  key={p.id}
-                  className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col justify-between space-y-4 hover:border-slate-700 transition-all"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 flex flex-col items-center justify-center font-black">
-                          <span className="text-[9px] uppercase">{p.position}</span>
-                          <span className="text-sm leading-none text-white">{p.rating}</span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-black text-white">{p.name}</div>
-                          <div className="text-[11px] text-slate-400">Вік: {p.age} роки • Позиція: {p.position}</div>
-                        </div>
-                      </div>
+      ) : prospects.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {prospects.map((p) => (
+            <div
+              key={p.id}
+              className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 shadow-xl transition-all flex flex-col justify-between space-y-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex flex-col items-center justify-center">
+                      <span className="text-[10px] font-bold text-purple-400">{p.position}</span>
+                      <span className="text-xs font-black text-white">{p.skill}</span>
                     </div>
-
-                    {/* Potential Star Rating */}
-                    <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
-                      <div className="text-xs font-bold text-slate-400">Потенціал:</div>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-3.5 w-3.5 ${
-                              i < stars ? "text-amber-400 fill-amber-400" : "text-slate-700"
-                            }`}
-                          />
-                        ))}
-                        <span className="text-xs font-black text-amber-400 ml-1">({p.potential})</span>
-                      </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">{p.name}</h4>
+                      <p className="text-xs text-slate-400">Вік: {p.age} років</p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => handleSignProspect(p)}
-                      disabled={isSigning}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-emerald-950"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      <span>Підписати контракт (У першу команду)</span>
-                    </button>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">Талант:</span>
+                    <div className="flex text-amber-400 text-xs">
+                      {Array.from({ length: p.talent || 3 }).map((_, i) => (
+                        <span key={i}>⭐</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+
+                {/* Special Abilities */}
+                {p.special_abilities?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {p.special_abilities.map((abId) => {
+                      const def = SPECIAL_ABILITIES_MAP[abId]
+                      return (
+                        <span
+                          key={abId}
+                          className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30"
+                        >
+                          {def?.icon || "✨"} {def?.name || abId}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex justify-between text-xs">
+                  <span className="text-slate-400">Вартість контракту:</span>
+                  <span className="font-bold text-emerald-400 font-mono">
+                    {p.signing_cost.toLocaleString()} ₴
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleSignContract(p)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs shadow-md shadow-purple-950 transition-all flex items-center justify-center gap-1.5"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Підписати до Основного Складу</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800">
+          <GraduationCap className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-white">Список юніорів порожній</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
+            Відправте скаутів Школи Юніорів, щоб знайти нові футбольні таланти для вашого клубу.
+          </p>
+          <button
+            onClick={handleScoutNew}
+            className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-950"
+          >
+            Відправити Скаутів (18,000 ₴)
+          </button>
+        </div>
+      )}
     </div>
   )
 }

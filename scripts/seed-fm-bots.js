@@ -5,106 +5,148 @@ const client = new Client({
   ssl: { rejectUnauthorized: false }
 });
 
-const FIRST_NAMES = [
-  'Андрій', 'Олександр', 'Михайло', 'Тарас', 'Іван', 'Дмитро', 'Віталій', 'Богдан',
-  'Максим', 'Роман', 'Сергій', 'Артем', 'Назар', 'Ярослав', 'Владислав', 'Олег',
-  'Василь', 'Юрій', 'Денис', 'Ігор', 'Вадим', 'Руслан', 'Павло', 'Євген'
+const UA_FIRST_NAMES = [
+  "Андрій", "Олександр", "Максим", "Дмитро", "Сергій", "Артем", "Владислав", "Тарас",
+  "Богдан", "Ярослав", "Роман", "Віталій", "Олег", "Назар", "Денис", "Михайло",
+  "Іван", "Євген", "Василь", "Вадим", "Юрій", "Ілля", "Павло", "Руслан", "Степан"
 ];
 
-const LAST_NAMES = [
-  'Шевченко', 'Ярмоленко', 'Зінченко', 'Мудрик', 'Довбик', 'Трубін', 'Забарний', 'Миколенко',
-  'Степаненко', 'Шапаренко', 'Судаков', 'Бущан', 'Циганков', 'Матвієнко', 'Конопля', 'Тимчик',
-  'Сидорчук', 'Караваєв', 'Ванат', 'Гуцуляк', 'Бондаренко', 'Криськів', 'Бражко', 'Таловєров',
-  'Карпюк', 'Селоук', 'Ковальчук', 'Мельник', 'Ткачук', 'Кравченко', 'Лисенко', 'Олійник'
-];
-
-const POSITIONS = [
-  'GK', 'GK',
-  'CB', 'CB', 'CB', 'LB', 'RB',
-  'CDM', 'CM', 'CM', 'CAM', 'LM', 'RM',
-  'ST', 'ST', 'LW', 'RW'
+const UA_LAST_NAMES = [
+  "Шевченко", "Ярмоленко", "Зінченко", "Мудрик", "Циганков", "Забарний", "Миколенко",
+  "Лунін", "Трубін", "Довбик", "Шапаренко", "Бондаренко", "Судаков", "Сидорчук",
+  "Степаненко", "Матвієнко", "Тимчик", "Караваєв", "Бущан", "Конопля", "Гуцуляк",
+  "Піхальонок", "Ванат", "Яремчук", "Бражко", "Таловєров", "Сич", "Батагов"
 ];
 
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function getRandomName() {
-  const f = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-  const l = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-  return `${f} ${l}`;
+function generateRandomName() {
+  const fn = UA_FIRST_NAMES[getRandomInt(0, UA_FIRST_NAMES.length - 1)];
+  const ln = UA_LAST_NAMES[getRandomInt(0, UA_LAST_NAMES.length - 1)];
+  return `${fn} ${ln}`;
 }
 
-async function seedBots() {
+async function seed11x11Bots() {
+  console.log('🌱 Connecting to PostgreSQL to seed 11x11.ru bot squads & market...');
   await client.connect();
-  console.log('🌱 Seeding bot squad players and initial transfer market...');
 
-  const clubsRes = await client.query('SELECT id, name FROM public.fm_clubs WHERE is_bot = TRUE;');
-  console.log(`Found ${clubsRes.rows.length} bot clubs.`);
+  const clubsRes = await client.query('SELECT id, name FROM public.fm_clubs WHERE is_bot = TRUE');
+  console.log(`Found ${clubsRes.rows.length} bot clubs to populate with 11x11 squads...`);
+
+  // Clear existing players of bot clubs to regenerate clean 11x11 stats
+  await client.query('DELETE FROM public.fm_players WHERE club_id IN (SELECT id FROM public.fm_clubs WHERE is_bot = TRUE)');
+  await client.query('DELETE FROM public.fm_transfers');
+
+  const positions = [
+    { pos: "GK", sec: null },
+    { pos: "GK", sec: null },
+    { pos: "LD", sec: "CD" },
+    { pos: "CD", sec: null },
+    { pos: "CD", sec: "RD" },
+    { pos: "RD", sec: null },
+    { pos: "CD", sec: "LD" },
+    { pos: "LM", sec: "LF" },
+    { pos: "CM", sec: null },
+    { pos: "CM", sec: "RM" },
+    { pos: "RM", sec: null },
+    { pos: "CM", sec: "LM" },
+    { pos: "LF", sec: "CF" },
+    { pos: "CF", sec: null },
+    { pos: "RF", sec: "CF" },
+    { pos: "CF", sec: null }
+  ];
+
+  const abilitiesPool = ["pass", "long_shot", "tackling", "header", "speed", "playmaker", "penalty", "one_on_one", "interception", "gk_reaction", "gk_exit", "dribbling"];
 
   for (const club of clubsRes.rows) {
-    const pCount = await client.query('SELECT COUNT(*) FROM public.fm_players WHERE club_id = $1', [club.id]);
-    if (parseInt(pCount.rows[0].count, 10) >= 11) {
-      console.log(`Club ${club.name} already has ${pCount.rows[0].count} players.`);
-      continue;
-    }
+    console.log(`Seeding 11x11 squad for: ${club.name} (ID: ${club.id})...`);
 
-    console.log(`Generating squad for ${club.name}...`);
-    for (let i = 0; i < POSITIONS.length; i++) {
-      const pos = POSITIONS[i];
-      const isGK = pos === 'GK';
-      const age = getRandomInt(18, 33);
-      const overall = getRandomInt(62, 78);
+    for (let i = 0; i < positions.length; i++) {
+      const p = positions[i];
       const isStarter = i < 11;
+      const pitchSlot = isStarter ? i + 1 : 0;
+      const skill = getRandomInt(140, 240);
+      const talent = getRandomInt(2, 5);
+      const energy = 100;
+      const xp = getRandomInt(20, 100);
 
-      const pace = isGK ? getRandomInt(30, 50) : getRandomInt(55, 85);
-      const shooting = isGK ? getRandomInt(15, 30) : (pos === 'ST' || pos === 'LW' || pos === 'RW' ? getRandomInt(65, 82) : getRandomInt(45, 70));
-      const passing = isGK ? getRandomInt(40, 65) : getRandomInt(55, 80);
-      const dribbling = isGK ? getRandomInt(20, 40) : getRandomInt(55, 80);
-      const defending = isGK ? getRandomInt(20, 40) : (pos.includes('B') || pos === 'CDM' ? getRandomInt(65, 82) : getRandomInt(40, 65));
-      const physical = getRandomInt(55, 85);
-      const goalkeeping = isGK ? overall : getRandomInt(10, 20);
-
-      const marketValue = overall * overall * 15;
-      const wage = Math.round(overall * 35);
-      const potential = Math.min(95, overall + (33 - age) * 2);
+      const playerAbilities = [];
+      if (talent >= 3 && Math.random() > 0.4) {
+        playerAbilities.push(abilitiesPool[getRandomInt(0, abilitiesPool.length - 1)]);
+      }
 
       const pRes = await client.query(`
         INSERT INTO public.fm_players (
-          club_id, name, nationality, age, position, overall_rating,
-          pace, shooting, passing, dribbling, defending, physical, goalkeeping,
-          stamina, morale, form, potential, market_value, wage,
-          is_starter, pitch_slot, is_on_transfer, transfer_price
+          club_id, name, nationality, age, position, secondary_position,
+          skill, talent, special_abilities, energy, morale, xp,
+          market_value, wage, matches_played, goals, assists, yellow_cards, red_cards,
+          is_starter, pitch_slot, is_on_transfer, transfer_price, is_injured, injury_matches,
+          overall_rating, stamina
         ) VALUES (
           $1, $2, 'Україна', $3, $4, $5,
-          $6, $7, $8, $9, $10, $11, $12,
-          100, 100, 80, $13, $14, $15,
-          $16, $17, $18, $19
-        ) RETURNING id;
+          $6, $7, $8, $9, 100, $10,
+          $11, $12, 0, 0, 0, 0, 0,
+          $13, $14, $15, $16, FALSE, 0,
+          $17, 100
+        ) RETURNING id, name, position, skill, talent;
       `, [
-        club.id, getRandomName(), age, pos, overall,
-        pace, shooting, passing, dribbling, defending, physical, goalkeeping,
-        potential, marketValue, wage,
-        isStarter, isStarter ? i + 1 : 0,
-        i === 15, i === 15 ? Math.round(marketValue * 1.1) : 0
+        club.id,
+        generateRandomName(),
+        getRandomInt(19, 31),
+        p.pos,
+        p.sec,
+        skill,
+        talent,
+        JSON.stringify(playerAbilities),
+        energy,
+        xp,
+        skill * talent * 450,
+        skill * 8,
+        isStarter,
+        pitchSlot,
+        i === 15, // Put 16th player on transfer market
+        i === 15 ? Math.round(skill * talent * 500) : 0,
+        Math.round(skill / 3)
       ]);
 
-      // If player is on transfer, create transfer listing
+      // If on transfer, add to fm_transfers
       if (i === 15) {
+        const createdPlayer = pRes.rows[0];
+        const buyout = Math.round(skill * talent * 550);
+        const startBid = Math.round(buyout * 0.7);
+
         await client.query(`
           INSERT INTO public.fm_transfers (
-            player_id, player_name, position, rating, seller_club_id, price, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'active')
-        `, [pRes.rows[0].id, getRandomName(), pos, overall, club.id, Math.round(marketValue * 1.1)]);
+            player_id, player_name, position, rating, skill, talent, special_abilities,
+            seller_club_id, seller_club_name, current_bid, buyout_price, price, status, ends_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7,
+            $8, $9, $10, $11, $10, 'active', NOW() + INTERVAL '2 hours'
+          )
+        `, [
+          createdPlayer.id,
+          createdPlayer.name,
+          createdPlayer.position,
+          Math.round(skill / 3),
+          skill,
+          talent,
+          JSON.stringify(playerAbilities),
+          club.id,
+          club.name,
+          startBid,
+          buyout
+        ]);
       }
     }
   }
 
-  console.log('✅ Bot players seeded successfully!');
+  console.log('🎉 11x11.ru bots seeding completed successfully!');
   await client.end();
 }
 
-seedBots().catch((err) => {
-  console.error('❌ Error seeding bots:', err);
+seed11x11Bots().catch((err) => {
+  console.error('❌ Bot seeding failed:', err);
   process.exit(1);
 });

@@ -1,16 +1,48 @@
 export type PlayerPosition =
   | "GK"
-  | "CB"
+  | "LD"
+  | "CD"
+  | "RD"
+  | "LM"
+  | "CM"
+  | "RM"
+  | "LF"
+  | "CF"
+  | "RF"
+  // Aliases for compatibility
   | "LB"
+  | "CB"
   | "RB"
   | "CDM"
-  | "CM"
   | "CAM"
-  | "LM"
-  | "RM"
   | "LW"
   | "RW"
   | "ST"
+
+export type SpecialAbilityId =
+  | "pass"
+  | "long_shot"
+  | "tackling"
+  | "header"
+  | "speed"
+  | "playmaker"
+  | "penalty"
+  | "one_on_one"
+  | "interception"
+  | "gk_reaction"
+  | "gk_exit"
+  | "dribbling"
+
+export interface SpecialAbilityDef {
+  id: SpecialAbilityId
+  name: string
+  shortCode: string
+  description: string
+  icon: string
+  allowedPositions: ("GK" | "DEF" | "MID" | "FWD")[]
+  costXp: number
+  costMoney: number
+}
 
 export type FormationType =
   | "4-4-2"
@@ -53,6 +85,7 @@ export interface FMClub {
   fans_count: number
   league_id?: number | null
   is_bot: boolean
+  cups_won?: number
   created_at?: string
   updated_at?: string
 }
@@ -64,18 +97,13 @@ export interface FMPlayer {
   nationality: string
   age: number
   position: PlayerPosition
-  overall_rating: number
-  pace: number
-  shooting: number
-  passing: number
-  dribbling: number
-  defending: number
-  physical: number
-  goalkeeping: number
-  stamina: number
-  morale: number
-  form: number
-  potential: number
+  secondary_position?: PlayerPosition | null
+  skill: number            // 11x11.ru core numeric rating (e.g. 50 - 450+)
+  talent: number           // 11x11.ru star rating (1 to 6 stars)
+  special_abilities: SpecialAbilityId[] // Perks / Спецуміння
+  energy: number           // 0 - 100% (Fatigue / Фізична форма)
+  morale: number           // 0 - 100%
+  xp: number               // Unspent XP to upgrade skill or learn abilities
   market_value: number
   wage: number
   matches_played: number
@@ -90,6 +118,19 @@ export interface FMPlayer {
   is_injured: boolean
   injury_matches: number
   created_at?: string
+
+  // Legacy compatibility fallbacks
+  overall_rating?: number
+  stamina?: number
+  form?: number
+  potential?: number
+  pace?: number
+  shooting?: number
+  passing?: number
+  dribbling?: number
+  defending?: number
+  physical?: number
+  goalkeeping?: number
 }
 
 export interface FMTactics {
@@ -110,14 +151,31 @@ export interface FMStadium {
   id?: number
   club_id: number
   name: string
-  capacity: number
-  pitch_level: number
-  training_level: number
-  medical_level: number
-  youth_academy_level: number
-  marketing_level: number
-  ticket_price: number
+  capacity: number             // Стадіон (місткість глядачів)
+  pitch_level: number          // Газон (якість поля)
+  base_level: number           // Клубна База (ліміт складу і будівель)
+  fitness_level: number        // Фітнес-центр (швидкість відновлення сил)
+  medical_level: number        // Медичний центр (швидкість лікування травм)
+  youth_academy_level: number  // Школа юніорів (якість молоді)
+  office_level: number         // Офіс клубу (слоти персоналу та спонсори)
+  commercial_level: number     // Торговий центр (пасивний дохід від сувенірів)
+  ticket_price: number         // Ціна квитка на матч (₴)
+  training_level?: number      // compatibility
+  marketing_level?: number     // compatibility
   updated_at?: string
+}
+
+export type StaffRole = "coach" | "doctor" | "masseur" | "scout"
+
+export interface FMStaff {
+  id: number
+  club_id: number
+  role: StaffRole
+  name: string
+  level: number       // 1 - 5
+  salary: number      // ₴ per match/day
+  bonus_desc: string
+  created_at?: string
 }
 
 export interface FMMatchEvent {
@@ -133,10 +191,12 @@ export interface FMMatchEvent {
     | "chance"
     | "penalty"
     | "foul"
+    | "special_ability"
   text: string
   team: "home" | "away"
   player_name?: string
   assist_player_name?: string
+  ability_name?: string
   is_home: boolean
   home_score_at_time?: number
   away_score_at_time?: number
@@ -171,6 +231,7 @@ export interface FMMatch {
   away_score: number
   is_played: boolean
   match_type: "friendly" | "league" | "cup"
+  tournament_id?: number | null
   league_id?: number | null
   events_log: FMMatchEvent[]
   stats: FMMatchStats
@@ -180,16 +241,60 @@ export interface FMMatch {
   played_at?: string
 }
 
+export interface FMTournamentMatch {
+  match_id?: number
+  home_club_id: number
+  home_club_name: string
+  home_club_badge?: string
+  home_club_color?: string
+  away_club_id: number
+  away_club_name: string
+  away_club_badge?: string
+  away_club_color?: string
+  home_score?: number
+  away_score?: number
+  winner_club_id?: number
+  is_played: boolean
+}
+
+export interface FMTournamentBracket {
+  quarter_finals: FMTournamentMatch[] // 4 matches (8 teams)
+  semi_finals: FMTournamentMatch[]    // 2 matches (4 teams)
+  final: FMTournamentMatch            // 1 match (2 teams)
+  winner_club_id?: number
+  winner_club_name?: string
+}
+
+export interface FMTournament {
+  id: number
+  name: string
+  tier: number
+  status: "registration" | "quarter_finals" | "semi_finals" | "final" | "completed"
+  bracket: FMTournamentBracket
+  prize_pool: number
+  entry_fee: number
+  winner_club_id?: number | null
+  winner_club_name?: string | null
+  created_at?: string
+}
+
 export interface FMTransfer {
   id: number
   player_id: number
   player_name: string
   position: PlayerPosition
-  rating: number
+  skill: number
+  talent: number
+  special_abilities: SpecialAbilityId[]
+  age: number
   seller_club_id: number
   seller_club_name?: string
-  buyer_club_id?: number | null
-  price: number
+  highest_bidder_club_id?: number | null
+  highest_bidder_club_name?: string | null
+  current_bid: number
+  buyout_price: number
+  price?: number
+  ends_at: string
   status: "active" | "completed" | "cancelled"
   created_at?: string
 }
@@ -200,17 +305,10 @@ export interface FMYouthProspect {
   name: string
   age: number
   position: PlayerPosition
-  potential: number
-  rating: number
-  attributes: {
-    pace: number
-    shooting: number
-    passing: number
-    dribbling: number
-    defending: number
-    physical: number
-    goalkeeping: number
-  }
+  skill: number
+  talent: number
+  special_abilities: SpecialAbilityId[]
+  signing_cost: number
   scouted_at?: string
   is_signed: boolean
 }
