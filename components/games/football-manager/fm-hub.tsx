@@ -18,6 +18,7 @@ import {
 } from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import { FMOnboarding } from "./fm-onboarding"
+import { FMLockScreen } from "./fm-lock-screen"
 import { FMDashboard } from "./fm-dashboard"
 import { FMSquadTactics } from "./fm-squad-tactics"
 import { FMTournamentsView } from "./fm-tournaments"
@@ -42,7 +43,8 @@ import {
   LogOut,
   Sparkles,
   Award,
-  Zap
+  Zap,
+  Lock
 } from "lucide-react"
 
 export function FMHub() {
@@ -59,7 +61,18 @@ export function FMHub() {
 
   const [isMuted, setIsMuted] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const [isUnlocked, setIsUnlocked] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Password Lock state check
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const unlocked =
+        sessionStorage.getItem("ks_fm_unlocked") === "true" ||
+        localStorage.getItem("ks_fm_unlocked") === "true"
+      setIsUnlocked(unlocked)
+    }
+  }, [])
 
   // Fullscreen event listener to sync state with native browser Esc / F11
   useEffect(() => {
@@ -141,12 +154,22 @@ export function FMHub() {
 
   const handleLogout = () => {
     fmAudio.playClick()
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("ks_fm_unlocked")
+      localStorage.removeItem("ks_fm_unlocked")
+    }
+    setIsUnlocked(false)
     fmLogout()
     setCurrentUser(null)
     setClub(null)
     setPlayers([])
     setTactics(null)
     setStadium(null)
+  }
+
+  // 1. Password Lock Gate (PIN: 1100)
+  if (!isUnlocked) {
+    return <FMLockScreen onUnlock={() => setIsUnlocked(true)} />
   }
 
   if (loading) {
@@ -245,6 +268,22 @@ export function FMHub() {
               className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-emerald-400 transition-colors shadow-md"
             >
               {isMuted ? <VolumeX className="w-5 h-5 text-rose-400" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+
+            {/* Lock Game Screen */}
+            <button
+              onClick={() => {
+                fmAudio.playClick()
+                if (typeof window !== "undefined") {
+                  sessionStorage.removeItem("ks_fm_unlocked")
+                  localStorage.removeItem("ks_fm_unlocked")
+                }
+                setIsUnlocked(false)
+              }}
+              title="Заблокувати доступ до гри"
+              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-amber-400 transition-colors shadow-md"
+            >
+              <Lock className="w-5 h-5" />
             </button>
 
             {/* Native Fullscreen Button */}

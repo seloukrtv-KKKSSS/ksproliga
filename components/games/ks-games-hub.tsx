@@ -174,8 +174,8 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
         >
           <Shield className="h-4 w-4 text-emerald-300 pointer-events-none" />
           <span className="pointer-events-none">Football Manager</span>
-          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 ml-0.5">
-            PRO
+          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 ml-0.5 flex items-center gap-0.5">
+            🔒 PIN
           </span>
         </button>
 
