@@ -56,6 +56,7 @@ export function KsSnakeGame({
   const localPlayerNameRef = useRef(playerName || "")
   const submittingRef = useRef(false)
   const highScoreRef = useRef(0)
+  const startBaselineScoreRef = useRef(0)
   const lastSavedScoreRef = useRef(0)
   const snakeRef = useRef<Point[]>([
     { x: 10, y: 10 },
@@ -273,6 +274,7 @@ export function KsSnakeGame({
     dirRef.current = "UP"
     directionQueueRef.current = []
     scoreRef.current = 0
+    startBaselineScoreRef.current = highScoreRef.current // Baseline score for true new record detection
     speedRef.current = INITIAL_SPEED
     foodRef.current = spawnFood()
     goldenFoodRef.current = null
@@ -317,16 +319,21 @@ export function KsSnakeGame({
       const finalScore = scoreRef.current
       const nameToUse = localPlayerNameRef.current.trim()
 
-      // Check if this was a new record
-      if (finalScore > highScoreRef.current) {
-        setIsNewRecord(true)
-        highScoreRef.current = finalScore
-        setHighScore(finalScore)
-        localStorage.setItem("ks_snake_highscore", String(finalScore))
+      // Mathematical true record beat check against baseline before game started
+      const didBeatRecord = startBaselineScoreRef.current > 0
+        ? finalScore > startBaselineScoreRef.current
+        : finalScore > 0
+
+      setIsNewRecord(didBeatRecord)
+
+      if (didBeatRecord) {
+        highScoreRef.current = Math.max(highScoreRef.current, finalScore)
+        setHighScore(highScoreRef.current)
+        localStorage.setItem("ks_snake_highscore", String(highScoreRef.current))
       }
 
-      // Auto-save to Supabase if player name is present
-      if (nameToUse && finalScore > 0 && !submittingRef.current) {
+      // Auto-save to Supabase if player name is present and beats DB record
+      if (nameToUse && finalScore > 0 && finalScore > lastSavedScoreRef.current && !submittingRef.current) {
         submittingRef.current = true
         setSubmitting(true)
         try {
@@ -592,7 +599,12 @@ export function KsSnakeGame({
 
         {/* Start Overlay */}
         {gameState === "idle" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20"
+          >
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/40 mb-3.5 flex items-center justify-center animate-bounce">
               <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
                 <Play className="h-7 w-7 text-emerald-400 fill-emerald-400 ml-0.5" />
@@ -627,7 +639,12 @@ export function KsSnakeGame({
 
         {/* Game Over Modal */}
         {gameState === "gameover" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20"
+          >
             <div className="bg-white/10 border border-white/20 rounded-3xl p-5 max-w-xs w-full shadow-2xl backdrop-blur-xl space-y-3.5">
               <div className="flex items-center justify-center gap-2">
                 <Trophy className="h-5 w-5 text-amber-400" />

@@ -15,6 +15,7 @@ interface KsGamesHubProps {
 
 export function KsGamesHub({ teams }: KsGamesHubProps) {
   const [activeTab, setActiveTab] = useState<"dino" | "snake" | "leaderboard">("dino")
+  const [leaderboardGameType, setLeaderboardGameType] = useState<"dino" | "snake">("dino")
   const [playerName, setPlayerName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
   const [tempName, setTempName] = useState("")
@@ -251,7 +252,10 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}
-                onViewLeaderboard={() => setActiveTab("leaderboard")}
+                onViewLeaderboard={() => {
+                  setLeaderboardGameType("dino")
+                  setActiveTab("leaderboard")
+                }}
               />
 
               {/* Quick Rules Card */}
@@ -276,7 +280,10 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
                 playerName={playerName}
                 onScoreSubmitted={handleScoreSubmitted}
                 onRequestName={() => setIsEditingName(true)}
-                onViewLeaderboard={() => setActiveTab("leaderboard")}
+                onViewLeaderboard={() => {
+                  setLeaderboardGameType("snake")
+                  setActiveTab("leaderboard")
+                }}
               />
 
               {/* Quick Rules Card */}
@@ -296,7 +303,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
           {activeTab === "leaderboard" && (
             <KsLeaderboard
-              initialGameType="dino"
+              initialGameType={leaderboardGameType}
               currentPlayerName={playerName}
               lastSubmittedScoreId={lastSubmittedScoreId}
             />

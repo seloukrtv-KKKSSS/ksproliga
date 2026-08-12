@@ -51,6 +51,7 @@ export function KsDinoRunner({
   const gameStateRef = useRef<"idle" | "playing" | "gameover">("idle")
   const scoreRef = useRef(0)
   const highScoreRef = useRef(0)
+  const startBaselineScoreRef = useRef(0)
   const lastSavedScoreRef = useRef(0)
   const localPlayerNameRef = useRef(playerName || "")
   const speedRef = useRef(5)
@@ -103,6 +104,7 @@ export function KsDinoRunner({
       const parsed = parseInt(savedHi, 10) || 0
       setHighScore(parsed)
       highScoreRef.current = parsed
+      lastSavedScoreRef.current = parsed
     }
   }, [])
 
@@ -137,16 +139,8 @@ export function KsDinoRunner({
     }
   }
 
-  // Jump Action
+  // Jump Action (Only triggers jump while playing)
   const doJump = useCallback(() => {
-    if (gameStateRef.current === "idle") {
-      startGame()
-      return
-    }
-    if (gameStateRef.current === "gameover") {
-      startGame()
-      return
-    }
     if (gameStateRef.current === "playing") {
       if (playerYRef.current === 0 && !isDuckingRef.current) {
         playerVYRef.current = 14.2 // Jump force
@@ -176,7 +170,11 @@ export function KsDinoRunner({
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (["Space", "ArrowUp", "KeyW"].includes(e.code)) {
         e.preventDefault()
-        doJump()
+        if (gameStateRef.current === "idle" || gameStateRef.current === "gameover") {
+          startGame()
+        } else {
+          doJump()
+        }
       } else if (["ArrowDown", "KeyS"].includes(e.code)) {
         e.preventDefault()
         setDuck(true)
@@ -202,6 +200,7 @@ export function KsDinoRunner({
   // Start / Restart Game
   const startGame = () => {
     scoreRef.current = 0
+    startBaselineScoreRef.current = highScoreRef.current // Baseline score for true new record detection
     speedRef.current = 4.2
     playerYRef.current = 0
     playerVYRef.current = 0
@@ -666,16 +665,21 @@ export function KsDinoRunner({
             const finalScore = Math.floor(scoreRef.current)
             const pName = localPlayerNameRef.current.trim()
 
-            // Check if this was a new record
-            if (finalScore > highScoreRef.current) {
-              setIsNewRecord(true)
+            // True record beat check against the score when THIS round started
+            const didBeatRecord = startBaselineScoreRef.current > 0
+              ? finalScore > startBaselineScoreRef.current
+              : finalScore > 0
+
+            setIsNewRecord(didBeatRecord)
+
+            if (didBeatRecord) {
               highScoreRef.current = finalScore
               setHighScore(finalScore)
               localStorage.setItem("ks_dino_highscore", String(finalScore))
             }
 
-            // Auto-save to Supabase if player name is present
-            if (pName && finalScore > 0) {
+            // Auto-save to Supabase if player name is present and beats DB record
+            if (pName && finalScore > 0 && finalScore > lastSavedScoreRef.current) {
               autoSaveScore(pName, finalScore)
             }
             break
@@ -716,9 +720,14 @@ export function KsDinoRunner({
         }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        onClick={doJump}
       >
-        <canvas ref={canvasRef} className="w-full h-full block cursor-pointer" />
+        <canvas 
+          ref={canvasRef} 
+          className="w-full h-full block cursor-pointer"
+          onClick={() => {
+            if (gameStateRef.current === "playing") doJump()
+          }}
+        />
 
         {/* Top HUD Display */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
@@ -768,7 +777,12 @@ export function KsDinoRunner({
 
         {/* Idle Overlay */}
         {gameState === "idle" && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20"
+          >
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 to-amber-400 p-0.5 shadow-xl shadow-blue-500/40 mb-3.5 flex items-center justify-center animate-bounce">
               <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center">
                 <Play className="h-7 w-7 text-amber-400 fill-amber-400 ml-0.5" />
@@ -809,7 +823,12 @@ export function KsDinoRunner({
 
         {/* Game Over Modal Overlay */}
         {gameState === "gameover" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20"
+          >
             <div className="bg-white/10 border border-white/20 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl backdrop-blur-xl space-y-3.5">
               <div className="flex items-center justify-center gap-2">
                 <Trophy className="h-6 w-6 text-amber-400" />

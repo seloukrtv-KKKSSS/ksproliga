@@ -22,6 +22,10 @@ export function KsLeaderboard({
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
+    setActiveGame(initialGameType)
+  }, [initialGameType])
+
+  useEffect(() => {
     loadLeaderboard(activeGame)
   }, [activeGame, lastSubmittedScoreId])
 
