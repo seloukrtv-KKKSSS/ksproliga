@@ -27,3 +27,8 @@ yarn-error.log*
 next-env.d.ts
 
 .env*
+
+# AI Internal Guides (Do not push to github)
+AI_INTEGRATIONS_GUIDE.md
+*AI_GUIDE*.md
+*SETUP_GUIDE*.md
