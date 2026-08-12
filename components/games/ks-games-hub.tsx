@@ -64,9 +64,9 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-3xl mx-auto pb-12 w-full flex flex-col items-center">
       {/* Hero Games Room Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-7 shadow-xl border border-white/10">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-7 shadow-xl border border-white/10 w-full">
         {/* Ambient Neon Blobs */}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-44 h-44 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-44 h-44 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
@@ -158,7 +158,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
       {/* Main Navigation Segmented Control */}
       <div 
-        className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/60 backdrop-blur-xl border border-slate-200/80 shadow-sm select-none arcade-no-select"
+        className="flex items-center justify-center gap-2 p-1.5 rounded-2xl bg-white/60 backdrop-blur-xl border border-slate-200/80 shadow-sm select-none arcade-no-select max-w-xl mx-auto w-full"
         onContextMenu={(e) => e.preventDefault()}
       >
         <button
@@ -206,7 +206,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
       {/* Active Tab Content Area */}
       {!nicknameReady ? (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 shadow-xl border border-white/10 flex flex-col items-center justify-center text-center space-y-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 shadow-xl border border-white/10 flex flex-col items-center justify-center text-center space-y-6 w-full">
           <div className="absolute top-0 right-0 -mt-8 -mr-8 w-44 h-44 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-44 h-44 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
           
@@ -244,9 +244,9 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           </form>
         </div>
       ) : (
-        <div className="glass-animate-in">
+        <div className="glass-animate-in w-full">
           {activeTab === "dino" && (
-            <div className="space-y-6">
+            <div className="space-y-6 w-full max-w-3xl mx-auto">
               <KsDinoRunner
                 teams={allLeagueTeams}
                 playerName={playerName}
@@ -259,7 +259,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
               />
 
               {/* Quick Rules Card */}
-              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
+              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs w-full">
                 <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
                   <Sparkles className="h-4 w-4 text-blue-600" />
                   Як грати в KS Dino Runner:
@@ -274,7 +274,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           )}
 
           {activeTab === "snake" && (
-            <div className="space-y-6">
+            <div className="space-y-6 w-full max-w-md mx-auto">
               <KsSnakeGame
                 teams={allLeagueTeams}
                 playerName={playerName}
@@ -287,7 +287,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
               />
 
               {/* Quick Rules Card */}
-              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs">
+              <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs w-full">
                 <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
                   <Flame className="h-4 w-4 text-emerald-600" />
                   Як грати в KS Retro Snake:
@@ -302,11 +302,13 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           )}
 
           {activeTab === "leaderboard" && (
-            <KsLeaderboard
-              initialGameType={leaderboardGameType}
-              currentPlayerName={playerName}
-              lastSubmittedScoreId={lastSubmittedScoreId}
-            />
+            <div className="space-y-6 w-full max-w-2xl mx-auto">
+              <KsLeaderboard
+                initialGameType={leaderboardGameType}
+                currentPlayerName={playerName}
+                lastSubmittedScoreId={lastSubmittedScoreId}
+              />
+            </div>
           )}
         </div>
       )}

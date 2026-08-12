@@ -2082,7 +2082,7 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* KS Games Tab */}
-                <TabsContent value="games" className="outline-none space-y-4">
+                <TabsContent value="games" className="outline-none space-y-4 w-full flex flex-col items-center">
                   <KsGamesHub teams={teams} />
                 </TabsContent>
 

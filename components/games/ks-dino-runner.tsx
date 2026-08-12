@@ -237,7 +237,7 @@ export function KsDinoRunner({
     }
   }
 
-  // Draw Pixel Footballer
+  // Draw Pixel Footballer in Black Jersey with "KS TV" Flag
   const drawPlayer = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -248,18 +248,19 @@ export function KsDinoRunner({
     ctx.save()
     ctx.translate(x, y)
 
-    const runCycle = Math.floor(frame / 6) % 4
     const legOffset = isDucking ? 0 : Math.sin(frame * 0.3) * 6
+    const flagWave = Math.sin(frame * 0.35) * 2.5
+    const flagWaveEnd = Math.sin(frame * 0.35 + 1.2) * 3.5
 
     if (isDucking) {
-      // Sliding / Ducking Player (Lower profile: 24px height, 44px width)
-      // Shadow
+      // Sliding / Ducking Player with low-profile flag
+      // 1. Dynamic Slide Shadow
       ctx.fillStyle = "rgba(0, 0, 0, 0.2)"
       ctx.beginPath()
-      ctx.ellipse(22, 22, 20, 5, 0, 0, Math.PI * 2)
+      ctx.ellipse(22, 22, 24, 5, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      // Slide spark particles
+      // 2. Slide friction sparks
       ctx.fillStyle = "#F59E0B"
       for (let i = 0; i < 3; i++) {
         const sx = -5 - Math.random() * 12
@@ -267,21 +268,74 @@ export function KsDinoRunner({
         ctx.fillRect(sx, sy, 2.5, 2.5)
       }
 
-      // Torso / Jersey (Slanted forward)
-      ctx.fillStyle = "#2563EB" // Team Blue
+      // 3. Sliding Flagpole & "KS TV" Flag (tilted back low)
+      const poleBaseX = 14
+      const poleBaseY = 12
+      const poleTipX = -10
+      const poleTipY = -4
+
+      // Flagpole
+      ctx.strokeStyle = "#CBD5E1"
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(poleBaseX, poleBaseY)
+      ctx.lineTo(poleTipX, poleTipY)
+      ctx.stroke()
+
+      // Pole Golden Finial
+      ctx.fillStyle = "#F59E0B"
+      ctx.beginPath()
+      ctx.arc(poleTipX, poleTipY, 2, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Flag Cloth
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(poleTipX, poleTipY)
+      ctx.quadraticCurveTo(poleTipX - 14, poleTipY - 2 + flagWave, poleTipX - 30, poleTipY + flagWaveEnd)
+      ctx.lineTo(poleTipX - 30, poleTipY + 12 + flagWaveEnd)
+      ctx.quadraticCurveTo(poleTipX - 14, poleTipY + 10 + flagWave, poleBaseX - 18, poleBaseY - 2)
+      ctx.lineTo(poleTipX, poleTipY + 8)
+      ctx.closePath()
+      ctx.fillStyle = "#FBBF24" // Bright golden flag
+      ctx.fill()
+      ctx.strokeStyle = "#0F172A"
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // "KS TV" Text on sliding flag
+      ctx.translate(poleTipX - 15, poleTipY + 6 + flagWave * 0.7)
+      ctx.fillStyle = "#0F172A"
+      ctx.font = "900 7px sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText("KS TV", 0, 0)
+      ctx.restore()
+
+      // 4. Sliding Torso / Black Jersey (Чорна майка)
+      ctx.fillStyle = "#0F172A" // Deep Black Kit
       ctx.beginPath()
       ctx.roundRect(10, 8, 26, 12, 4)
       ctx.fill()
 
-      // Yellow Accent Number 7
+      // Gold Trim & Number 7
+      ctx.fillStyle = "#F59E0B"
+      ctx.fillRect(10, 8, 2, 12)
       ctx.fillStyle = "#FBBF24"
       ctx.font = "bold 9px sans-serif"
-      ctx.fillText("7", 20, 17)
+      ctx.textAlign = "center"
+      ctx.fillText("7", 22, 17)
 
-      // Head / Helmet
-      ctx.fillStyle = "#FBBF24" // Blonde hair
+      // Arms / Skin tone
+      ctx.fillStyle = "#FCD34D"
       ctx.beginPath()
-      ctx.arc(36, 10, 7, 0, Math.PI * 2)
+      ctx.arc(28, 14, 3.5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Head & Hair
+      ctx.fillStyle = "#1E293B" // Dark athletic hair
+      ctx.beginPath()
+      ctx.arc(36, 9, 7, 0, Math.PI * 2)
       ctx.fill()
 
       // Face
@@ -296,19 +350,70 @@ export function KsDinoRunner({
       ctx.roundRect(0, 12, 14, 8, 3)
       ctx.fill()
 
-      // Boots with Grass spray
+      // Boots
       ctx.fillStyle = "#0F172A"
       ctx.fillRect(-2, 16, 8, 5)
     } else {
       // Standard Running Player (44px height, 26px width)
-      // Dynamic Shadow
+      // 1. Dynamic Pitch Shadow
       ctx.fillStyle = "rgba(0, 0, 0, 0.25)"
       ctx.beginPath()
-      ctx.ellipse(13, 44, 12, 4, 0, 0, Math.PI * 2)
+      ctx.ellipse(13, 44, 13, 4, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      // Head
-      ctx.fillStyle = "#FBBF24" // Hair
+      // 2. Flagpole & Fluttering "KS TV" Flag (Carried by footballer)
+      const poleHandX = 10
+      const poleHandY = 22
+      const poleTopX = -4
+      const poleTopY = -12
+
+      // Silver Flagpole
+      ctx.strokeStyle = "#CBD5E1"
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(poleHandX, poleHandY)
+      ctx.lineTo(poleTopX, poleTopY)
+      ctx.stroke()
+
+      // Golden Tip / Spearhead
+      ctx.fillStyle = "#F59E0B"
+      ctx.beginPath()
+      ctx.arc(poleTopX, poleTopY, 2.5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Fluttering Flag Cloth in Running Wind
+      ctx.save()
+      ctx.beginPath()
+      ctx.moveTo(poleTopX, poleTopY)
+      ctx.quadraticCurveTo(poleTopX - 16, poleTopY - 2 + flagWave, poleTopX - 34, poleTopY + flagWaveEnd)
+      ctx.lineTo(poleTopX - 34, poleTopY + 14 + flagWaveEnd)
+      ctx.quadraticCurveTo(poleTopX - 16, poleTopY + 12 + flagWave, poleTopX, poleTopY + 14)
+      ctx.closePath()
+
+      // Golden Yellow Flag Background
+      ctx.fillStyle = "#FBBF24"
+      ctx.fill()
+      ctx.strokeStyle = "#0F172A"
+      ctx.lineWidth = 1.2
+      ctx.stroke()
+
+      // Red LIVE / TV Indicator Dot
+      ctx.fillStyle = "#EF4444"
+      ctx.beginPath()
+      ctx.arc(poleTopX - 6, poleTopY + 7 + flagWave * 0.6, 1.8, 0, Math.PI * 2)
+      ctx.fill()
+
+      // "KS TV" Bold Text
+      ctx.translate(poleTopX - 19, poleTopY + 7 + flagWave * 0.7)
+      ctx.fillStyle = "#0F172A"
+      ctx.font = "900 8px sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText("KS TV", 0, 0)
+      ctx.restore()
+
+      // 3. Head & Dark Athletic Hair
+      ctx.fillStyle = "#1E293B"
       ctx.beginPath()
       ctx.arc(13, 8, 7, 0, Math.PI * 2)
       ctx.fill()
@@ -323,38 +428,61 @@ export function KsDinoRunner({
       ctx.fillStyle = "#0F172A"
       ctx.fillRect(16, 7, 2, 2)
 
-      // Jersey (Blue KS)
-      ctx.fillStyle = "#2563EB"
+      // 4. Black Jersey (Чорна майка)
+      ctx.fillStyle = "#0F172A" // Deep Black Tank Top
       ctx.beginPath()
       ctx.roundRect(5, 14, 16, 15, 4)
       ctx.fill()
 
-      // Jersey Number
+      // Gold Trim on Neck & Arms
+      ctx.fillStyle = "#F59E0B"
+      ctx.fillRect(6, 14, 14, 1.5)
+
+      // Gold Jersey Number "7"
       ctx.fillStyle = "#FBBF24"
       ctx.font = "bold 9px sans-serif"
-      ctx.fillText("7", 11, 25)
+      ctx.textAlign = "center"
+      ctx.fillText("7", 13, 25)
 
-      // White Shorts
+      // 5. Athletic Arms (Майка / Sleeveless)
+      ctx.fillStyle = "#FCD34D"
+      // Left arm (holding flag)
+      ctx.fillRect(8, 17, 4, 6)
+      // Right arm (running swing)
+      ctx.fillRect(18, 16, 4, 8)
+      ctx.fillRect(18, 23, 4, 4)
+
+      // Mini Soccer Ball under arm
+      ctx.fillStyle = "#FFFFFF"
+      ctx.beginPath()
+      ctx.arc(21, 25, 3.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = "#0F172A"
+      ctx.beginPath()
+      ctx.arc(21, 25, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // 6. Shorts (White with dark stripe)
       ctx.fillStyle = "#FFFFFF"
       ctx.fillRect(5, 28, 16, 7)
+      ctx.fillStyle = "#0F172A"
+      ctx.fillRect(12, 28, 2, 7)
 
-      // Left Leg (Animated)
+      // 7. Left Leg (Animated Running Cycle)
       ctx.fillStyle = "#FCD34D"
       ctx.fillRect(6, 35, 5, 6 + legOffset)
       ctx.fillStyle = "#0F172A" // Boot
       ctx.fillRect(6, 40 + legOffset, 7, 4)
+      ctx.fillStyle = "#F59E0B" // Gold studs
+      ctx.fillRect(8, 43 + legOffset, 3, 1)
 
-      // Right Leg (Animated Inverse)
+      // 8. Right Leg (Animated Inverse)
       ctx.fillStyle = "#FCD34D"
       ctx.fillRect(15, 35, 5, 6 - legOffset)
       ctx.fillStyle = "#0F172A" // Boot
       ctx.fillRect(15, 40 - legOffset, 7, 4)
-
-      // Running Arm with Soccer Ball
-      ctx.fillStyle = "#2563EB"
-      ctx.fillRect(18, 16, 4, 8)
-      ctx.fillStyle = "#FCD34D"
-      ctx.fillRect(18, 23, 4, 4)
+      ctx.fillStyle = "#F59E0B" // Gold studs
+      ctx.fillRect(17, 43 - legOffset, 3, 1)
     }
 
     ctx.restore()
@@ -509,7 +637,7 @@ export function KsDinoRunner({
 
       const isMobile = width < 640
       const groundY = height - (height > 420 ? 80 : isMobile ? 50 : 44)
-      const playerX = isFullscreen ? Math.max(50, width * 0.12) : isMobile ? 38 : 50
+      const playerX = isFullscreen ? Math.max(65, Math.round(width * 0.14)) : isMobile ? 48 : Math.max(65, Math.round(width * 0.12))
 
       frameCountRef.current++
       ctx.clearRect(0, 0, width, height)
@@ -711,11 +839,11 @@ export function KsDinoRunner({
   }, [teams, isFullscreen])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full max-w-3xl mx-auto flex flex-col items-center">
       {/* Game Stage Container */}
       <div
         ref={containerRef}
-        className={`relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[4/3] sm:aspect-[16/8] min-h-[260px] sm:min-h-[240px] max-h-[360px] ${
+        className={`relative overflow-hidden rounded-3xl bg-slate-900 border-2 border-blue-500/30 shadow-2xl select-none touch-none aspect-[4/3] sm:aspect-[16/8] min-h-[260px] sm:min-h-[260px] max-h-[380px] w-full mx-auto ${
           isFullscreen ? "fixed inset-0 z-50 rounded-none w-screen h-screen max-h-none border-none" : ""
         }`}
         onTouchStart={handleTouchStart}
