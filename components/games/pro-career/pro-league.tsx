@@ -81,7 +81,7 @@ export function ProLeagueStandings({
   ]
 
   return (
-    <div className="max-w-4xl mx-auto w-full space-y-6 animate-fade-in">
+    <div className="max-w-[1500px] mx-auto w-full space-y-6 animate-fade-in">
       {/* Top Selector: Standings vs Cup */}
       <div className="flex items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
         <div className="flex items-center gap-1 flex-1">

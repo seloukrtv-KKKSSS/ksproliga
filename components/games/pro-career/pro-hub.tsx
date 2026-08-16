@@ -370,30 +370,41 @@ export function ProHub({
   const opponentClub =
     tierClubs[career.current_fixture_round % (tierClubs.length || 1)] || clubs[1] || currentClub
 
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener("fullscreenchange", handleFsChange)
+    return () => document.removeEventListener("fullscreenchange", handleFsChange)
+  }, [])
+
   return (
     <div
       className={`min-h-screen bg-[#060a0f] text-slate-100 flex flex-col select-none font-sans ${
-        isFullscreen ? "p-0" : "p-3 sm:p-6"
+        isFullscreen
+          ? "fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-[#060a0f] via-[#09111a] to-[#04080d]"
+          : "p-3 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto"
       }`}
     >
       {/* ─── TOP MASTER HUD BAR ─── */}
-      <header className="max-w-7xl mx-auto w-full mb-6 p-4 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-2xl backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
+      <header className="max-w-[1500px] mx-auto w-full mb-6 p-4 sm:p-5 rounded-3xl bg-slate-950/85 border border-slate-800 shadow-2xl backdrop-blur-xl flex flex-wrap items-center justify-between gap-4">
         {/* Left: Player Profile Brief & Avatar */}
         <div className="flex items-center gap-3.5">
           <div className="relative">
             <ProAvatarRenderer
               avatar={career.avatar}
               club={currentClub}
-              size={52}
+              size={54}
             />
-            <div className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black font-mono">
+            <div className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black font-mono shadow-md">
               {career.overall_rating}
             </div>
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-white leading-tight">
+              <h1 className="text-base sm:text-lg lg:text-xl font-black text-white leading-tight">
                 {career.first_name} {career.last_name}
               </h1>
               <span className="text-xs">🇺🇦</span>
@@ -402,21 +413,27 @@ export function ProHub({
               <span>{currentClub.name}</span>
               <span className="text-slate-500">•</span>
               <span>{career.age} років</span>
+              {career.nickname && (
+                <>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-amber-300 italic">«{career.nickname}»</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
         {/* Center: Bank Balance & Contract Widget */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <div
             onClick={() => setActiveTab("lifestyle")}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 cursor-pointer hover:bg-emerald-900/60 transition-all shadow-inner"
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 cursor-pointer hover:bg-emerald-900/60 hover:scale-102 transition-all shadow-inner"
             title="Особисті гроші (Натисніть для переходу в Магазин)"
           >
             <Wallet className="w-4 h-4 text-emerald-400" />
             <div>
-              <div className="text-[9px] font-bold uppercase text-emerald-400">
-                Баланс
+              <div className="text-[9px] font-black uppercase tracking-wider text-emerald-400">
+                Особистий Баланс
               </div>
               <div className="text-xs sm:text-sm font-black text-emerald-300 font-mono">
                 {(career.bank_balance || 0).toLocaleString()} ₴
@@ -424,13 +441,13 @@ export function ProHub({
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-900 border border-slate-800">
+          <div className="hidden sm:flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800">
             <div>
               <div className="text-[9px] font-bold uppercase text-slate-400">
-                Зарплата
+                Зарплата в клубі
               </div>
               <div className="text-xs font-black text-amber-300 font-mono">
-                {career.wage_per_week.toLocaleString()} ₴/т
+                {career.wage_per_week.toLocaleString()} ₴/тижд
               </div>
             </div>
           </div>
@@ -441,7 +458,7 @@ export function ProHub({
           <button
             type="button"
             onClick={toggleAudio}
-            className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all cursor-pointer"
+            className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all cursor-pointer hover:scale-105 active:scale-95"
             title={isAudioMuted ? "Увімкнути звук" : "Вимкнути звук"}
           >
             {isAudioMuted ? (
@@ -454,11 +471,11 @@ export function ProHub({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all cursor-pointer"
-            title={isFullscreen ? "Вийти з повного екрану" : "Повний екран"}
+            className="p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all cursor-pointer hover:scale-105 active:scale-95"
+            title={isFullscreen ? "Вийти з повного екрану" : "Повний екран на весь монітор"}
           >
             {isFullscreen ? (
-              <Minimize className="w-4 h-4" />
+              <Minimize className="w-4 h-4 text-emerald-400" />
             ) : (
               <Maximize className="w-4 h-4 text-amber-400" />
             )}
@@ -468,7 +485,7 @@ export function ProHub({
             <button
               type="button"
               onClick={onExit}
-              className="p-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 transition-all cursor-pointer"
+              className="p-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 transition-all cursor-pointer hover:scale-105 active:scale-95"
               title="Головне Меню KS Games"
             >
               <LogOut className="w-4 h-4" />
@@ -478,7 +495,7 @@ export function ProHub({
       </header>
 
       {/* ─── NAVIGATION TABS BAR ─── */}
-      <nav className="max-w-7xl mx-auto w-full mb-6 flex items-center gap-1.5 p-1.5 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-xl overflow-x-auto">
+      <nav className="max-w-[1500px] mx-auto w-full mb-6 flex items-center gap-2 p-2 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-xl overflow-x-auto">
         {[
           { id: "dashboard", label: "Головна", icon: Activity },
           { id: "match", label: "Матч Туру", icon: Play },
@@ -498,7 +515,7 @@ export function ProHub({
                 proAudio.playClick()
                 setActiveTab(tab.id as TabType)
               }}
-              className={`flex-1 min-w-[125px] py-3 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`flex-1 min-w-[130px] py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 isActive
                   ? "bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 text-slate-950 shadow-lg shadow-emerald-950 scale-102"
                   : "text-slate-400 hover:text-white hover:bg-slate-900"
@@ -512,7 +529,7 @@ export function ProHub({
       </nav>
 
       {/* ─── MAIN ACTIVE VIEW ─── */}
-      <main className="max-w-7xl mx-auto w-full flex-1 pb-8">
+      <main className="max-w-[1500px] mx-auto w-full flex-1 pb-8">
         {activeTab === "dashboard" && (
           <ProDashboard
             career={career}

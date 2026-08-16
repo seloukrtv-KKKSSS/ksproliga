@@ -195,7 +195,7 @@ export function ProTraining({ career, onUpdateCareer }: ProTrainingProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto w-full space-y-6 animate-fade-in">
+    <div className="max-w-[1500px] mx-auto w-full space-y-6 animate-fade-in">
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">

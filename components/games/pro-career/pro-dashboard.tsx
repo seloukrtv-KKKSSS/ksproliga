@@ -38,7 +38,7 @@ export function ProDashboard({
   const isHome = career.current_fixture_round % 2 === 1
 
   return (
-    <div className="max-w-6xl mx-auto w-full space-y-6 animate-fade-in">
+    <div className="max-w-[1500px] mx-auto w-full space-y-6 animate-fade-in">
       {/* ─── TOP HERO BANNER: NEXT FIXTURE PREVIEW ─── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="space-y-2 text-center md:text-left">

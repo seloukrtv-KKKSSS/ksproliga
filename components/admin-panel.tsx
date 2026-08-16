@@ -41,7 +41,9 @@ import {
   ExternalLink,
   Copy,
   RotateCw,
+  Gamepad2,
 } from "lucide-react"
+import { ProCareerAdmin } from "@/components/admin/pro-career-admin"
 import {
   getChampionships,
   addChampionship,
@@ -1248,6 +1250,13 @@ export function AdminPanel({
                 <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-1 right-1 animate-pulse" />
               )}
             </TabsTrigger>
+
+            {isMainAdmin && (
+              <TabsTrigger value="games" className="ios-segment whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer">
+                <Gamepad2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>🎮 Керування Іграми</span>
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -4207,6 +4216,12 @@ export function AdminPanel({
             })()}
           </div>
         </TabsContent>
+
+        {isMainAdmin && (
+          <TabsContent value="games" className="space-y-4">
+            <ProCareerAdmin />
+          </TabsContent>
+        )}
       </>
     )}
   </Tabs>

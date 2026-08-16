@@ -245,7 +245,7 @@ export function ProMatch({
 
   return (
     <div
-      className={`max-w-4xl mx-auto w-full space-y-6 animate-fade-in ${
+      className={`max-w-[1200px] mx-auto w-full space-y-6 animate-fade-in ${
         screenShake ? "animate-bounce" : ""
       }`}
     >

@@ -304,6 +304,161 @@ export async function proGetCareerByUserId(
   }
 }
 
+/**
+ * ─── ADMIN MANAGEMENT FUNCTIONS ───
+ */
+
+export async function proAdminGetCareers(): Promise<ProCareer[]> {
+  try {
+    const { data, error } = await supabase
+      .from("pro_careers")
+      .select("*")
+      .order("id", { ascending: false })
+
+    if (error || !data) {
+      console.warn("DB proAdminGetCareers error:", error)
+      const local = proGetStoredCareer()
+      return local ? [local] : []
+    }
+
+    return data.map((d: any) => ({
+      id: Number(d.id),
+      user_id: Number(d.user_id),
+      gender: d.gender || "male",
+      first_name: d.first_name,
+      last_name: d.last_name,
+      nickname: d.nickname,
+      avatar: d.avatar,
+      age: Number(d.age) || 17,
+      position: d.position,
+      secondary_positions: d.secondary_positions || [],
+      foot: d.foot || "right",
+      height: Number(d.height) || 180,
+      weight: Number(d.weight) || 74,
+      overall_rating: Number(d.overall_rating) || 42,
+      potential: Number(d.potential) || 80,
+      form: Number(d.form) || 75,
+      energy: Number(d.energy) || 100,
+      morale: Number(d.morale) || 100,
+      reputation: Number(d.reputation) || 50,
+      bank_balance: Number(d.bank_balance) || 0,
+      inventory: d.inventory,
+      scout_interest: d.scout_interest,
+      current_club_id: Number(d.current_club_id) || 1,
+      contract_years_left: Number(d.contract_years_left) || 1,
+      wage_per_week: Number(d.wage_per_week) || 1000,
+      squad_role: d.squad_role || "starter",
+      is_captain: Boolean(d.is_captain),
+      is_injured: Boolean(d.is_injured),
+      injury_matches_left: Number(d.injury_matches_left) || 0,
+      is_retired: Boolean(d.is_retired),
+      current_season_number: Number(d.current_season_number) || 1,
+      current_fixture_round: Number(d.current_fixture_round) || 1,
+      attributes: d.attributes,
+      career_stats: d.career_stats || {
+        total_matches: 0,
+        total_goals: 0,
+        total_assists: 0,
+        total_trophies: 0,
+        avg_rating: 7.0,
+        season_matches: 0,
+        season_goals: 0,
+        season_assists: 0
+      },
+      season_logs: d.season_logs || [],
+      clubs_history: d.clubs_history || [],
+      trophies: d.trophies || [],
+      news_articles: d.news_articles || [],
+      created_at: d.created_at
+    }))
+  } catch (err) {
+    console.error("proAdminGetCareers catch:", err)
+    return []
+  }
+}
+
+export async function proAdminDeleteCareer(careerId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Delete matches for this career
+    await supabase.from("pro_matches").delete().eq("career_id", careerId)
+    // Delete Hall of Fame entries
+    await supabase.from("pro_hall_of_fame").delete().eq("career_id", careerId)
+    // Delete career itself
+    const { error } = await supabase.from("pro_careers").delete().eq("id", careerId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Clear local storage if it was current user's career
+    const current = proGetStoredCareer()
+    if (current && current.id === careerId) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(CAREER_STORAGE_KEY)
+      }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Не вдалося видалити гравця" }
+  }
+}
+
+export async function proAdminResetAllCareers(): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Wipe all matches
+    await supabase.from("pro_matches").delete().neq("id", 0)
+    // Wipe Hall of Fame
+    await supabase.from("pro_hall_of_fame").delete().neq("id", 0)
+    // Wipe all careers
+    const { error } = await supabase.from("pro_careers").delete().neq("id", 0)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Clear local storage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(CAREER_STORAGE_KEY)
+      localStorage.removeItem(USER_STORAGE_KEY)
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Не вдалося скинути базу даних" }
+  }
+}
+
+export async function proAdminUpdateCareerBalance(
+  careerId: number,
+  updates: { bank_balance?: number; wage_per_week?: number; overall_rating?: number }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from("pro_careers")
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", careerId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Update local cache if active
+    const current = proGetStoredCareer()
+    if (current && current.id === careerId) {
+      const updated = { ...current, ...updates }
+      proSaveStoredCareer(updated)
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || "Не вдалося оновити параметри" }
+  }
+}
+
 export async function proCreateCareer(
   userId: number,
   careerData: Partial<ProCareer>
