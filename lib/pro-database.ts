@@ -626,3 +626,164 @@ function getFallbackClubs(): ProClub[] {
     }
   ]
 }
+
+// ─── HALL OF FAME / LEADERBOARD DATA ───
+
+export async function proGetLeaderboardCareers(
+  sortBy: "legacy" | "money" | "goals" | "ovr" = "legacy"
+): Promise<import("./pro-types").ProLeaderboardEntry[]> {
+  try {
+    const clubs = await proGetClubs()
+    const clubsMap = new Map<number, ProClub>()
+    for (const c of clubs) {
+      clubsMap.set(c.id, c)
+    }
+
+    const { data, error } = await supabase
+      .from("pro_careers")
+      .select(`
+        id,
+        user_id,
+        first_name,
+        last_name,
+        nickname,
+        age,
+        position,
+        overall_rating,
+        bank_balance,
+        wage_per_week,
+        current_club_id,
+        career_stats,
+        clubs_history,
+        trophies
+      `)
+      .order("overall_rating", { ascending: false })
+      .limit(30)
+
+    const entriesMap = new Map<number, import("./pro-types").ProLeaderboardEntry>()
+
+    if (data && data.length > 0) {
+      for (const row of data) {
+        const stats = row.career_stats || {
+          total_matches: 0,
+          total_goals: 0,
+          total_assists: 0,
+          total_trophies: 0,
+          avg_rating: 7.0
+        }
+        const club = clubsMap.get(Number(row.current_club_id)) || {
+          name: "ФК Тучапи",
+          city: "Тучапи",
+          tier: 1
+        }
+        const ovr = Number(row.overall_rating) || 42
+        const balance = Number(row.bank_balance) || 2500
+        const wage = Number(row.wage_per_week) || 1000
+        const matches = Number(stats.total_matches) || 0
+        const goals = Number(stats.total_goals) || 0
+        const assists = Number(stats.total_assists) || 0
+        const avgRating = Number(stats.avg_rating) || 7.0
+        const trophiesCount = (row.trophies && row.trophies.length) || Number(stats.total_trophies) || 0
+
+        const legacyScore =
+          ovr * 50 +
+          goals * 30 +
+          assists * 20 +
+          matches * 10 +
+          (club.tier || 1) * 500 +
+          Math.floor(balance / 1000)
+
+        entriesMap.set(Number(row.id), {
+          id: Number(row.id),
+          user_id: Number(row.user_id),
+          player_name: `${row.first_name} ${row.last_name}`,
+          nickname: row.nickname,
+          username: row.first_name || "Гравець",
+          club_name: club.name,
+          club_city: club.city,
+          tier: club.tier || 1,
+          age: Number(row.age) || 17,
+          position: row.position || "RW",
+          overall_rating: ovr,
+          bank_balance: balance,
+          wage_per_week: wage,
+          matches,
+          goals,
+          assists,
+          avg_rating: avgRating,
+          trophies_count: trophiesCount,
+          legacy_score: legacyScore,
+          is_current_user: false
+        })
+      }
+    }
+
+    // Merge current local user's career for live zero-latency display
+    const localCareer = proGetStoredCareer()
+    if (localCareer) {
+      const stats = localCareer.career_stats
+      const club = clubsMap.get(localCareer.current_club_id) || {
+        name: "ФК Тучапи",
+        city: "Тучапи",
+        tier: 1
+      }
+      const ovr = localCareer.overall_rating
+      const balance = localCareer.bank_balance || 2500
+      const wage = localCareer.wage_per_week || 1000
+      const matches = stats.total_matches
+      const goals = stats.total_goals
+      const assists = stats.total_assists
+      const avgRating = stats.avg_rating
+      const trophiesCount = localCareer.trophies?.length || stats.total_trophies || 0
+
+      const legacyScore =
+        ovr * 50 +
+        goals * 30 +
+        assists * 20 +
+        matches * 10 +
+        (club.tier || 1) * 500 +
+        Math.floor(balance / 1000)
+
+      entriesMap.set(localCareer.id, {
+        id: localCareer.id,
+        user_id: localCareer.user_id,
+        player_name: `${localCareer.first_name} ${localCareer.last_name}`,
+        nickname: localCareer.nickname,
+        username: localCareer.first_name || "Гравець",
+        club_name: club.name,
+        club_city: club.city,
+        tier: club.tier || 1,
+        age: localCareer.age,
+        position: localCareer.position,
+        overall_rating: ovr,
+        bank_balance: balance,
+        wage_per_week: wage,
+        matches,
+        goals,
+        assists,
+        avg_rating: avgRating,
+        trophies_count: trophiesCount,
+        legacy_score: legacyScore,
+        is_current_user: true
+      })
+    }
+
+    const list = Array.from(entriesMap.values())
+
+    if (sortBy === "money") {
+      list.sort((a, b) => b.bank_balance - a.bank_balance)
+    } else if (sortBy === "goals") {
+      list.sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists))
+    } else if (sortBy === "ovr") {
+      list.sort((a, b) => b.overall_rating - a.overall_rating)
+    } else {
+      list.sort((a, b) => b.legacy_score - a.legacy_score)
+    }
+
+    return list
+  } catch (err) {
+    console.error("proGetLeaderboardCareers error:", err)
+    return []
+  }
+}
+

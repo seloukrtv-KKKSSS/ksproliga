@@ -307,3 +307,26 @@ export interface ProScoutRequirement {
   progress_percent: number
   missing_reasons: string[]
 }
+
+export interface ProLeaderboardEntry {
+  id: number
+  user_id: number
+  player_name: string
+  nickname?: string
+  username: string
+  club_name: string
+  club_city: string
+  tier: number
+  age: number
+  position: ProPosition
+  overall_rating: number
+  bank_balance: number
+  wage_per_week: number
+  matches: number
+  goals: number
+  assists: number
+  avg_rating: number
+  trophies_count: number
+  legacy_score: number
+  is_current_user?: boolean
+}

@@ -16,7 +16,7 @@ interface KsGamesHubProps {
 
 export function KsGamesHub({ teams }: KsGamesHubProps) {
   const [activeTab, setActiveTab] = useState<"manager" | "dino" | "snake" | "leaderboard">("manager")
-  const [leaderboardGameType, setLeaderboardGameType] = useState<"dino" | "snake">("dino")
+  const [leaderboardGameType, setLeaderboardGameType] = useState<"pro" | "dino" | "snake">("pro")
   const [playerName, setPlayerName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
   const [tempName, setTempName] = useState("")
@@ -209,7 +209,10 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
         <button
           type="button"
-          onClick={() => setActiveTab("leaderboard")}
+          onClick={() => {
+            setLeaderboardGameType("pro")
+            setActiveTab("leaderboard")
+          }}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "leaderboard"
@@ -225,7 +228,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       {/* ─── Active Tab Content Area ─── */}
       <div className="w-full">
         {/* 1. Від Села до УПЛ Pro Career Flagship */}
-        {activeTab === "manager" && <ProHub />}
+        {activeTab === "manager" && <ProHub playerName={playerName} />}
 
         {/* 2. Retro Dino Runner */}
         {activeTab === "dino" && (

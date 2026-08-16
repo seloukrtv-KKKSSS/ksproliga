@@ -55,7 +55,11 @@ import {
   Coins
 } from "lucide-react"
 
-export function ProHub() {
+interface ProHubProps {
+  playerName?: string
+}
+
+export function ProHub({ playerName = "" }: ProHubProps) {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -105,9 +109,10 @@ export function ProHub() {
         setClubs(allClubs)
         setLeagues(allLeagues)
 
+        const gamerName = playerName.trim() || "Гравець"
         let user = proGetStoredUser()
-        if (!user) {
-          user = await proRegister("Гравець", "player@ksliga.com")
+        if (!user || (playerName && user.username !== gamerName)) {
+          user = await proRegister(gamerName, `${gamerName.toLowerCase().replace(/\s+/g, "_")}@ksliga.com`)
         }
         setCurrentUser(user)
 
@@ -130,7 +135,7 @@ export function ProHub() {
     }
 
     initData()
-  }, [])
+  }, [playerName])
 
   const handleSoundToggle = () => {
     const next = proAudio.toggleMute()
