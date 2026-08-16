@@ -8,7 +8,9 @@ import {
   ProMatchResult,
   ProPosition,
   ProStoryEvent,
-  ProTransferOffer
+  ProStoreItem,
+  ProScoutRequirement,
+  ProMatchEarnings
 } from "./pro-types"
 
 /**
@@ -117,6 +119,297 @@ export function generateStarterAttributes(
 }
 
 /**
+ * Store Items Catalog (Trainers, Boots, Cars, Housing)
+ */
+export const STORE_ITEMS: ProStoreItem[] = [
+  // 1. Personal Trainers (Прокачка)
+  {
+    id: "trainer_sprint",
+    name: "Персональний тренер зі спринту",
+    category: "trainers",
+    price: 4500,
+    description: "Індивідуальна робота над стартовим прискоренням та біговою технікою",
+    stat_boost: "+2 до Швидкості (PAC)",
+    icon: "🏃",
+    attribute_boost: { key: "pace", value: 2 }
+  },
+  {
+    id: "trainer_shooting",
+    name: "Тренер з ударної майстерності",
+    category: "trainers",
+    price: 4500,
+    description: "Постановка удару з обох ніг, підкрутка та реалізація виходів",
+    stat_boost: "+2 до Удару (SHO)",
+    icon: "🎯",
+    attribute_boost: { key: "shooting", value: 2 }
+  },
+  {
+    id: "trainer_passing",
+    name: "Майстер-клас плеймейкера",
+    category: "trainers",
+    price: 4000,
+    description: "Розвиток культури розрізного пасу та бачення поля",
+    stat_boost: "+2 до Пасу (PAS)",
+    icon: "📐",
+    attribute_boost: { key: "passing", value: 2 }
+  },
+  {
+    id: "trainer_dribbling",
+    name: "Тренер з фрістайлу та дриблінгу",
+    category: "trainers",
+    price: 4000,
+    description: "Швидка робота ніг на носочках, обіграш у вузьких зонах",
+    stat_boost: "+2 до Дриблінгу (DRI)",
+    icon: "✨",
+    attribute_boost: { key: "dribbling", value: 2 }
+  },
+  {
+    id: "trainer_nutrition",
+    name: "Спортивний нутриціолог",
+    category: "trainers",
+    price: 5500,
+    description: "Персональний раціон харчування для витривалості та швидкого відновлення",
+    stat_boost: "+3 до Витривалості (STA)",
+    icon: "🥗",
+    attribute_boost: { key: "stamina", value: 3 }
+  },
+
+  // 2. Professional Boots & Equipment
+  {
+    id: "boots_mercurial",
+    name: "Nike Mercurial Vapor Pro",
+    category: "boots",
+    price: 6500,
+    description: "Ультралегкі шипи для максимального зчеплення та спринтерських ривків",
+    stat_boost: "+2 PAC, +1 DRI",
+    icon: "👟",
+    attribute_boost: { key: "pace", value: 2 }
+  },
+  {
+    id: "boots_predator",
+    name: "Adidas Predator Elite",
+    category: "boots",
+    price: 8500,
+    description: "Гумові накладки Strikeskin для ідеальної підкрутки та гарматних ударів",
+    stat_boost: "+3 SHO, +1 PAS",
+    icon: "⚡",
+    attribute_boost: { key: "shooting", value: 3 }
+  },
+  {
+    id: "boots_future",
+    name: "Puma Future Ultimate",
+    category: "boots",
+    price: 7500,
+    description: "Анатомічна фіксація стопи для віртуозного контролю м'яча",
+    stat_boost: "+2 DRI, +2 PAS",
+    icon: "🎨",
+    attribute_boost: { key: "dribbling", value: 2 }
+  },
+
+  // 3. Vehicles (Транспорт)
+  {
+    id: "car_vaz",
+    name: "ВАЗ 2109 «Дев'ятка»",
+    category: "cars",
+    price: 25000,
+    description: "Класичне авто, щоб швидко добиратися на матчі між селами",
+    stat_boost: "+10 до Моралі",
+    icon: "🚗",
+    morale_boost: 10,
+    rep_boost: 15
+  },
+  {
+    id: "car_golf",
+    name: "Volkswagen Golf GTI",
+    category: "cars",
+    price: 120000,
+    description: "Надійний міський хетчбек для поїздок на матчі Чемпіонату Області",
+    stat_boost: "+20 до Моралі, +35 Репутації",
+    icon: "🚘",
+    morale_boost: 20,
+    rep_boost: 35
+  },
+  {
+    id: "car_bmw",
+    name: "BMW M5 Competition",
+    category: "cars",
+    price: 650000,
+    description: "Швидкісний спорткар професійного гравця ПФЛ",
+    stat_boost: "+35 до Моралі, +80 Репутації",
+    icon: "🏎️",
+    morale_boost: 35,
+    rep_boost: 80
+  },
+  {
+    id: "car_gwagon",
+    name: "Mercedes-Benz G-Class (Гелік)",
+    category: "cars",
+    price: 2200000,
+    description: "Абсолютний статус зірки УПЛ та лідера роздягальні",
+    stat_boost: "+50 до Моралі, +180 Репутації",
+    icon: "🚙",
+    morale_boost: 50,
+    rep_boost: 180
+  },
+
+  // 4. Housing & Real Estate (Житло)
+  {
+    id: "house_frankivsk_rent",
+    name: "Оренда квартири у Франківську / Чернівцях",
+    category: "houses",
+    price: 35000,
+    description: "Сучасне житло біля міського стадіону",
+    stat_boost: "+15 до Моралі, +20 Репутації",
+    icon: "🏢",
+    morale_boost: 15,
+    rep_boost: 20
+  },
+  {
+    id: "house_new_apartment",
+    name: "Власна 3-кімнатна квартира в новобудові",
+    category: "houses",
+    price: 450000,
+    description: "Просторе житло з власним тренажерним куточком",
+    stat_boost: "+30 до Моралі, +70 Репутації",
+    icon: "🏙️",
+    morale_boost: 30,
+    rep_boost: 70
+  },
+  {
+    id: "house_penthouse_kyiv",
+    name: "Пентхаус на Печерську (Київ)",
+    category: "houses",
+    price: 2800000,
+    description: "Елітний пентхаус з панорамою на НСК «Олімпійський»",
+    stat_boost: "+50 до Моралі, +250 Репутації",
+    icon: "🏰",
+    morale_boost: 50,
+    rep_boost: 250
+  }
+]
+
+/**
+ * Calculate Match Financial Earnings based on club contract and match performance
+ */
+export function calculateMatchEarnings(
+  career: ProCareer,
+  playerClub: ProClub,
+  goals: number,
+  assists: number,
+  isWin: boolean,
+  isCleanSheet: boolean
+): ProMatchEarnings {
+  const wage = career.wage_per_week
+
+  // Bonus scale per tier
+  const tier = playerClub.tier
+  const goalRate = tier === 1 ? 500 : tier === 2 ? 1500 : tier === 3 ? 5000 : tier === 4 ? 15000 : 40000
+  const assistRate = tier === 1 ? 300 : tier === 2 ? 1000 : tier === 3 ? 3000 : tier === 4 ? 8000 : 25000
+  const winRate = tier === 1 ? 400 : tier === 2 ? 1200 : tier === 3 ? 4000 : tier === 4 ? 12000 : 35000
+
+  const goalBonus = goals * goalRate
+  const assistBonus = assists * assistRate
+  const winBonus = isWin ? winRate : 0
+
+  return {
+    wage,
+    goal_bonus: goalBonus,
+    assist_bonus: assistBonus,
+    win_bonus: winBonus,
+    total: wage + goalBonus + assistBonus + winBonus
+  }
+}
+
+/**
+ * Evaluate Scout Requirements for a Target League Tier
+ */
+export function getScoutRequirements(
+  career: ProCareer,
+  tier: number
+): ProScoutRequirement {
+  const stats = career.career_stats
+  const totalGAndA = stats.total_goals + stats.total_assists
+  const ovr = career.overall_rating
+  const matches = stats.total_matches
+  const avgRating = stats.avg_rating
+
+  let minOvr = 40
+  let minMatches = 0
+  let minGoals = 0
+  let minAvgRating = 6.0
+  let tierName = "Село / Район"
+
+  if (tier === 2) {
+    tierName = "Чемпіонат Області"
+    minOvr = 48
+    minMatches = 4
+    minGoals = 3
+    minAvgRating = 7.0
+  } else if (tier === 3) {
+    tierName = "Друга Ліга ПФЛ"
+    minOvr = 58
+    minMatches = 8
+    minGoals = 7
+    minAvgRating = 7.3
+  } else if (tier === 4) {
+    tierName = "Перша Ліга ПФЛ"
+    minOvr = 68
+    minMatches = 14
+    minGoals = 12
+    minAvgRating = 7.5
+  } else if (tier === 5) {
+    tierName = "Українська Премʼєр Ліга (УПЛ)"
+    minOvr = 78
+    minMatches = 20
+    minGoals = 18
+    minAvgRating = 7.8
+  }
+
+  const missingReasons: string[] = []
+  let completedChecks = 0
+
+  if (ovr >= minOvr) {
+    completedChecks++
+  } else {
+    missingReasons.push(`Потрібен рейтинг OVR ${minOvr}+ (у тебе ${ovr})`)
+  }
+
+  if (matches >= minMatches) {
+    completedChecks++
+  } else {
+    missingReasons.push(`Потрібно зіграти мінімум ${minMatches} матчів (зіграно ${matches})`)
+  }
+
+  if (totalGAndA >= minGoals) {
+    completedChecks++
+  } else {
+    missingReasons.push(`Потрібно ${minGoals} голів/асистів (у тебе ${totalGAndA})`)
+  }
+
+  if (avgRating >= minAvgRating) {
+    completedChecks++
+  } else {
+    missingReasons.push(`Середня оцінка повинна бути >= ${minAvgRating} (у тебе ${avgRating.toFixed(1)})`)
+  }
+
+  const progressPercent = Math.round((completedChecks / 4) * 100)
+  const isUnlocked = completedChecks === 4
+
+  return {
+    tier,
+    tier_name: tierName,
+    min_ovr: minOvr,
+    min_matches: minMatches,
+    min_goal_contributions: minGoals,
+    min_avg_rating: minAvgRating,
+    scout_interest: progressPercent,
+    is_unlocked: isUnlocked,
+    progress_percent: progressPercent,
+    missing_reasons: missingReasons
+  }
+}
+
+/**
  * Generate 3 to 5 Dramatic Interactive Key Moments tailored to Position
  */
 export function generateKeyMomentsForMatch(
@@ -130,7 +423,6 @@ export function generateKeyMomentsForMatch(
   const isAttacker = ["ST", "RW", "LW", "CAM"].includes(pos)
   const isMidfielder = ["CM", "CDM"].includes(pos)
   const isDefender = ["LB", "CB", "RB"].includes(pos)
-  const isGK = pos === "GK"
 
   // Moment 1: Early Opportunity (15' - 30')
   if (isAttacker) {
@@ -201,7 +493,8 @@ export function generateKeyMomentsForMatch(
         }
       ]
     })
-  } else if (isDefender) {
+  } else {
+    // Defender / GK
     moments.push({
       id: "m1",
       minute: 19,
@@ -227,46 +520,17 @@ export function generateKeyMomentsForMatch(
         }
       ]
     })
-  } else {
-    // GK
-    moments.push({
-      id: "m1",
-      minute: 24,
-      title: "Небезпечний дальній удар",
-      situation_text: `Півзахисник суперника завдає підступного крученого удару під стійку!`,
-      pitch_position: "penalty_spot",
-      choices: [
-        {
-          id: "c1_save_dive",
-          label: "🧤 Стрибок у кут намертво",
-          description: "Зафіксувати м'яч у рукавицях",
-          required_attributes: ["goalkeeping", "decision_making"],
-          base_probability: 0.65,
-          risk_level: "medium"
-        },
-        {
-          id: "c1_save_parry",
-          label: "✋ Перевести на кутовий кінчиками пальців",
-          description: "Надійно відбити м'яч за лицьову лінію",
-          required_attributes: ["goalkeeping", "positioning"],
-          base_probability: 0.85,
-          risk_level: "low"
-        }
-      ]
-    })
   }
 
-  // Moment 2: Decisive Second Half Action (55' - 75')
+  // Moment 2: Decisive Second Half Action (68')
   moments.push({
     id: "m2",
     minute: 68,
-    title: isAttacker ? "Сам-на-сам із голкіпером" : isMidfielder ? "Стандарт біля карного" : "Рятувальний блок",
+    title: isAttacker ? "Сам-на-сам із голкіпером" : "Небезпечний стандарт біля воріт",
     situation_text: isAttacker
       ? `Партнер робить ідеальну передачу через захисну лінію. Ти вириваєшся один на один із воротарем ${opponentClub.name}!`
-      : isMidfielder
-      ? `Штрафний удар по центру за 24 метри до воріт. Трибуни затамували подих.`
-      : `Нападник суперника завдає удару впритул з 8 метрів. Ти єдиний захисник на шляху м'яча!`,
-    pitch_position: isAttacker ? "center_box" : isMidfielder ? "outside_box" : "defense_line",
+      : `Штрафний удар по центру за 24 метри до воріт. Трибуни затамували подих.`,
+    pitch_position: isAttacker ? "center_box" : "outside_box",
     choices: isAttacker
       ? [
           {
@@ -294,8 +558,7 @@ export function generateKeyMomentsForMatch(
             risk_level: "low"
           }
         ]
-      : isMidfielder
-      ? [
+      : [
           {
             id: "c2_fk_curl",
             label: "🎯 Прямий кручений удар над стінкою",
@@ -313,19 +576,9 @@ export function generateKeyMomentsForMatch(
             risk_level: "medium"
           }
         ]
-      : [
-          {
-            id: "c2_block",
-            label: "🛡️ Стрибок під удар тілом",
-            description: "Героїчно заблокувати політ м'яча",
-            required_attributes: ["defending", "physical"],
-            base_probability: 0.75,
-            risk_level: "medium"
-          }
-        ]
   })
 
-  // Moment 3: Climax at 89th minute (90th Min Bullet-Time)
+  // Moment 3: Climax at 90th minute
   moments.push({
     id: "m3",
     minute: 90,
@@ -372,7 +625,7 @@ export function resolveMomentChoice(
   const avgAttr = attrSum / (reqAttrs.length || 1)
 
   // Modifiers
-  const formFactor = (career.form / 100) * 0.3 + 0.7 // 0.7 .. 1.0
+  const formFactor = (career.form / 100) * 0.3 + 0.7
   const energyFactor = career.energy < 50 ? 0.8 : 1.0
   const diffOffset = (career.overall_rating - opponentStrength) * 0.005
 
@@ -389,7 +642,13 @@ export function resolveMomentChoice(
   const success = roll < totalProb
 
   if (success) {
-    if (choice.id.includes("shoot") || choice.id.includes("corner") || choice.id.includes("chip") || choice.id.includes("fk_curl") || choice.id.includes("hero_shot")) {
+    if (
+      choice.id.includes("shoot") ||
+      choice.id.includes("corner") ||
+      choice.id.includes("chip") ||
+      choice.id.includes("fk_curl") ||
+      choice.id.includes("hero_shot")
+    ) {
       return {
         success: true,
         result_type: "goal",
@@ -397,7 +656,12 @@ export function resolveMomentChoice(
         rating_impact: 0.8,
         score_change: { home: 1, away: 0 }
       }
-    } else if (choice.id.includes("pass") || choice.id.includes("cross") || choice.id.includes("through") || choice.id.includes("hero_pass")) {
+    } else if (
+      choice.id.includes("pass") ||
+      choice.id.includes("cross") ||
+      choice.id.includes("through") ||
+      choice.id.includes("hero_pass")
+    ) {
       return {
         success: true,
         result_type: "assist",
@@ -405,19 +669,16 @@ export function resolveMomentChoice(
         rating_impact: 0.6,
         score_change: { home: 1, away: 0 }
       }
-    } else if (choice.id.includes("tackle") || choice.id.includes("block") || choice.id.includes("jockey")) {
+    } else if (
+      choice.id.includes("tackle") ||
+      choice.id.includes("block") ||
+      choice.id.includes("jockey")
+    ) {
       return {
         success: true,
         result_type: "tackle_won",
         commentary: `🛡️ Блискучий відбір! ${career.last_name} рятує команду в критичний момент!`,
         rating_impact: 0.5
-      }
-    } else if (choice.id.includes("save")) {
-      return {
-        success: true,
-        result_type: "shot_saved",
-        commentary: `🧤 Фантастичний сейв! ${career.last_name} витягує м'яч з самої дев'ятки!`,
-        rating_impact: 0.6
       }
     } else {
       return {
@@ -447,7 +708,7 @@ export function resolveMomentChoice(
 }
 
 /**
- * Simulates Full Match & Calculates Post-Match Ratings, XP, and Fatigue
+ * Simulates Full Match & Calculates Post-Match Ratings, Financial Earnings, and Fatigue
  */
 export function simulateFullMatch(
   career: ProCareer,
@@ -470,7 +731,10 @@ export function simulateFullMatch(
     } else if (m.outcome?.result_type === "assist") {
       playerAssists++
       baseRating += 0.6
-    } else if (m.outcome?.result_type === "tackle_won" || m.outcome?.result_type === "shot_saved") {
+    } else if (
+      m.outcome?.result_type === "tackle_won" ||
+      m.outcome?.result_type === "shot_saved"
+    ) {
       playerTackles++
       baseRating += 0.4
     } else if (m.outcome?.success) {
@@ -481,16 +745,32 @@ export function simulateFullMatch(
   }
 
   // Team goals calculation
-  const strengthDiff = (playerClub.squad_strength - opponentClub.squad_strength) * 0.05
+  const strengthDiff =
+    (playerClub.squad_strength - opponentClub.squad_strength) * 0.05
   const homeAdvantage = isHome ? 0.3 : -0.3
 
-  let homeBase = Math.max(0, Math.round(1.4 + (isHome ? strengthDiff : -strengthDiff) + homeAdvantage + (Math.random() - 0.4)))
-  let awayBase = Math.max(0, Math.round(1.1 + (!isHome ? strengthDiff : -strengthDiff) - homeAdvantage + (Math.random() - 0.5)))
+  let homeBase = Math.max(
+    0,
+    Math.round(
+      1.4 +
+        (isHome ? strengthDiff : -strengthDiff) +
+        homeAdvantage +
+        (Math.random() - 0.4)
+    )
+  )
+  let awayBase = Math.max(
+    0,
+    Math.round(
+      1.1 +
+        (!isHome ? strengthDiff : -strengthDiff) -
+        homeAdvantage +
+        (Math.random() - 0.5)
+    )
+  )
 
   let myTeamScore = isHome ? homeBase : awayBase
   let opponentScore = isHome ? awayBase : homeBase
 
-  // Ensure user goals are counted in team score
   if (myTeamScore < playerGoals + playerAssists) {
     myTeamScore = playerGoals + playerAssists
   }
@@ -498,7 +778,22 @@ export function simulateFullMatch(
   const finalHomeScore = isHome ? myTeamScore : opponentScore
   const finalAwayScore = isHome ? opponentScore : myTeamScore
 
-  const finalRating = Math.max(4.0, Math.min(10.0, Math.round(baseRating * 10) / 10))
+  const isWin = myTeamScore > opponentScore
+  const isCleanSheet = opponentScore === 0
+
+  const finalRating = Math.max(
+    4.0,
+    Math.min(10.0, Math.round(baseRating * 10) / 10)
+  )
+
+  const earnings = calculateMatchEarnings(
+    career,
+    playerClub,
+    playerGoals,
+    playerAssists,
+    isWin,
+    isCleanSheet
+  )
 
   return {
     home_club: isHome ? playerClub : opponentClub,
@@ -513,8 +808,10 @@ export function simulateFullMatch(
     player_rating: finalRating,
     player_shots: playerShots + Math.floor(Math.random() * 2),
     player_tackles: playerTackles + Math.floor(Math.random() * 2),
-    player_xg: Math.round((playerGoals * 0.45 + Math.random() * 0.3) * 100) / 100,
+    player_xg:
+      Math.round((playerGoals * 0.45 + Math.random() * 0.3) * 100) / 100,
     moments: resolvedMoments,
+    earnings,
     season_number: career.current_season_number,
     fixture_round: career.current_fixture_round,
     match_type: "league"
@@ -528,7 +825,6 @@ export function generateStoryEvent(
   career: ProCareer,
   matchResult?: ProMatchResult
 ): ProStoryEvent | null {
-  // 1. Debut event for 17-year old rookie
   if (career.career_stats.total_matches === 0) {
     return {
       title: "🌱 Перший крок у дорослий футбол",
@@ -548,53 +844,6 @@ export function generateStoryEvent(
           impact_description: "+10 Концентрації, +5 Форми",
           morale_delta: 5,
           form_delta: 5
-        }
-      ]
-    }
-  }
-
-  // 2. Scout Approach after high rating
-  if (matchResult && matchResult.player_rating >= 8.0 && career.reputation >= 80 && Math.random() < 0.4) {
-    return {
-      title: "🕵️ Таємничий гість біля роздягальні",
-      character_name: "Орест Степанович",
-      character_role: "scout",
-      dialogue_text: `«Після фінального свистка до тебе підійшов солідний чоловік у довгому пальто з блокнотом у руках. Він уважно подивився на тебе: "Я спостерігаю за тобою вже третій матч. У тебе є справжня іскра. Рівень району ти вже переріс. Якщо хочеш рухатися на рівень області або в професіонали — я допоможу відкрити потрібні двері."»`,
-      choices: [
-        {
-          text: "«Я готовий зробити крок уперед та підкорювати нові вершини!»",
-          impact_description: "+25 Репутації, відкриває пропозиції від клубів Області",
-          rep_delta: 25,
-          unlocks_transfer: true
-        },
-        {
-          text: "«Я люблю свій рідний клуб і хочу спершу стати його легендою.»",
-          impact_description: "+20 Поваги фанатів села, статус Улюбленця клубу",
-          morale_delta: 20,
-          rep_delta: 15
-        }
-      ]
-    }
-  }
-
-  // 3. Post-Defeat Locker Room talk
-  if (matchResult && matchResult.player_rating < 6.0 && Math.random() < 0.3) {
-    return {
-      title: "🌧️ Важка розмова у роздягальні",
-      character_name: "Михайлович",
-      character_role: "first_coach",
-      dialogue_text: `«У роздягальні панує тиша. Чути лише шум дощу за вікном. Тренер зупиняється навпроти тебе: "Сьогодні гра не пішла. Але пам'ятай: справжній футболіст визначається не тим, скільки разів він падає, а тим, як він піднімається."»`,
-      choices: [
-        {
-          text: "«Завтра о 7 ранку я буду першим на тренувальному полі!»",
-          impact_description: "+10 Характеру, +5 Форми після важких тренувань",
-          form_delta: 5,
-          morale_delta: 10
-        },
-        {
-          text: "«Потрібно видихнути, проаналізувати помилки та спокійно готуватися до наступного туру.»",
-          impact_description: "+5 Досвіду прийняття рішень",
-          morale_delta: 5
         }
       ]
     }

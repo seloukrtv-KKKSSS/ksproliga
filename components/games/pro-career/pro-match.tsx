@@ -534,6 +534,45 @@ export function ProMatch({
             </div>
           </div>
 
+          {/* Match Financial Earnings Breakdown */}
+          {finalResult.earnings && (
+            <div className="max-w-md mx-auto p-4 rounded-3xl bg-slate-950/90 border border-emerald-500/40 text-left space-y-2.5 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  💰 Заробіток за тур:
+                </span>
+                <strong className="text-sm font-black text-emerald-300 font-mono">
+                  +{finalResult.earnings.total.toLocaleString()} ₴
+                </strong>
+              </div>
+
+              <div className="space-y-1 text-xs text-slate-300">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Зарплата за контрактом:</span>
+                  <span className="font-mono">+{finalResult.earnings.wage.toLocaleString()} ₴</span>
+                </div>
+                {finalResult.earnings.goal_bonus > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Премія за {finalResult.player_goals} гол(ів):</span>
+                    <span className="text-amber-300 font-mono">+{finalResult.earnings.goal_bonus.toLocaleString()} ₴</span>
+                  </div>
+                )}
+                {finalResult.earnings.assist_bonus > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Премія за {finalResult.player_assists} асист(ів):</span>
+                    <span className="text-emerald-300 font-mono">+{finalResult.earnings.assist_bonus.toLocaleString()} ₴</span>
+                  </div>
+                )}
+                {finalResult.earnings.win_bonus > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Бонус за перемогу команди:</span>
+                    <span className="text-teal-300 font-mono">+{finalResult.earnings.win_bonus.toLocaleString()} ₴</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Coach Feedback Dialogue */}
           <div className="max-w-md mx-auto p-4 rounded-2xl bg-slate-900 border border-slate-800 text-left text-xs text-slate-300 space-y-1">
             <div className="font-black text-amber-400">

@@ -55,6 +55,19 @@ export function ProCreation({ clubs, onComplete }: ProCreationProps) {
     energy: 100,
     morale: 100,
     reputation: 60,
+    bank_balance: 2500,
+    inventory: {
+      boots: "boots_basic",
+      car: "car_none",
+      house: "house_village",
+      trainers: []
+    },
+    scout_interest: {
+      tier2: 25,
+      tier3: 0,
+      tier4: 0,
+      tier5: 0
+    },
     current_club_id: selectedClubId,
     contract_years_left: 2,
     wage_per_week: 1200,

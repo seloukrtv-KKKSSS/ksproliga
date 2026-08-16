@@ -26,6 +26,7 @@ import { ProLockScreen } from "./pro-lock-screen"
 import { ProCreation } from "./pro-creation"
 import { ProMatch } from "./pro-match"
 import { ProTraining } from "./pro-training"
+import { ProLifestyle } from "./pro-lifestyle"
 import { ProTransfers } from "./pro-transfers"
 import { ProProfile } from "./pro-profile"
 import { ProLeagueStandings } from "./pro-league"
@@ -49,7 +50,9 @@ import {
   Zap,
   Flame,
   Star,
-  ArrowRight
+  ArrowRight,
+  Wallet,
+  Coins
 } from "lucide-react"
 
 export function ProHub() {
@@ -61,7 +64,7 @@ export function ProHub() {
   const [leagues, setLeagues] = useState<ProLeague[]>([])
 
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "match" | "training" | "transfers" | "profile" | "league"
+    "dashboard" | "match" | "training" | "lifestyle" | "transfers" | "profile" | "league"
   >("dashboard")
 
   const [activeStoryEvent, setActiveStoryEvent] = useState<ProStoryEvent | null>(null)
@@ -206,14 +209,19 @@ export function ProHub() {
       ...career,
       morale: Math.min(100, career.morale + (choice.morale_delta || 0)),
       form: Math.min(100, career.form + (choice.form_delta || 0)),
-      reputation: career.reputation + (choice.rep_delta || 0)
+      reputation: career.reputation + (choice.rep_delta || 0),
+      bank_balance: (career.bank_balance || 0) + (choice.money_delta || 0)
     }
     await proUpdateCareer(updatedCareer)
     setCareer(updatedCareer)
     setActiveStoryEvent(null)
   }
 
-  const handleAcceptTransfer = async (newClub: ProClub, wage: number) => {
+  const handleAcceptTransfer = async (
+    newClub: ProClub,
+    wage: number,
+    signingBonus: number = 0
+  ) => {
     if (!career) return
     const updatedHistory = [
       ...career.clubs_history,
@@ -234,8 +242,9 @@ export function ProHub() {
       ...career,
       current_club_id: newClub.id,
       wage_per_week: wage,
+      bank_balance: (career.bank_balance || 0) + signingBonus,
       clubs_history: updatedHistory,
-      reputation: career.reputation + 30
+      reputation: career.reputation + 40
     }
 
     await proUpdateCareer(updatedCareer)
@@ -292,7 +301,8 @@ export function ProHub() {
     { id: "dashboard", label: "Головна", icon: LayoutDashboard },
     { id: "match", label: "Наступний Матч", icon: Play, badge: "LIVE" },
     { id: "training", label: "Тренування & СПА", icon: Dumbbell },
-    { id: "transfers", label: "Трансфери", icon: ShoppingBag },
+    { id: "lifestyle", label: "Магазин & Життя", icon: ShoppingBag },
+    { id: "transfers", label: "Трансфери", icon: Sparkles },
     { id: "profile", label: "Хроніка Карʼєри", icon: History },
     { id: "league", label: "Таблиця Ліги", icon: Trophy }
   ]
@@ -324,7 +334,7 @@ export function ProHub() {
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow">
                   {career.first_name} {career.last_name}
                 </h2>
-                <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-amber-400 text-slate-950">
+                <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-amber-400 text-slate-950 font-mono">
                   {career.overall_rating} OVR
                 </span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
@@ -339,6 +349,15 @@ export function ProHub() {
 
           {/* Player Live Status Badges & HUD Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3 ml-auto flex-wrap">
+            {/* Bank Balance Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-xs shadow-inner">
+              <Wallet className="w-4 h-4 text-emerald-400" />
+              <span className="text-emerald-400 font-bold">Баланс:</span>
+              <strong className="text-emerald-300 font-mono font-black">
+                {(career.bank_balance || 0).toLocaleString()} ₴
+              </strong>
+            </div>
+
             {/* Form */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
               <Zap className="w-4 h-4 text-emerald-400" />
@@ -442,7 +461,7 @@ export function ProHub() {
                   {currentClub.name} проти {nextOpponent.name}
                 </h3>
                 <p className="text-xs text-slate-300 max-w-md">
-                  Стадіон «{currentClub.stadium_name}». Візьми участь у ключових моментах гри та підкорюй футбольну вершину!
+                  Стадіон «{currentClub.stadium_name}». Заробляй преміальні за голи та прокладай шлях до великого футболу!
                 </p>
               </div>
 
@@ -471,7 +490,7 @@ export function ProHub() {
                 <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
                   <h3 className="text-sm font-black text-white flex items-center gap-2">
                     <Trophy className="w-4 h-4 text-amber-400" />
-                    Показники поточного сезону
+                    Показники сезону та доходи
                   </h3>
 
                   <div className="grid grid-cols-3 gap-3 text-center">
@@ -502,26 +521,26 @@ export function ProHub() {
                   </div>
                 </div>
 
-                {/* Quick Training Shortcut Card */}
+                {/* Quick Lifestyle Shortcut Card */}
                 <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex items-center justify-between gap-4">
                   <div>
                     <h4 className="text-sm font-black text-white flex items-center gap-1.5">
-                      <Dumbbell className="w-4 h-4 text-emerald-400" />
-                      Тренувальна База
+                      <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                      Магазин Прокачки & Стиль Життя
                     </h4>
                     <p className="text-xs text-slate-400">
-                      Прокачуй удар, пас та швидкість або відновлюй сили у СПА
+                      Купуй бутси (+OVR), наймай персональних тренерів та купуй авто
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
                       proAudio.playClick()
-                      setActiveTab("training")
+                      setActiveTab("lifestyle")
                     }}
                     className="px-4 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-emerald-400 text-xs font-black transition-all cursor-pointer shrink-0"
                   >
-                    Тренуватися →
+                    В Магазин →
                   </button>
                 </div>
               </div>
@@ -551,7 +570,18 @@ export function ProHub() {
           />
         )}
 
-        {/* 4. TRANSFERS & SCOUTS */}
+        {/* 4. LIFESTYLE & STORE */}
+        {activeTab === "lifestyle" && (
+          <ProLifestyle
+            career={career}
+            onUpdateCareer={async (updated) => {
+              await proUpdateCareer(updated)
+              setCareer(updated)
+            }}
+          />
+        )}
+
+        {/* 5. TRANSFERS & SCOUTS */}
         {activeTab === "transfers" && (
           <ProTransfers
             career={career}
@@ -561,12 +591,12 @@ export function ProHub() {
           />
         )}
 
-        {/* 5. CAREER CHRONICLE PROFILE */}
+        {/* 6. CAREER CHRONICLE PROFILE */}
         {activeTab === "profile" && (
           <ProProfile career={career} currentClub={currentClub} />
         )}
 
-        {/* 6. LEAGUE STANDINGS */}
+        {/* 7. LEAGUE STANDINGS */}
         {activeTab === "league" && (
           <ProLeagueStandings
             career={career}

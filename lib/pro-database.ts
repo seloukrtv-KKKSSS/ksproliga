@@ -223,6 +223,19 @@ export async function proGetCareerByUserId(
       energy: Number(data.energy) || 100,
       morale: Number(data.morale) || 100,
       reputation: Number(data.reputation) || 50,
+      bank_balance: Number(data.bank_balance) || 2500,
+      inventory: data.inventory || {
+        boots: "boots_basic",
+        car: "car_none",
+        house: "house_village",
+        trainers: []
+      },
+      scout_interest: data.scout_interest || {
+        tier2: 25,
+        tier3: 0,
+        tier4: 0,
+        tier5: 0
+      },
       current_club_id: Number(data.current_club_id) || 1,
       contract_years_left: Number(data.contract_years_left) || 2,
       wage_per_week: Number(data.wage_per_week) || 1000,
@@ -280,6 +293,19 @@ export async function proCreateCareer(
     energy: 100,
     morale: 100,
     reputation: 60,
+    bank_balance: careerData.bank_balance || 2500,
+    inventory: careerData.inventory || {
+      boots: "boots_basic",
+      car: "car_none",
+      house: "house_village",
+      trainers: []
+    },
+    scout_interest: careerData.scout_interest || {
+      tier2: 25,
+      tier3: 0,
+      tier4: 0,
+      tier5: 0
+    },
     current_club_id: careerData.current_club_id || 1,
     contract_years_left: 2,
     wage_per_week: 1200,
@@ -341,6 +367,9 @@ export async function proCreateCareer(
         energy: newCareer.energy,
         morale: newCareer.morale,
         reputation: newCareer.reputation,
+        bank_balance: newCareer.bank_balance,
+        inventory: newCareer.inventory,
+        scout_interest: newCareer.scout_interest,
         current_club_id: newCareer.current_club_id,
         contract_years_left: newCareer.contract_years_left,
         wage_per_week: newCareer.wage_per_week,
@@ -377,6 +406,9 @@ export async function proUpdateCareer(career: ProCareer): Promise<ProCareer> {
         energy: career.energy,
         morale: career.morale,
         reputation: career.reputation,
+        bank_balance: career.bank_balance,
+        inventory: career.inventory,
+        scout_interest: career.scout_interest,
         current_club_id: career.current_club_id,
         contract_years_left: career.contract_years_left,
         wage_per_week: career.wage_per_week,
@@ -438,11 +470,27 @@ export async function proSaveMatch(
   const newForm = Math.max(20, Math.min(100, career.form + formDelta))
   const newReputation = career.reputation + (result.player_goals * 4 + result.player_assists * 2 + (result.player_rating >= 7.5 ? 3 : 0))
 
+  // Payout earnings
+  const earnedAmount = result.earnings?.total || (career.wage_per_week + result.player_goals * 500)
+  const newBalance = (career.bank_balance || 0) + earnedAmount
+
+  // Update scout interest
+  const currentScout = career.scout_interest || { tier2: 25, tier3: 0, tier4: 0, tier5: 0 }
+  const scoutBoost = result.player_goals * 15 + result.player_assists * 10 + (result.player_rating >= 7.5 ? 15 : 5)
+  const newScoutInterest = {
+    tier2: Math.min(100, currentScout.tier2 + scoutBoost),
+    tier3: Math.min(100, currentScout.tier3 + Math.floor(scoutBoost * 0.7)),
+    tier4: Math.min(100, currentScout.tier4 + Math.floor(scoutBoost * 0.4)),
+    tier5: Math.min(100, currentScout.tier5 + Math.floor(scoutBoost * 0.2))
+  }
+
   const updatedCareer: ProCareer = {
     ...career,
+    bank_balance: newBalance,
     energy: newEnergy,
     form: newForm,
     reputation: newReputation,
+    scout_interest: newScoutInterest,
     current_fixture_round: career.current_fixture_round + 1,
     career_stats: {
       ...career.career_stats,

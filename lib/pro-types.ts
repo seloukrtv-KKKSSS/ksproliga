@@ -70,6 +70,20 @@ export interface ProTrophy {
   icon: string
 }
 
+export interface ProInventory {
+  boots: string
+  car: string
+  house: string
+  trainers: string[]
+}
+
+export interface ProScoutInterest {
+  tier2: number
+  tier3: number
+  tier4: number
+  tier5: number
+}
+
 export interface ProCareer {
   id: number
   user_id: number
@@ -88,6 +102,9 @@ export interface ProCareer {
   energy: number // 0..100%
   morale: number // 0..100%
   reputation: number // 0..1000
+  bank_balance: number // ₴ Особисті гроші футболіста
+  inventory: ProInventory
+  scout_interest: ProScoutInterest
   current_club_id: number
   contract_years_left: number
   wage_per_week: number // ₴
@@ -148,7 +165,7 @@ export interface ProMomentChoice {
   label: string
   description: string
   required_attributes: (keyof ProAttributes)[]
-  base_probability: number // 0.1 .. 0.95
+  base_probability: number
   risk_level: "low" | "medium" | "high"
 }
 
@@ -186,6 +203,14 @@ export interface ProMatchMoment {
   outcome?: ProMomentOutcome
 }
 
+export interface ProMatchEarnings {
+  wage: number
+  goal_bonus: number
+  assist_bonus: number
+  win_bonus: number
+  total: number
+}
+
 export interface ProMatchResult {
   id?: number
   home_club: ProClub
@@ -202,6 +227,7 @@ export interface ProMatchResult {
   player_tackles: number
   player_xg: number
   moments: ProMatchMoment[]
+  earnings: ProMatchEarnings
   season_number: number
   fixture_round: number
   match_type: "league" | "cup" | "friendly"
@@ -214,6 +240,7 @@ export interface ProStoryChoice {
   form_delta?: number
   rep_delta?: number
   wage_mult?: number
+  money_delta?: number
   unlocks_transfer?: boolean
 }
 
@@ -252,11 +279,31 @@ export interface ProTransferOffer {
   created_at: string
 }
 
-export interface ProAchievement {
+export interface ProStoreItem {
   id: string
-  title: string
+  name: string
+  category: "trainers" | "boots" | "cars" | "houses"
+  price: number
   description: string
+  stat_boost: string
   icon: string
+  attribute_boost?: {
+    key: keyof ProAttributes
+    value: number
+  }
+  morale_boost?: number
+  rep_boost?: number
+}
+
+export interface ProScoutRequirement {
+  tier: number
+  tier_name: string
+  min_ovr: number
+  min_matches: number
+  min_goal_contributions: number
+  min_avg_rating: number
+  scout_interest: number
   is_unlocked: boolean
-  unlocked_at?: string
+  progress_percent: number
+  missing_reasons: string[]
 }
