@@ -27,7 +27,9 @@ import {
   MapPin,
   Scale,
   Ruler,
-  Palette
+  Palette,
+  Heart,
+  Crown
 } from "lucide-react"
 
 interface ProCreationProps {
@@ -39,20 +41,56 @@ interface ProCreationProps {
 export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreationProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
-  // Step 1: Bio & Physicality
+  // Step 1: Gender, Bio & Physicality
+  const [gender, setGender] = useState<"male" | "female">("male")
   const nameParts = defaultName.trim().split(" ")
-  const [firstName, setFirstName] = useState(nameParts[0] || "Андрій")
-  const [lastName, setLastName] = useState(nameParts.slice(1).join(" ") || "Карпʼюк")
-  const [nickname, setNickname] = useState("Снайпер")
+  const [firstName, setFirstName] = useState(
+    nameParts[0] || (gender === "female" ? "Олена" : "Андрій")
+  )
+  const [lastName, setLastName] = useState(
+    nameParts.slice(1).join(" ") || (gender === "female" ? "Карпʼюк" : "Карпʼюк")
+  )
+  const [nickname, setNickname] = useState(gender === "female" ? "Блискавка" : "Снайпер")
   const [position, setPosition] = useState<ProPosition>("ST")
   const [foot, setFoot] = useState<ProFoot>("right")
-  const [height, setHeight] = useState(180)
-  const [weight, setWeight] = useState(74)
+  const [height, setHeight] = useState(gender === "female" ? 170 : 180)
+  const [weight, setWeight] = useState(gender === "female" ? 62 : 74)
 
   // Step 2: Visual Avatar
-  const [avatar, setAvatar] = useState<ProAvatar>(DEFAULT_AVATAR)
+  const [avatar, setAvatar] = useState<ProAvatar>({
+    ...DEFAULT_AVATAR,
+    gender: "male"
+  })
 
-  // Step 3: Starter Club
+  // Handle Gender Switch
+  const handleSelectGender = (newGender: "male" | "female") => {
+    setGender(newGender)
+    if (newGender === "female") {
+      if (firstName === "Андрій") setFirstName("Олена")
+      if (nickname === "Снайпер") setNickname("Блискавка")
+      setHeight(170)
+      setWeight(62)
+      setAvatar({
+        ...avatar,
+        gender: "female",
+        hair_style: "female_ponytail",
+        facial_hair: "none"
+      })
+    } else {
+      if (firstName === "Олена") setFirstName("Андрій")
+      if (nickname === "Блискавка") setNickname("Снайпер")
+      setHeight(180)
+      setWeight(74)
+      setAvatar({
+        ...avatar,
+        gender: "male",
+        hair_style: "short_fade",
+        facial_hair: "stubble"
+      })
+    }
+  }
+
+  // Step 3: Starter Club (Tier 1 Village clubs)
   const villageClubs = clubs.filter((c) => c.tier === 1)
   const defaultClub = villageClubs[0] || clubs[0]
   const [selectedClubId, setSelectedClubId] = useState<number>(defaultClub?.id || 1)
@@ -70,6 +108,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
   const previewCareer: ProCareer = {
     id: 0,
     user_id: 0,
+    gender,
     first_name: firstName || "Імʼя",
     last_name: lastName || "Прізвище",
     nickname: nickname || undefined,
@@ -127,8 +166,8 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
     clubs_history: [
       {
         club_id: selectedClubId,
-        club_name: selectedClub.name,
-        city: selectedClub.city,
+        club_name: selectedClub?.name || "ФК Тучапи",
+        city: selectedClub?.city || "Тучапи",
         tier: 1,
         from_year: 2026,
         seasons_count: 1,
@@ -145,7 +184,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
     proAudio.playClick()
     if (step === 1) {
       if (!firstName.trim() || !lastName.trim()) {
-        alert("Будь ласка, введіть ім'я та прізвище футболіста")
+        alert("Будь ласка, введіть ім'я та прізвище футболіста / футболістки")
         return
       }
       setStep(2)
@@ -154,6 +193,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
     } else {
       proAudio.playTrophyChime()
       onComplete({
+        gender,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         nickname: nickname.trim() || undefined,
@@ -235,22 +275,57 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Left Column: Interactive Wizard Forms (7 Cols) */}
         <div className="md:col-span-7 space-y-6">
-          {/* ─── STEP 1: BIO & PHYSICALITY ─── */}
+          {/* ─── STEP 1: GENDER, BIO & PHYSICALITY ─── */}
           {step === 1 && (
             <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 animate-fade-in">
               <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
                 <User className="w-4 h-4 text-emerald-400" />
-                1. Анкета та Фізичні дані (Вплив на потенціал)
+                1. Вибір Статі, Анкета та Фізичні дані
               </h3>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              {/* Gender Switcher */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300 text-xs block">
+                  Оберіть стать персонажа:
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectGender("male")}
+                    className={`py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      gender === "male"
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-950 ring-2 ring-blue-400"
+                        : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-xl">👨</span>
+                    <span>Чоловік</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectGender("female")}
+                    className={`py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      gender === "female"
+                        ? "bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-950 ring-2 ring-pink-400"
+                        : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-xl">👩</span>
+                    <span>Жінка</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Names Input */}
+              <div className="grid grid-cols-2 gap-3 text-xs pt-1">
                 <div className="space-y-1">
                   <label className="font-bold text-slate-300">Імʼя:</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Андрій"
+                    placeholder={gender === "female" ? "Олена" : "Андрій"}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:border-emerald-400 focus:outline-none"
                   />
                 </div>
@@ -274,7 +349,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                     type="text"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
-                    placeholder="Снайпер"
+                    placeholder={gender === "female" ? "Блискавка" : "Снайпер"}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:border-emerald-400 focus:outline-none"
                   />
                 </div>
@@ -283,17 +358,17 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                   <label className="font-bold text-slate-300">Робоча нога:</label>
                   <div className="flex gap-2">
                     {[
-                      { id: "right", label: "Права" },
-                      { id: "left", label: "Ліва" },
-                      { id: "both", label: "Обидві" }
+                      { id: "right", label: "Права 🦶" },
+                      { id: "left", label: "Ліва 🦶" },
+                      { id: "both", label: "Обидві ⭐" }
                     ].map((f) => (
                       <button
                         key={f.id}
                         type="button"
                         onClick={() => setFoot(f.id as any)}
-                        className={`flex-1 py-2.5 rounded-xl font-bold transition-all cursor-pointer ${
+                        className={`flex-1 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-center ${
                           foot === f.id
-                            ? "bg-emerald-600 text-white shadow-md"
+                            ? "bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400"
                             : "bg-slate-950 text-slate-400 border border-slate-800 hover:bg-slate-800"
                         }`}
                       >
@@ -309,21 +384,22 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                 <label className="font-bold text-slate-300">Позиція на полі:</label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {[
-                    { id: "ST", label: "ST (Форвард)" },
-                    { id: "RW", label: "RW (Пр. вінгер)" },
-                    { id: "LW", label: "LW (Лів. вінгер)" },
-                    { id: "CAM", label: "CAM (ЦАП)" },
-                    { id: "CM", label: "CM (ЦП)" },
-                    { id: "CDM", label: "CDM (Опорник)" },
-                    { id: "LB", label: "LB (Лів. захисник)" },
-                    { id: "CB", label: "CB (Центрбек)" },
-                    { id: "RB", label: "RB (Пр. захисник)" },
-                    { id: "GK", label: "GK (Воротар)" }
+                    { id: "ST", label: "ST", title: "Форвард" },
+                    { id: "RW", label: "RW", title: "Пр. вінгер" },
+                    { id: "LW", label: "LW", title: "Лів. вінгер" },
+                    { id: "CAM", label: "CAM", title: "ЦАП" },
+                    { id: "CM", label: "CM", title: "ЦП" },
+                    { id: "CDM", label: "CDM", title: "Опорник" },
+                    { id: "LB", label: "LB", title: "Лів. захисник" },
+                    { id: "CB", label: "CB", title: "Центрбек" },
+                    { id: "RB", label: "RB", title: "Пр. захисник" },
+                    { id: "GK", label: "GK", title: "Воротар" }
                   ].map((p) => (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => setPosition(p.id as any)}
+                      title={p.title}
                       className={`py-2 px-1 rounded-xl font-black transition-all text-center cursor-pointer ${
                         position === p.id
                           ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30 scale-105"
@@ -352,7 +428,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="range"
-                    min={160}
+                    min={155}
                     max={205}
                     value={height}
                     onChange={(e) => setHeight(Number(e.target.value))}
@@ -360,7 +436,7 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                   />
                   <input
                     type="range"
-                    min={55}
+                    min={50}
                     max={105}
                     value={weight}
                     onChange={(e) => setWeight(Number(e.target.value))}
@@ -425,14 +501,22 @@ export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreation
                         : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
                     }`}
                   >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs shadow-md shrink-0 border border-white/20"
-                      style={{
-                        background: `linear-gradient(135deg, ${club.primary_color}, ${club.secondary_color})`
-                      }}
-                    >
-                      <Shield className="w-5 h-5" />
-                    </div>
+                    {club.logo_url ? (
+                      <img
+                        src={club.logo_url}
+                        alt={club.name}
+                        className="w-10 h-10 object-contain drop-shadow shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs shadow-md shrink-0 border border-white/20"
+                        style={{
+                          background: `linear-gradient(135deg, ${club.primary_color}, ${club.secondary_color})`
+                        }}
+                      >
+                        <Shield className="w-5 h-5" />
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <div className="font-black text-xs sm:text-sm truncate">
                         {club.name}

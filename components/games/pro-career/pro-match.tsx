@@ -58,13 +58,16 @@ export function ProMatch({
   const [fixResultMsg, setFixResultMsg] = useState("")
 
   const [moments, setMoments] = useState<ProMatchMoment[]>([])
-  const [activeMomentIndex, setActiveMomentIndex] = useState<number>(-1)
+  const [activeMomentIndex, setActiveMomentIndex] = useState<number>(0)
   const [resolvedMoments, setResolvedMoments] = useState<ProMatchMoment[]>([])
 
   const [commentaryLog, setCommentaryLog] = useState<string[]>([])
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [finalResult, setFinalResult] = useState<ProMatchResult | null>(null)
   const [screenShake, setScreenShake] = useState(false)
+
+  // Track resolved moment IDs with a ref to prevent double triggers
+  const resolvedIdsRef = useRef<Set<string>>(new Set())
 
   // Trigger screen shake on decisive moments
   const triggerScreenShake = () => {
@@ -83,10 +86,12 @@ export function ProMatch({
     )
     setMoments(generatedMoments)
     setActiveMomentIndex(0)
-    setPhase("simulating")
+    resolvedIdsRef.current.clear()
+    setResolvedMoments([])
     setMatchMinute(0)
     setHomeScore(0)
     setAwayScore(0)
+    setPhase("simulating")
     setCommentaryLog([
       `0' Свисток арбітра! Матч між ${playerClub.name} та ${opponentClub.name} розпочався!`,
       `5' ${playerClub.name} контролює м'яч на своїй половині поля, ${career.first_name} ${career.last_name} займає позицію.`
@@ -106,43 +111,66 @@ export function ProMatch({
     }
   }
 
-  // Live Timer Simulation Loop
+  // Complete Match Calculation
+  const handleCompleteMatch = () => {
+    proAudio.playWhistle()
+    const result = simulateFullMatch(
+      career,
+      playerClub,
+      opponentClub,
+      isHome,
+      resolvedMoments,
+      isMatchFixed
+    )
+    setFinalResult(result)
+    setHomeScore(result.home_score)
+    setAwayScore(result.away_score)
+    setPhase("post_match")
+
+    // Automatically trigger voice coach commentary if available
+    proAudio.speakUkrainian(result.coach_commentary)
+    setIsSpeaking(true)
+  }
+
+  // Live Timer Simulation Loop (Robust, bug-free, zero-freeze)
   useEffect(() => {
-    let timer: any = null
+    if (phase !== "simulating") return
 
-    if (phase === "simulating") {
-      timer = setInterval(() => {
-        setMatchMinute((prev) => {
-          const nextMin = prev + 1
+    const timer = setInterval(() => {
+      setMatchMinute((prev) => {
+        const nextMin = prev + 1
 
-          // Check if key moment occurs
-          const currentMoment = moments[activeMomentIndex]
-          if (currentMoment && nextMin >= currentMoment.minute) {
-            clearInterval(timer)
-            proAudio.playHeartbeat()
-            setPhase("key_moment")
-            return currentMoment.minute
-          }
+        // Check if full time (90') reached
+        if (nextMin >= 90) {
+          clearInterval(timer)
+          handleCompleteMatch()
+          return 90
+        }
 
-          // Full time reached (90')
-          if (nextMin >= 90) {
-            clearInterval(timer)
-            handleCompleteMatch()
-            return 90
-          }
+        // Check for upcoming unresolved key moment
+        const currentMoment = moments[activeMomentIndex]
+        if (
+          currentMoment &&
+          !resolvedIdsRef.current.has(currentMoment.id) &&
+          nextMin >= currentMoment.minute
+        ) {
+          clearInterval(timer)
+          proAudio.playHeartbeat()
+          setPhase("key_moment")
+          return currentMoment.minute
+        }
 
-          // Random background pitch events
-          if (nextMin === 45) {
-            setCommentaryLog((c) => [
-              `45' Перерва! Команди вирушають у роздягальню для коригування тактики.`,
-              ...c
-            ])
-          }
+        // Random background pitch events
+        if (nextMin === 45) {
+          setCommentaryLog((c) => [
+            `45' Перерва! Команди вирушають у роздягальню для коригування тактики.`,
+            ...c
+          ])
+        }
 
-          return nextMin
-        })
-      }, 140) // fast 2D clock tick
-    }
+        return nextMin
+      })
+    }, 110)
 
     return () => clearInterval(timer)
   }, [phase, activeMomentIndex, moments])
@@ -151,6 +179,8 @@ export function ProMatch({
   const handleSelectChoice = (choice: ProMomentChoice) => {
     proAudio.playClick()
     const currentMoment = moments[activeMomentIndex]
+    if (!currentMoment) return
+
     const outcome = resolveMomentChoice(
       career,
       currentMoment,
@@ -178,6 +208,7 @@ export function ProMatch({
       outcome
     }
 
+    resolvedIdsRef.current.add(currentMoment.id)
     setResolvedMoments((r) => [...r, resolved])
     setCommentaryLog((c) => [
       `${currentMoment.minute}' [КЛЮЧОВИЙ МОМЕНТ] ${outcome.commentary}`,
@@ -187,36 +218,15 @@ export function ProMatch({
     setPhase("moment_resolved")
   }
 
-  // Resume Simulation after resolving key moment
+  // Resume Simulation after resolving key moment (Advances index & minute seamlessly!)
   const handleResumeMatch = () => {
     proAudio.playClick()
-    if (activeMomentIndex + 1 < moments.length) {
-      setActiveMomentIndex((idx) => idx + 1)
-      setPhase("simulating")
-    } else {
-      setPhase("simulating")
-    }
-  }
+    const currentMoment = moments[activeMomentIndex]
+    const nextMinute = currentMoment ? currentMoment.minute + 1 : matchMinute + 1
 
-  // Complete Match Calculation
-  const handleCompleteMatch = () => {
-    proAudio.playWhistle()
-    const result = simulateFullMatch(
-      career,
-      playerClub,
-      opponentClub,
-      isHome,
-      resolvedMoments,
-      isMatchFixed
-    )
-    setFinalResult(result)
-    setHomeScore(result.home_score)
-    setAwayScore(result.away_score)
-    setPhase("post_match")
-
-    // Automatically trigger voice coach commentary if available
-    proAudio.speakUkrainian(result.coach_commentary)
-    setIsSpeaking(true)
+    setMatchMinute(nextMinute)
+    setActiveMomentIndex((prev) => prev + 1)
+    setPhase("simulating")
   }
 
   const toggleVoiceCoach = () => {
@@ -230,6 +240,8 @@ export function ProMatch({
   }
 
   const activeMoment = moments[activeMomentIndex]
+  const homeClubObj = isHome ? playerClub : opponentClub
+  const awayClubObj = isHome ? opponentClub : playerClub
 
   return (
     <div
@@ -242,25 +254,27 @@ export function ProMatch({
         <div className="flex items-center justify-between gap-4">
           {/* Home Team */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${
-                  isHome ? playerClub.primary_color : opponentClub.primary_color
-                }, ${
-                  isHome
-                    ? playerClub.secondary_color
-                    : opponentClub.secondary_color
-                })`
-              }}
-            >
-              <Shield className="w-6 h-6 text-white" />
-            </div>
+            {homeClubObj.logo_url ? (
+              <img
+                src={homeClubObj.logo_url}
+                alt={homeClubObj.name}
+                className="w-12 h-12 object-contain drop-shadow shrink-0"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${homeClubObj.primary_color}, ${homeClubObj.secondary_color})`
+                }}
+              >
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+            )}
             <div className="min-w-0">
               <h3 className="font-black text-sm sm:text-base text-white truncate">
-                {isHome ? playerClub.name : opponentClub.name}
+                {homeClubObj.name}
               </h3>
-              <span className="text-[10px] text-slate-400">Господарі</span>
+              <span className="text-[10px] text-slate-400">Господарі ({homeClubObj.city})</span>
             </div>
           </div>
 
@@ -281,24 +295,26 @@ export function ProMatch({
           <div className="flex items-center justify-end gap-3 flex-1 min-w-0 text-right">
             <div className="min-w-0">
               <h3 className="font-black text-sm sm:text-base text-white truncate">
-                {isHome ? opponentClub.name : playerClub.name}
+                {awayClubObj.name}
               </h3>
-              <span className="text-[10px] text-slate-400">Гості</span>
+              <span className="text-[10px] text-slate-400">Гості ({awayClubObj.city})</span>
             </div>
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${
-                  !isHome ? playerClub.primary_color : opponentClub.primary_color
-                }, ${
-                  !isHome
-                    ? playerClub.secondary_color
-                    : opponentClub.secondary_color
-                })`
-              }}
-            >
-              <Shield className="w-6 h-6 text-white" />
-            </div>
+            {awayClubObj.logo_url ? (
+              <img
+                src={awayClubObj.logo_url}
+                alt={awayClubObj.name}
+                className="w-12 h-12 object-contain drop-shadow shrink-0"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${awayClubObj.primary_color}, ${awayClubObj.secondary_color})`
+                }}
+              >
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+            )}
           </div>
         </div>
       </div>

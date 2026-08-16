@@ -22,6 +22,7 @@ export function ProCard({
   const [rotateX, setRotateX] = useState(0)
   const [rotateY, setRotateY] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -115,7 +116,7 @@ export function ProCard({
         {/* Card Gold Outer Border Frame */}
         <div className="absolute inset-1 rounded-[22px] border border-amber-400/30 pointer-events-none z-10" />
 
-        {/* ─── TOP SECTION: OVR, POSITION, FLAG, CREST ─── */}
+        {/* ─── TOP SECTION: OVR, POSITION, FLAG, REAL CLUB EMBLEM ─── */}
         <div className="relative z-20 flex justify-between items-start">
           <div className="flex flex-col items-center leading-none space-y-1">
             <span className="text-3xl sm:text-4xl font-black text-amber-300 font-mono tracking-tighter drop-shadow-md">
@@ -127,15 +128,29 @@ export function ProCard({
             <span className="text-base pt-0.5" title="Україна">
               🇺🇦
             </span>
+
+            {/* Real Club Emblem or Fallback */}
             {club && (
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs shadow-md border border-white/20 mt-1"
-                style={{
-                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`
-                }}
-                title={club.name}
-              >
-                <Shield className="w-4 h-4" />
+              <div className="mt-1">
+                {club.logo_url && !logoFailed ? (
+                  <img
+                    src={club.logo_url}
+                    alt={club.name}
+                    onError={() => setLogoFailed(true)}
+                    className="w-8 h-8 object-contain drop-shadow-md"
+                    title={club.name}
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs shadow-md border border-white/20"
+                    style={{
+                      background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`
+                    }}
+                    title={club.name}
+                  >
+                    <Shield className="w-4 h-4" />
+                  </div>
+                )}
               </div>
             )}
           </div>

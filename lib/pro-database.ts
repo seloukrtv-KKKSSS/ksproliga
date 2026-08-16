@@ -153,6 +153,7 @@ export async function proGetClubs(): Promise<ProClub[]> {
       primary_color: c.primary_color || "#0F5E10",
       secondary_color: c.secondary_color || "#F59E0B",
       badge_symbol: c.badge_symbol || "shield",
+      logo_url: c.logo_url || undefined,
       stadium_name: c.stadium_name || "Стадіон",
       stadium_capacity: Number(c.stadium_capacity) || 500,
       budget: Number(c.budget) || 10000,
@@ -220,10 +221,12 @@ export async function proGetCareerByUserId(
     const career: ProCareer = {
       id: Number(data.id),
       user_id: Number(data.user_id),
+      gender: data.gender || "male",
       first_name: data.first_name,
       last_name: data.last_name,
       nickname: data.nickname,
       avatar: data.avatar || {
+        gender: data.gender || "male",
         skin_tone: "peach",
         face_shape: "oval",
         hair_style: "short_fade",
@@ -308,26 +311,28 @@ export async function proCreateCareer(
   const newCareer: ProCareer = {
     id: Date.now(),
     user_id: userId,
+    gender: careerData.gender || "male",
     first_name: careerData.first_name || "Андрій",
     last_name: careerData.last_name || "Карпʼюк",
     nickname: careerData.nickname,
     avatar: careerData.avatar || {
+      gender: careerData.gender || "male",
       skin_tone: "peach",
       face_shape: "oval",
-      hair_style: "short_fade",
+      hair_style: careerData.gender === "female" ? "female_ponytail" : "short_fade",
       hair_color: "dark_brown",
       eye_shape: "normal",
       eye_color: "brown",
       nose_type: "straight",
       mouth_type: "confident",
-      facial_hair: "stubble"
+      facial_hair: careerData.gender === "female" ? "none" : "stubble"
     },
     age: 17,
     position: careerData.position || "RW",
     secondary_positions: careerData.secondary_positions || [],
     foot: careerData.foot || "left",
-    height: careerData.height || 178,
-    weight: careerData.weight || 72,
+    height: careerData.height || (careerData.gender === "female" ? 170 : 178),
+    weight: careerData.weight || (careerData.gender === "female" ? 62 : 72),
     overall_rating: careerData.overall_rating || 42,
     potential: careerData.potential || 85,
     form: 80,
@@ -400,6 +405,7 @@ export async function proCreateCareer(
       .from("pro_careers")
       .insert({
         user_id: userId,
+        gender: newCareer.gender,
         first_name: newCareer.first_name,
         last_name: newCareer.last_name,
         nickname: newCareer.nickname,
@@ -453,6 +459,7 @@ export async function proUpdateCareer(career: ProCareer): Promise<ProCareer> {
     await supabase
       .from("pro_careers")
       .update({
+        gender: career.gender,
         avatar: career.avatar,
         age: career.age,
         overall_rating: career.overall_rating,

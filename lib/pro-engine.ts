@@ -799,6 +799,7 @@ export function generateCoachCommentary(
   isWin: boolean,
   opponentClub: ProClub
 ): string {
+  const isFemale = career.gender === "female"
   const clubName = club.name
   const oppName = opponentClub.name
   const lastName = career.last_name
@@ -807,31 +808,31 @@ export function generateCoachCommentary(
     return `«Фантастика, ${lastName}! Оформити хет-трик у ворота ${oppName} — це рівень справжнього майстра! Всі вболівальники ${clubName} сьогодні носять тебе на руках!»`
   }
   if (goals === 2) {
-    return `«Дубль у такому матчі проти ${oppName}! ${lastName}, ти зробив гру для ${clubName}! Продовжуй так само на кожному тренуванні!»`
+    return `«Дубль у такому матчі проти ${oppName}! ${lastName}, ти ${isFemale ? "зробила" : "зробив"} гру для ${clubName}! Продовжуй так само на кожному тренуванні!»`
   }
   if (goals === 1 && assists >= 1) {
-    return `«Гол плюс пас! Сьогодні ти був мотором усіх наших атак проти ${oppName}. Тренерський штаб ${clubName} дуже задоволений твоєю самовіддачею!»`
+    return `«Гол плюс пас! Сьогодні ти ${isFemale ? "була мотором" : "був мотором"} усіх наших атак проти ${oppName}. Тренерський штаб ${clubName} дуже задоволений твоєю самовіддачею!»`
   }
   if (goals === 1) {
-    return `«Твій забитий м'яч став вирішальним епізодом гри! ${lastName}, ти чудово знайшов свій шанс у карному майданчику ${oppName}!»`
+    return `«Твій забитий м'яч став вирішальним епізодом гри! ${lastName}, ти чудово ${isFemale ? "знайшла" : "знайшов"} свій шанс у карному майданчику ${oppName}!»`
   }
   if (assists >= 2) {
     return `«Геніальне бачення поля, ${lastName}! Дві гольові передачі на партнерів — це класика плеймейкера ${clubName}!»`
   }
   if (assists === 1) {
-    return `«Відмінний асист! Ти віддав своєчасну передачу і допоміг ${clubName} організувати взяття воріт.»`
+    return `«Відмінний асист! Ти ${isFemale ? "віддала своєчасну передачу і допомогла" : "віддав своєчасну передачу і допоміг"} ${clubName} організувати взяття воріт.»`
   }
   if (rating >= 8.0) {
-    return `«Блискучий матч, ${lastName}! Оцінка ${rating.toFixed(1)} говорить сама за себе. Ти лідер команди ${clubName}!»`
+    return `«Блискучий матч, ${lastName}! Оцінка ${rating.toFixed(1)} говорить сама за себе. Ти ${isFemale ? "лідерка" : "лідер"} команди ${clubName}!»`
   }
   if (isWin) {
-    return `«Гарна командна перемога ${clubName} над ${oppName}! Ти відпрацював свій мікроматч на совість. Рухаємося далі по таблиці!»`
+    return `«Гарна командна перемога ${clubName} над ${oppName}! Ти ${isFemale ? "відпрацювала" : "відпрацював"} свій мікроматч на совість. Рухаємося далі по таблиці!»`
   }
   if (rating <= 5.5) {
     return `«Сьогодні була важка гра, ${lastName}. Суперник із ${oppName} перекрив твої зони. Зробимо висновки на розборі польотів у ${clubName}.»`
   }
 
-  return `«Добротний поєдинок. Ти витримав темп і допоміг ${clubName} у боротьбі. Готуємося до наступного туру!»`
+  return `«Добротний поєдинок. Ти ${isFemale ? "витримала" : "витримав"} темп і ${isFemale ? "допомогла" : "допоміг"} ${clubName} у боротьбі. Готуємося до наступного туру!»`
 }
 
 /**
@@ -843,6 +844,7 @@ export function generateNewspaperArticle(
   opponentClub: ProClub,
   result: { home_score: number; away_score: number; goals: number; assists: number; rating: number; is_home: boolean }
 ): ProNewsArticle {
+  const isFemale = career.gender === "female"
   const tier = club.tier
   const paperName =
     tier === 1
@@ -864,15 +866,15 @@ export function generateNewspaperArticle(
 
   if (result.goals >= 2) {
     headline = `🔥 Бенефіс ${career.last_name}! Дубль приносить успіх ${club.name}`
-    text = `У напруженому поєдинку проти ${opponentClub.name} справжньою зіркою матчу став ${career.age}-річний ${career.first_name} ${career.last_name}. Його точні удари та впевнена гра на вістрі атаки підірвали трибуни. Скаути вже записують прізвище таланта у свої блокноти.`
+    text = `У напруженому поєдинку проти ${opponentClub.name} справжньою зіркою матчу ${isFemale ? "стала" : "став"} ${career.age}-річна ${career.first_name} ${career.last_name}. ${isFemale ? "Її" : "Його"} точні удари та впевнена гра на вістрі атаки підірвали трибуни. Скаути вже записують прізвище таланта у свої блокноти.`
     importance = "breaking"
   } else if (result.goals === 1) {
     headline = `⚡ Гол ${career.last_name} запалює гру ${club.name} проти ${opponentClub.name}!`
-    text = `Матч між ${club.name} та ${opponentClub.name} завершився з рахунком ${result.home_score}:${result.away_score}. Результативним ударом відзначився ${career.last_name}, показавши зрілий та технічний футбол.`
+    text = `Матч між ${club.name} та ${opponentClub.name} завершився з рахунком ${result.home_score}:${result.away_score}. Результативним ударом ${isFemale ? "відзначилася" : "відзначився"} ${career.last_name}, показавши зрілий та технічний футбол.`
     importance = "medium"
   } else if (isWin) {
     headline = `🏆 Переконлива перемога ${club.name} у черговому турі!`
-    text = `Команда ${club.name} продемонструвала відмінну тактичну дисципліну та здолала ${opponentClub.name} (${result.home_score}:${result.away_score}). ${career.last_name} провів солідний поєдинок, отримавши оцінку ⭐ ${result.rating.toFixed(1)}.`
+    text = `Команда ${club.name} продемонструвала відмінну тактичну дисципліну та здолала ${opponentClub.name} (${result.home_score}:${result.away_score}). ${career.last_name} ${isFemale ? "провела" : "провів"} солідний поєдинок, отримавши оцінку ⭐ ${result.rating.toFixed(1)}.`
     importance = "medium"
   } else if (isDraw) {
     headline = `⚖️ Бойова нічия: ${club.name} ділить очки з ${opponentClub.name}`

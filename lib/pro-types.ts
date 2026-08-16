@@ -20,9 +20,10 @@ export type ProSquadRole =
   | "captain"
 
 export interface ProAvatar {
+  gender?: "male" | "female"
   skin_tone: string // "fair" | "peach" | "tan" | "bronze" | "dark"
   face_shape: string // "oval" | "square" | "round" | "sharp"
-  hair_style: string // "short_fade" | "buzz" | "curly" | "mohawk" | "long" | "classic" | "dreadlocks" | "slick"
+  hair_style: string // "short_fade" | "buzz" | "curly" | "mohawk" | "long" | "classic" | "dreadlocks" | "slick" | "female_ponytail" | "female_long" | "female_bob" | "female_bun" | "female_braids" | "female_pixie"
   hair_color: string // "black" | "dark_brown" | "light_brown" | "blonde" | "ginger" | "platinum"
   eye_shape: string // "normal" | "narrow" | "wide"
   eye_color: string // "brown" | "blue" | "green" | "amber" | "dark"
@@ -134,6 +135,7 @@ export interface ProCupStatus {
 export interface ProCareer {
   id: number
   user_id: number
+  gender?: "male" | "female"
   first_name: string
   last_name: string
   nickname?: string
@@ -199,6 +201,7 @@ export interface ProClub {
   primary_color: string
   secondary_color: string
   badge_symbol: string
+  logo_url?: string
   stadium_name: string
   stadium_capacity: number
   budget: number

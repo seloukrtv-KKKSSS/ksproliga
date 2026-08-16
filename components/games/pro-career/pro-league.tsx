@@ -139,7 +139,7 @@ export function ProLeagueStandings({
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
                 <h3 className="text-base font-black text-white">
-                  {activeLeague.name}
+                  {activeLeague?.name || "Ліга"}
                 </h3>
               </div>
               <span className="text-xs font-bold text-slate-400">
@@ -175,14 +175,22 @@ export function ProLeagueStandings({
                         {index + 1}
                       </td>
                       <td className="py-3 px-3 flex items-center gap-2.5">
-                        <div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white shadow-xs shrink-0"
-                          style={{
-                            background: `linear-gradient(135deg, ${row.club.primary_color}, ${row.club.secondary_color})`
-                          }}
-                        >
-                          <Shield className="w-3.5 h-3.5" />
-                        </div>
+                        {row.club.logo_url ? (
+                          <img
+                            src={row.club.logo_url}
+                            alt={row.club.name}
+                            className="w-6 h-6 object-contain drop-shadow shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-white shadow-xs shrink-0"
+                            style={{
+                              background: `linear-gradient(135deg, ${row.club.primary_color}, ${row.club.secondary_color})`
+                            }}
+                          >
+                            <Shield className="w-3.5 h-3.5" />
+                          </div>
+                        )}
                         <span className="font-bold truncate">{row.club.name}</span>
                         {row.isPlayerClub && (
                           <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 shrink-0">
@@ -217,7 +225,7 @@ export function ProLeagueStandings({
               <Trophy className="w-5 h-5 text-amber-400" />
               <div>
                 <h3 className="text-base font-black text-white">
-                  Кубок {activeLeague.name.split("(")[0]}
+                  Кубок {activeLeague?.name ? activeLeague.name.split("(")[0] : "Області"}
                 </h3>
                 <span className="text-xs text-slate-400">
                   Плей-оф турнір на вибування
