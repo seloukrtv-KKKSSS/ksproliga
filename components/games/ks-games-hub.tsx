@@ -5,7 +5,7 @@ import { Gamepad2, Trophy, User, Sparkles, Volume2, VolumeX, Edit3, Check, Flame
 import { KsDinoRunner } from "./ks-dino-runner"
 import { KsSnakeGame } from "./ks-snake-game"
 import { KsLeaderboard } from "./ks-leaderboard"
-import { FMHub } from "./football-manager/fm-hub"
+import { ProHub } from "./pro-career/pro-hub"
 import { retroAudio } from "@/lib/retro-audio"
 import { getTeams } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
@@ -85,11 +85,11 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">KS Games Arena</h2>
                   <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-xs">
-                    Football Hub
+                    Від Села до УПЛ
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 font-medium">
-                  Керуй власним футбольним клубом у <strong>KSLIGA Football Manager</strong> або грай у ретро-аркади!
+                  Пройди шлях одного футболіста від сільського стадіону до вершини українського футболу!
                 </p>
               </div>
             </div>
@@ -166,14 +166,14 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           type="button"
           onClick={() => setActiveTab("manager")}
           onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 py-3 px-3.5 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
+          className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-3 px-3.5 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "manager"
               ? "bg-gradient-to-r from-emerald-700 to-emerald-600 text-white shadow-lg shadow-emerald-900/30 scale-102"
               : "text-slate-700 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
           <Shield className="h-4 w-4 text-emerald-300 pointer-events-none" />
-          <span className="pointer-events-none">Football Manager</span>
+          <span className="pointer-events-none">Від Села до УПЛ</span>
           <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 ml-0.5 flex items-center gap-0.5">
             🔒 PIN
           </span>
@@ -224,8 +224,8 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
       {/* ─── Active Tab Content Area ─── */}
       <div className="w-full">
-        {/* 1. Football Manager Flagship */}
-        {activeTab === "manager" && <FMHub />}
+        {/* 1. Від Села до УПЛ Pro Career Flagship */}
+        {activeTab === "manager" && <ProHub />}
 
         {/* 2. Retro Dino Runner */}
         {activeTab === "dino" && (
