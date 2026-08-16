@@ -19,6 +19,18 @@ export type ProSquadRole =
   | "key_player"
   | "captain"
 
+export interface ProAvatar {
+  skin_tone: string // "fair" | "peach" | "tan" | "bronze" | "dark"
+  face_shape: string // "oval" | "square" | "round" | "sharp"
+  hair_style: string // "short_fade" | "buzz" | "curly" | "mohawk" | "long" | "classic" | "dreadlocks" | "slick"
+  hair_color: string // "black" | "dark_brown" | "light_brown" | "blonde" | "ginger" | "platinum"
+  eye_shape: string // "normal" | "narrow" | "wide"
+  eye_color: string // "brown" | "blue" | "green" | "amber" | "dark"
+  nose_type: string // "straight" | "button" | "roman" | "wide"
+  mouth_type: string // "smile" | "neutral" | "confident" | "smirk"
+  facial_hair: string // "none" | "stubble" | "mustache" | "full_beard" | "goatee"
+}
+
 export interface ProAttributes {
   pace: number // Швидкість (ривки, спринт)
   shooting: number // Удар (сила, точність)
@@ -34,6 +46,7 @@ export interface ProAttributes {
 
 export interface ProSeasonLog {
   season: number
+  year: number
   age: number
   club_name: string
   club_tier: number
@@ -46,6 +59,7 @@ export interface ProSeasonLog {
   ovr_end: number
   trophies_won: string[]
   honors?: string[]
+  newspaper_highlight?: string
 }
 
 export interface ProClubHistory {
@@ -75,6 +89,9 @@ export interface ProInventory {
   car: string
   house: string
   trainers: string[]
+  all_boots: string[]
+  all_cars: string[]
+  all_houses: string[]
 }
 
 export interface ProScoutInterest {
@@ -84,12 +101,43 @@ export interface ProScoutInterest {
   tier5: number
 }
 
+export interface ProNewsArticle {
+  id: string
+  newspaper_name: string
+  headline: string
+  text: string
+  date_str: string
+  importance: "low" | "medium" | "high" | "breaking"
+  tag: string
+  rating?: number
+  goals_scored?: number
+}
+
+export interface ProCupMatch {
+  stage_name: string // "1/8 фіналу", "1/4 фіналу", "Півфінал", "ФІНАЛ"
+  opponent_club: ProClub
+  is_home: boolean
+  is_played: boolean
+  home_score?: number
+  away_score?: number
+  is_winner?: boolean
+}
+
+export interface ProCupStatus {
+  cup_name: string
+  current_stage_index: number
+  is_eliminated: boolean
+  is_champion: boolean
+  fixtures: ProCupMatch[]
+}
+
 export interface ProCareer {
   id: number
   user_id: number
   first_name: string
   last_name: string
   nickname?: string
+  avatar: ProAvatar
   age: number
   position: ProPosition
   secondary_positions: ProPosition[]
@@ -116,6 +164,9 @@ export interface ProCareer {
   is_retired: boolean
   current_season_number: number
   current_fixture_round: number
+  contract_signed_this_season?: boolean
+  last_rest_timestamp?: number // ms
+  last_spa_timestamp?: number // ms
   attributes: ProAttributes
   career_stats: {
     total_matches: number
@@ -130,6 +181,8 @@ export interface ProCareer {
   season_logs: ProSeasonLog[]
   clubs_history: ProClubHistory[]
   trophies: ProTrophy[]
+  news_articles: ProNewsArticle[]
+  cup_status?: ProCupStatus
   created_at?: string
   updated_at?: string
 }
@@ -228,9 +281,12 @@ export interface ProMatchResult {
   player_xg: number
   moments: ProMatchMoment[]
   earnings: ProMatchEarnings
+  coach_commentary: string
+  news_article?: ProNewsArticle
   season_number: number
   fixture_round: number
   match_type: "league" | "cup" | "friendly"
+  is_match_fixed?: boolean
 }
 
 export interface ProStoryChoice {

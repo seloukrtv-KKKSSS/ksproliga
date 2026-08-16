@@ -10,7 +10,9 @@ import {
   ProStoryEvent,
   ProStoreItem,
   ProScoutRequirement,
-  ProMatchEarnings
+  ProMatchEarnings,
+  ProNewsArticle,
+  ProAvatar
 } from "./pro-types"
 
 /**
@@ -92,25 +94,103 @@ export function calculateOverallRating(
 }
 
 /**
- * Starter Attributes Generator for a 17-year old rookie (OVR ~ 40-44)
+ * Anatomical Physical Modifiers based on Height (160-205 cm) & Weight (55-105 kg)
+ */
+export interface AnatomyModifiers {
+  bodyTypeLabel: string
+  description: string
+  paceMod: number
+  dribbleMod: number
+  physicalMod: number
+  shootingMod: number
+  defendingMod: number
+  potentialOffset: number
+}
+
+export function calculateAnatomyModifiers(
+  height: number,
+  weight: number,
+  pos: ProPosition
+): AnatomyModifiers {
+  // Height baseline: 180 cm, Weight baseline: 74 kg
+  const heightDiff = height - 180
+  const weightDiff = weight - 74
+
+  let paceMod = Math.round(-heightDiff * 0.3 - weightDiff * 0.15)
+  let dribbleMod = Math.round(-heightDiff * 0.25 - weightDiff * 0.1)
+  let physicalMod = Math.round(heightDiff * 0.35 + weightDiff * 0.3)
+  let shootingMod = Math.round(weightDiff * 0.15 + (height > 185 ? 2 : 0))
+  let defendingMod = Math.round(heightDiff * 0.2 + weightDiff * 0.2)
+
+  let bodyTypeLabel = "Збалансований атлет"
+  let description = "Гармонійний баланс швидкості, сили та витривалості."
+  let potentialOffset = 0
+
+  if (height <= 174 && weight <= 70) {
+    bodyTypeLabel = "⚡ Спринтер-віртуоз"
+    description = "Низький центр тяжіння: вибухова швидкість та дриблінг, але слабша гра корпусом."
+    paceMod += 4
+    dribbleMod += 4
+    physicalMod -= 4
+    potentialOffset = ["RW", "LW", "CAM"].includes(pos) ? 4 : -2
+  } else if (height >= 190 && weight >= 82) {
+    bodyTypeLabel = "🧱 Таранний гігант"
+    description = "Могутня статура: домінування на другому поверсі та в єдиноборствах, менша маневреність."
+    physicalMod += 6
+    shootingMod += 3
+    paceMod -= 4
+    dribbleMod -= 4
+    potentialOffset = ["ST", "CB", "GK"].includes(pos) ? 4 : -2
+  } else if (height >= 183 && weight <= 75) {
+    bodyTypeLabel = "🏃 Легкоатлет"
+    description = "Широкий біговий крок та висока витривалість."
+    paceMod += 2
+    potentialOffset = 2
+  }
+
+  return {
+    bodyTypeLabel,
+    description,
+    paceMod,
+    dribbleMod,
+    physicalMod,
+    shootingMod,
+    defendingMod,
+    potentialOffset
+  }
+}
+
+/**
+ * Starter Attributes Generator incorporating anatomical modifiers
  */
 export function generateStarterAttributes(
   pos: ProPosition,
-  potential: number
+  potential: number,
+  height = 178,
+  weight = 72
 ): ProAttributes {
-  const base = 40 + Math.floor(Math.random() * 5)
+  const base = 40 + Math.floor(Math.random() * 4)
   const isAttack = ["ST", "RW", "LW", "CAM"].includes(pos)
   const isMid = ["CM", "CDM"].includes(pos)
   const isDef = ["LB", "CB", "RB"].includes(pos)
   const isGk = pos === "GK"
 
+  const anatomy = calculateAnatomyModifiers(height, weight, pos)
+
+  const pace = Math.max(35, Math.min(85, (isAttack || ["LB", "RB"].includes(pos) ? base + 8 : base) + anatomy.paceMod))
+  const shooting = Math.max(30, Math.min(85, (isAttack ? base + 7 : isMid ? base + 2 : base - 8) + anatomy.shootingMod))
+  const passing = Math.max(30, Math.min(85, isMid || pos === "CAM" ? base + 7 : base + 1))
+  const dribbling = Math.max(30, Math.min(85, (isAttack || isMid ? base + 6 : base - 2) + anatomy.dribbleMod))
+  const defending = Math.max(25, Math.min(85, (isDef || pos === "CDM" ? base + 8 : isAttack ? base - 12 : base - 4) + anatomy.defendingMod))
+  const physical = Math.max(35, Math.min(85, (isDef || pos === "ST" ? base + 6 : base + 2) + anatomy.physicalMod))
+
   return {
-    pace: isAttack || ["LB", "RB"].includes(pos) ? base + 8 : base,
-    shooting: isAttack ? base + 7 : isMid ? base + 2 : base - 8,
-    passing: isMid || pos === "CAM" ? base + 7 : base + 1,
-    dribbling: isAttack || isMid ? base + 6 : base - 2,
-    defending: isDef || pos === "CDM" ? base + 8 : isAttack ? base - 12 : base - 4,
-    physical: isDef || pos === "ST" ? base + 6 : base + 2,
+    pace,
+    shooting,
+    passing,
+    dribbling,
+    defending,
+    physical,
     positioning: base + 4,
     decision_making: base + 2,
     stamina: 55 + Math.floor(Math.random() * 10),
@@ -127,7 +207,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "trainer_sprint",
     name: "Персональний тренер зі спринту",
     category: "trainers",
-    price: 4500,
+    price: 8500,
     description: "Індивідуальна робота над стартовим прискоренням та біговою технікою",
     stat_boost: "+2 до Швидкості (PAC)",
     icon: "🏃",
@@ -137,7 +217,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "trainer_shooting",
     name: "Тренер з ударної майстерності",
     category: "trainers",
-    price: 4500,
+    price: 9000,
     description: "Постановка удару з обох ніг, підкрутка та реалізація виходів",
     stat_boost: "+2 до Удару (SHO)",
     icon: "🎯",
@@ -147,7 +227,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "trainer_passing",
     name: "Майстер-клас плеймейкера",
     category: "trainers",
-    price: 4000,
+    price: 7500,
     description: "Розвиток культури розрізного пасу та бачення поля",
     stat_boost: "+2 до Пасу (PAS)",
     icon: "📐",
@@ -157,7 +237,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "trainer_dribbling",
     name: "Тренер з фрістайлу та дриблінгу",
     category: "trainers",
-    price: 4000,
+    price: 7500,
     description: "Швидка робота ніг на носочках, обіграш у вузьких зонах",
     stat_boost: "+2 до Дриблінгу (DRI)",
     icon: "✨",
@@ -167,7 +247,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "trainer_nutrition",
     name: "Спортивний нутриціолог",
     category: "trainers",
-    price: 5500,
+    price: 11000,
     description: "Персональний раціон харчування для витривалості та швидкого відновлення",
     stat_boost: "+3 до Витривалості (STA)",
     icon: "🥗",
@@ -179,7 +259,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "boots_mercurial",
     name: "Nike Mercurial Vapor Pro",
     category: "boots",
-    price: 6500,
+    price: 12500,
     description: "Ультралегкі шипи для максимального зчеплення та спринтерських ривків",
     stat_boost: "+2 PAC, +1 DRI",
     icon: "👟",
@@ -189,7 +269,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "boots_predator",
     name: "Adidas Predator Elite",
     category: "boots",
-    price: 8500,
+    price: 16500,
     description: "Гумові накладки Strikeskin для ідеальної підкрутки та гарматних ударів",
     stat_boost: "+3 SHO, +1 PAS",
     icon: "⚡",
@@ -199,7 +279,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "boots_future",
     name: "Puma Future Ultimate",
     category: "boots",
-    price: 7500,
+    price: 14000,
     description: "Анатомічна фіксація стопи для віртуозного контролю м'яча",
     stat_boost: "+2 DRI, +2 PAS",
     icon: "🎨",
@@ -211,9 +291,9 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "car_vaz",
     name: "ВАЗ 2109 «Дев'ятка»",
     category: "cars",
-    price: 25000,
+    price: 35000,
     description: "Класичне авто, щоб швидко добиратися на матчі між селами",
-    stat_boost: "+10 до Моралі",
+    stat_boost: "+10 до Моралі, +15 Репутації",
     icon: "🚗",
     morale_boost: 10,
     rep_boost: 15
@@ -222,7 +302,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "car_golf",
     name: "Volkswagen Golf GTI",
     category: "cars",
-    price: 120000,
+    price: 180000,
     description: "Надійний міський хетчбек для поїздок на матчі Чемпіонату Області",
     stat_boost: "+20 до Моралі, +35 Репутації",
     icon: "🚘",
@@ -233,7 +313,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "car_bmw",
     name: "BMW M5 Competition",
     category: "cars",
-    price: 650000,
+    price: 950000,
     description: "Швидкісний спорткар професійного гравця ПФЛ",
     stat_boost: "+35 до Моралі, +80 Репутації",
     icon: "🏎️",
@@ -244,7 +324,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "car_gwagon",
     name: "Mercedes-Benz G-Class (Гелік)",
     category: "cars",
-    price: 2200000,
+    price: 3200000,
     description: "Абсолютний статус зірки УПЛ та лідера роздягальні",
     stat_boost: "+50 до Моралі, +180 Репутації",
     icon: "🚙",
@@ -257,7 +337,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "house_frankivsk_rent",
     name: "Оренда квартири у Франківську / Чернівцях",
     category: "houses",
-    price: 35000,
+    price: 60000,
     description: "Сучасне житло біля міського стадіону",
     stat_boost: "+15 до Моралі, +20 Репутації",
     icon: "🏢",
@@ -268,7 +348,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "house_new_apartment",
     name: "Власна 3-кімнатна квартира в новобудові",
     category: "houses",
-    price: 450000,
+    price: 650000,
     description: "Просторе житло з власним тренажерним куточком",
     stat_boost: "+30 до Моралі, +70 Репутації",
     icon: "🏙️",
@@ -279,7 +359,7 @@ export const STORE_ITEMS: ProStoreItem[] = [
     id: "house_penthouse_kyiv",
     name: "Пентхаус на Печерську (Київ)",
     category: "houses",
-    price: 2800000,
+    price: 4200000,
     description: "Елітний пентхаус з панорамою на НСК «Олімпійський»",
     stat_boost: "+50 до Моралі, +250 Репутації",
     icon: "🏰",
@@ -708,35 +788,201 @@ export function resolveMomentChoice(
 }
 
 /**
- * Simulates Full Match & Calculates Post-Match Ratings, Financial Earnings, and Fatigue
+ * Generates Real Dynamic Coach Commentary based on Player's actual club & Performance
+ */
+export function generateCoachCommentary(
+  career: ProCareer,
+  club: ProClub,
+  goals: number,
+  assists: number,
+  rating: number,
+  isWin: boolean,
+  opponentClub: ProClub
+): string {
+  const clubName = club.name
+  const oppName = opponentClub.name
+  const lastName = career.last_name
+
+  if (goals >= 3) {
+    return `«Фантастика, ${lastName}! Оформити хет-трик у ворота ${oppName} — це рівень справжнього майстра! Всі вболівальники ${clubName} сьогодні носять тебе на руках!»`
+  }
+  if (goals === 2) {
+    return `«Дубль у такому матчі проти ${oppName}! ${lastName}, ти зробив гру для ${clubName}! Продовжуй так само на кожному тренуванні!»`
+  }
+  if (goals === 1 && assists >= 1) {
+    return `«Гол плюс пас! Сьогодні ти був мотором усіх наших атак проти ${oppName}. Тренерський штаб ${clubName} дуже задоволений твоєю самовіддачею!»`
+  }
+  if (goals === 1) {
+    return `«Твій забитий м'яч став вирішальним епізодом гри! ${lastName}, ти чудово знайшов свій шанс у карному майданчику ${oppName}!»`
+  }
+  if (assists >= 2) {
+    return `«Геніальне бачення поля, ${lastName}! Дві гольові передачі на партнерів — це класика плеймейкера ${clubName}!»`
+  }
+  if (assists === 1) {
+    return `«Відмінний асист! Ти віддав своєчасну передачу і допоміг ${clubName} організувати взяття воріт.»`
+  }
+  if (rating >= 8.0) {
+    return `«Блискучий матч, ${lastName}! Оцінка ${rating.toFixed(1)} говорить сама за себе. Ти лідер команди ${clubName}!»`
+  }
+  if (isWin) {
+    return `«Гарна командна перемога ${clubName} над ${oppName}! Ти відпрацював свій мікроматч на совість. Рухаємося далі по таблиці!»`
+  }
+  if (rating <= 5.5) {
+    return `«Сьогодні була важка гра, ${lastName}. Суперник із ${oppName} перекрив твої зони. Зробимо висновки на розборі польотів у ${clubName}.»`
+  }
+
+  return `«Добротний поєдинок. Ти витримав темп і допоміг ${clubName} у боротьбі. Готуємося до наступного туру!»`
+}
+
+/**
+ * Newspaper Article Generator
+ */
+export function generateNewspaperArticle(
+  career: ProCareer,
+  club: ProClub,
+  opponentClub: ProClub,
+  result: { home_score: number; away_score: number; goals: number; assists: number; rating: number; is_home: boolean }
+): ProNewsArticle {
+  const tier = club.tier
+  const paperName =
+    tier === 1
+      ? "«Сільський Футбол» (Снятинщина & Коломийщина)"
+      : tier === 2
+      ? "«Галицький Спорт» (Івано-Франківськ & Чернівці)"
+      : tier <= 4
+      ? "«Український Футбол» (ПФЛ Огляд)"
+      : "«Футбольна Україна» (УПЛ Експрес)"
+
+  const myScore = result.is_home ? result.home_score : result.away_score
+  const oppScore = result.is_home ? result.away_score : result.home_score
+  const isWin = myScore > oppScore
+  const isDraw = myScore === oppScore
+
+  let headline = ""
+  let text = ""
+  let importance: ProNewsArticle["importance"] = "medium"
+
+  if (result.goals >= 2) {
+    headline = `🔥 Бенефіс ${career.last_name}! Дубль приносить успіх ${club.name}`
+    text = `У напруженому поєдинку проти ${opponentClub.name} справжньою зіркою матчу став ${career.age}-річний ${career.first_name} ${career.last_name}. Його точні удари та впевнена гра на вістрі атаки підірвали трибуни. Скаути вже записують прізвище таланта у свої блокноти.`
+    importance = "breaking"
+  } else if (result.goals === 1) {
+    headline = `⚡ Гол ${career.last_name} запалює гру ${club.name} проти ${opponentClub.name}!`
+    text = `Матч між ${club.name} та ${opponentClub.name} завершився з рахунком ${result.home_score}:${result.away_score}. Результативним ударом відзначився ${career.last_name}, показавши зрілий та технічний футбол.`
+    importance = "medium"
+  } else if (isWin) {
+    headline = `🏆 Переконлива перемога ${club.name} у черговому турі!`
+    text = `Команда ${club.name} продемонструвала відмінну тактичну дисципліну та здолала ${opponentClub.name} (${result.home_score}:${result.away_score}). ${career.last_name} провів солідний поєдинок, отримавши оцінку ⭐ ${result.rating.toFixed(1)}.`
+    importance = "medium"
+  } else if (isDraw) {
+    headline = `⚖️ Бойова нічия: ${club.name} ділить очки з ${opponentClub.name}`
+    text = `Запекла боротьба на кожному клаптику поля закінчилася миром (${result.home_score}:${result.away_score}). Обидві команди зберегли інтригу в турнірній таблиці.`
+    importance = "low"
+  } else {
+    headline = `⚠️ Поразка ${club.name}: ${opponentClub.name} святкує перемогу`
+    text = `Незважаючи на старання ${career.last_name} та команди, ${club.name} поступилися суперникам із рахунком ${result.home_score}:${result.away_score}. Попереду робота над помилками.`
+    importance = "low"
+  }
+
+  return {
+    id: `art_${Date.now()}`,
+    newspaper_name: paperName,
+    headline,
+    text,
+    date_str: new Date().toLocaleDateString("uk-UA", { day: "numeric", month: "long" }),
+    importance,
+    tag: tier >= 4 ? "Професійний футбол" : "Аматорський футбол",
+    rating: result.rating,
+    goals_scored: result.goals
+  }
+}
+
+/**
+ * Match-Fixing (Договірний матч) Logic
+ */
+export interface MatchFixResult {
+  success: boolean
+  cost: number
+  reputationDelta: number
+  moneyDelta: number
+  message: string
+  scandalOccurred: boolean
+}
+
+export function attemptMatchFixing(
+  career: ProCareer,
+  opponentClub: ProClub
+): MatchFixResult {
+  const cost = opponentClub.tier === 1 ? 5000 : opponentClub.tier === 2 ? 15000 : 40000
+
+  if ((career.bank_balance || 0) < cost) {
+    return {
+      success: false,
+      cost,
+      reputationDelta: 0,
+      moneyDelta: 0,
+      message: `Недостатньо коштів! Щоб домовитися з суперником потрібно ${cost.toLocaleString()} ₴.`,
+      scandalOccurred: false
+    }
+  }
+
+  // Success depends on opponent tier and reputation
+  const baseChance = opponentClub.tier === 1 ? 0.65 : opponentClub.tier === 2 ? 0.45 : 0.25
+  const roll = Math.random()
+
+  if (roll < baseChance) {
+    return {
+      success: true,
+      cost,
+      reputationDelta: -5,
+      moneyDelta: -cost,
+      message: `🤫 Домовленості досягнуто! Керівництво ${opponentClub.name} погодилося не грати на повну силу за ${cost.toLocaleString()} ₴.`,
+      scandalOccurred: false
+    }
+  } else {
+    // Scandal!
+    return {
+      success: false,
+      cost,
+      reputationDelta: -45,
+      moneyDelta: -cost,
+      message: `🚨 СКАНДАЛ! Капітан ${opponentClub.name} обурено відхилив вашу пропозицію та розповів про це журналістам! Ваша репутація різко впала!`,
+      scandalOccurred: true
+    }
+  }
+}
+
+/**
+ * Simulates Full Match & Calculates Post-Match Ratings, Realistic Goals, Earnings, Commentary, and News
  */
 export function simulateFullMatch(
   career: ProCareer,
   playerClub: ProClub,
   opponentClub: ProClub,
   isHome: boolean,
-  resolvedMoments: ProMatchMoment[]
+  resolvedMoments: ProMatchMoment[],
+  isMatchFixed = false
 ): ProMatchResult {
   let playerGoals = 0
   let playerAssists = 0
   let playerShots = 0
   let playerTackles = 0
-  let baseRating = 6.8 + Math.random() * 0.4
+  let baseRating = 6.6 + Math.random() * 0.5
 
   for (const m of resolvedMoments) {
     if (m.outcome?.result_type === "goal") {
       playerGoals++
       playerShots++
-      baseRating += 0.8
+      baseRating += 0.85
     } else if (m.outcome?.result_type === "assist") {
       playerAssists++
-      baseRating += 0.6
+      baseRating += 0.65
     } else if (
       m.outcome?.result_type === "tackle_won" ||
       m.outcome?.result_type === "shot_saved"
     ) {
       playerTackles++
-      baseRating += 0.4
+      baseRating += 0.45
     } else if (m.outcome?.success) {
       baseRating += 0.3
     } else {
@@ -744,32 +990,38 @@ export function simulateFullMatch(
     }
   }
 
-  // Team goals calculation
-  const strengthDiff =
-    (playerClub.squad_strength - opponentClub.squad_strength) * 0.05
-  const homeAdvantage = isHome ? 0.3 : -0.3
+  // Realistic Score Generation (Wide realistic distribution: 0:0, 1:0, 0:2, 3:1, 2:2, 4:0, 1:3, 5:2)
+  const strengthDiff = (playerClub.squad_strength - opponentClub.squad_strength) * 0.04
+  const homeAdvantage = isHome ? 0.4 : -0.4
+  const fixBonus = isMatchFixed ? 1.5 : 0
 
-  let homeBase = Math.max(
-    0,
-    Math.round(
-      1.4 +
-        (isHome ? strengthDiff : -strengthDiff) +
-        homeAdvantage +
-        (Math.random() - 0.4)
-    )
-  )
-  let awayBase = Math.max(
-    0,
-    Math.round(
-      1.1 +
-        (!isHome ? strengthDiff : -strengthDiff) -
-        homeAdvantage +
-        (Math.random() - 0.5)
-    )
-  )
+  // Poisson-like distribution for realistic football scores
+  const scorePresets = [
+    { p: 0.12, home: 1, away: 0 },
+    { p: 0.12, home: 0, away: 1 },
+    { p: 0.14, home: 2, away: 0 },
+    { p: 0.14, home: 0, away: 2 },
+    { p: 0.10, home: 1, away: 1 },
+    { p: 0.08, home: 0, away: 0 },
+    { p: 0.09, home: 3, away: 1 },
+    { p: 0.08, home: 1, away: 3 },
+    { p: 0.05, home: 2, away: 2 },
+    { p: 0.04, home: 4, away: 0 },
+    { p: 0.02, home: 4, away: 2 },
+    { p: 0.02, home: 5, away: 1 }
+  ]
 
-  let myTeamScore = isHome ? homeBase : awayBase
-  let opponentScore = isHome ? awayBase : homeBase
+  const randomRoll = Math.random()
+  let selectedPreset = scorePresets[Math.floor(Math.random() * scorePresets.length)]
+
+  let myTeamScore = isHome ? selectedPreset.home : selectedPreset.away
+  let opponentScore = isHome ? selectedPreset.away : selectedPreset.home
+
+  if (strengthDiff + homeAdvantage + fixBonus > 0.5) {
+    myTeamScore += Math.floor(Math.random() * 2)
+  } else if (strengthDiff + homeAdvantage < -0.5) {
+    opponentScore += Math.floor(Math.random() * 2)
+  }
 
   if (myTeamScore < playerGoals + playerAssists) {
     myTeamScore = playerGoals + playerAssists
@@ -795,6 +1047,25 @@ export function simulateFullMatch(
     isCleanSheet
   )
 
+  const coachCommentary = generateCoachCommentary(
+    career,
+    playerClub,
+    playerGoals,
+    playerAssists,
+    finalRating,
+    isWin,
+    opponentClub
+  )
+
+  const newsArticle = generateNewspaperArticle(career, playerClub, opponentClub, {
+    home_score: finalHomeScore,
+    away_score: finalAwayScore,
+    goals: playerGoals,
+    assists: playerAssists,
+    rating: finalRating,
+    is_home: isHome
+  })
+
   return {
     home_club: isHome ? playerClub : opponentClub,
     away_club: isHome ? opponentClub : playerClub,
@@ -808,13 +1079,15 @@ export function simulateFullMatch(
     player_rating: finalRating,
     player_shots: playerShots + Math.floor(Math.random() * 2),
     player_tackles: playerTackles + Math.floor(Math.random() * 2),
-    player_xg:
-      Math.round((playerGoals * 0.45 + Math.random() * 0.3) * 100) / 100,
+    player_xg: Math.round((playerGoals * 0.45 + Math.random() * 0.3) * 100) / 100,
     moments: resolvedMoments,
     earnings,
+    coach_commentary: coachCommentary,
+    news_article: newsArticle,
     season_number: career.current_season_number,
     fixture_round: career.current_fixture_round,
-    match_type: "league"
+    match_type: "league",
+    is_match_fixed: isMatchFixed
   }
 }
 
@@ -830,7 +1103,7 @@ export function generateStoryEvent(
       title: "🌱 Перший крок у дорослий футбол",
       character_name: "Михайлович",
       character_role: "first_coach",
-      dialogue_text: `«Слухай сюди, хлопче. Сьогодні ти вперше вийдеш на це поле у формі нашого клубу. Знаю, коліна трохи тремтять, але я бачу в тобі те, чого ти сам поки не усвідомлюєш. Сільський стадіон повний, знайомі обличчя дивляться на тебе. Не змарнуй свій шанс!»`,
+      dialogue_text: `«Слухай сюди, ${career.first_name}. Сьогодні ти вперше вийдеш на це поле у формі нашого клубу. Знаю, коліна трохи тремтять, але я бачу в тобі те, чого ти сам поки не усвідомлюєш. Сільський стадіон повний, знайомі обличчя дивляться на тебе. Не змарнуй свій шанс!»`,
       choices: [
         {
           text: "«Я викладуся на всі 200% заради рідного села, Михайловичу!»",

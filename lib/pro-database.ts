@@ -223,6 +223,17 @@ export async function proGetCareerByUserId(
       first_name: data.first_name,
       last_name: data.last_name,
       nickname: data.nickname,
+      avatar: data.avatar || {
+        skin_tone: "peach",
+        face_shape: "oval",
+        hair_style: "short_fade",
+        hair_color: "dark_brown",
+        eye_shape: "normal",
+        eye_color: "brown",
+        nose_type: "straight",
+        mouth_type: "confident",
+        facial_hair: "stubble"
+      },
       age: Number(data.age) || 17,
       position: data.position,
       secondary_positions: data.secondary_positions || [],
@@ -240,7 +251,10 @@ export async function proGetCareerByUserId(
         boots: "boots_basic",
         car: "car_none",
         house: "house_village",
-        trainers: []
+        trainers: [],
+        all_boots: ["boots_basic"],
+        all_cars: [],
+        all_houses: ["house_village"]
       },
       scout_interest: data.scout_interest || {
         tier2: 25,
@@ -259,6 +273,9 @@ export async function proGetCareerByUserId(
       is_retired: Boolean(data.is_retired),
       current_season_number: Number(data.current_season_number) || 1,
       current_fixture_round: Number(data.current_fixture_round) || 1,
+      contract_signed_this_season: Boolean(data.contract_signed_this_season),
+      last_rest_timestamp: Number(data.last_rest_timestamp) || 0,
+      last_spa_timestamp: Number(data.last_spa_timestamp) || 0,
       attributes: data.attributes,
       career_stats: data.career_stats || {
         total_matches: 0,
@@ -272,7 +289,8 @@ export async function proGetCareerByUserId(
       },
       season_logs: data.season_logs || [],
       clubs_history: data.clubs_history || [],
-      trophies: data.trophies || []
+      trophies: data.trophies || [],
+      news_articles: data.news_articles || []
     }
 
     proSaveStoredCareer(career)
@@ -293,6 +311,17 @@ export async function proCreateCareer(
     first_name: careerData.first_name || "Андрій",
     last_name: careerData.last_name || "Карпʼюк",
     nickname: careerData.nickname,
+    avatar: careerData.avatar || {
+      skin_tone: "peach",
+      face_shape: "oval",
+      hair_style: "short_fade",
+      hair_color: "dark_brown",
+      eye_shape: "normal",
+      eye_color: "brown",
+      nose_type: "straight",
+      mouth_type: "confident",
+      facial_hair: "stubble"
+    },
     age: 17,
     position: careerData.position || "RW",
     secondary_positions: careerData.secondary_positions || [],
@@ -310,7 +339,10 @@ export async function proCreateCareer(
       boots: "boots_basic",
       car: "car_none",
       house: "house_village",
-      trainers: []
+      trainers: [],
+      all_boots: ["boots_basic"],
+      all_cars: [],
+      all_houses: ["house_village"]
     },
     scout_interest: careerData.scout_interest || {
       tier2: 25,
@@ -328,6 +360,9 @@ export async function proCreateCareer(
     is_retired: false,
     current_season_number: 1,
     current_fixture_round: 1,
+    contract_signed_this_season: false,
+    last_rest_timestamp: 0,
+    last_spa_timestamp: 0,
     attributes: careerData.attributes as any,
     career_stats: {
       total_matches: 0,
@@ -353,7 +388,8 @@ export async function proCreateCareer(
         assists: 0
       }
     ],
-    trophies: []
+    trophies: [],
+    news_articles: []
   }
 
   // Save to LocalStorage immediately (Zero-latency)
@@ -367,6 +403,7 @@ export async function proCreateCareer(
         first_name: newCareer.first_name,
         last_name: newCareer.last_name,
         nickname: newCareer.nickname,
+        avatar: newCareer.avatar,
         age: 17,
         position: newCareer.position,
         secondary_positions: newCareer.secondary_positions,
@@ -387,6 +424,10 @@ export async function proCreateCareer(
         wage_per_week: newCareer.wage_per_week,
         squad_role: newCareer.squad_role,
         is_captain: newCareer.is_captain,
+        last_rest_timestamp: newCareer.last_rest_timestamp,
+        last_spa_timestamp: newCareer.last_spa_timestamp,
+        contract_signed_this_season: newCareer.contract_signed_this_season,
+        news_articles: newCareer.news_articles,
         attributes: newCareer.attributes,
         career_stats: newCareer.career_stats,
         clubs_history: newCareer.clubs_history
@@ -412,6 +453,7 @@ export async function proUpdateCareer(career: ProCareer): Promise<ProCareer> {
     await supabase
       .from("pro_careers")
       .update({
+        avatar: career.avatar,
         age: career.age,
         overall_rating: career.overall_rating,
         form: career.form,
@@ -432,11 +474,16 @@ export async function proUpdateCareer(career: ProCareer): Promise<ProCareer> {
         is_retired: career.is_retired,
         current_season_number: career.current_season_number,
         current_fixture_round: career.current_fixture_round,
+        contract_signed_this_season: career.contract_signed_this_season,
+        last_rest_timestamp: career.last_rest_timestamp,
+        last_spa_timestamp: career.last_spa_timestamp,
+        news_articles: career.news_articles,
         attributes: career.attributes,
         career_stats: career.career_stats,
         season_logs: career.season_logs,
         clubs_history: career.clubs_history,
-        trophies: career.trophies
+        trophies: career.trophies,
+        updated_at: new Date().toISOString()
       })
       .eq("id", career.id)
   } catch (err) {

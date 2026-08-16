@@ -58,7 +58,7 @@ export function ProTransfers({
 
   // Check tier 2
   if (scoutChecklist[0].req.is_unlocked) {
-    const oblastClubs = allClubs.filter((c) => c.tier === 2)
+    const oblastClubs = allClubs.filter((c) => c.tier === 2 && c.id !== currentClub.id)
     if (oblastClubs.length > 0) {
       const c = oblastClubs[0]
       availableOffers.push({
@@ -74,7 +74,7 @@ export function ProTransfers({
 
   // Check tier 3
   if (scoutChecklist[1].req.is_unlocked) {
-    const pflClubs = allClubs.filter((c) => c.tier === 3)
+    const pflClubs = allClubs.filter((c) => c.tier === 3 && c.id !== currentClub.id)
     if (pflClubs.length > 0) {
       const c = pflClubs[0]
       availableOffers.push({
@@ -90,7 +90,7 @@ export function ProTransfers({
 
   // Check tier 4
   if (scoutChecklist[2].req.is_unlocked) {
-    const p1Clubs = allClubs.filter((c) => c.tier === 4)
+    const p1Clubs = allClubs.filter((c) => c.tier === 4 && c.id !== currentClub.id)
     if (p1Clubs.length > 0) {
       const c = p1Clubs[0]
       availableOffers.push({
@@ -106,7 +106,7 @@ export function ProTransfers({
 
   // Check tier 5 (UPL)
   if (scoutChecklist[3].req.is_unlocked) {
-    const uplClubs = allClubs.filter((c) => c.tier === 5)
+    const uplClubs = allClubs.filter((c) => c.tier === 5 && c.id !== currentClub.id)
     if (uplClubs.length > 0) {
       const c = uplClubs[0]
       availableOffers.push({
@@ -121,6 +121,11 @@ export function ProTransfers({
   }
 
   const handleSign = (club: ProClub, wage: number, bonus: number) => {
+    if (career.contract_signed_this_season) {
+      alert("Ви вже підписали контракт у цьому сезоні! Нові трансфери відкриються в наступному сезоні.")
+      return
+    }
+
     proAudio.playTrophyChime()
     onAcceptTransfer(club, wage, bonus)
     setSuccessMsg(`🎉 Вітаємо з трансфером у ${club.name}! Отримано підйомні +${bonus.toLocaleString()} ₴!`)
@@ -161,6 +166,15 @@ export function ProTransfers({
       {successMsg && (
         <div className="p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-black text-center animate-fade-in shadow-xl">
           {successMsg}
+        </div>
+      )}
+
+      {career.contract_signed_this_season && (
+        <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-md">
+          <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+          <span>
+            Ви вже підписали контракт на цей сезон. Нове трансферне вікно відкриється по завершенню поточного сезону.
+          </span>
         </div>
       )}
 
@@ -336,11 +350,20 @@ export function ProTransfers({
 
                 <button
                   type="button"
+                  disabled={Boolean(career.contract_signed_this_season)}
                   onClick={() => handleSign(offer.club, offer.wage, offer.signingBonus)}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer"
+                  className={`w-full py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 shadow-lg transition-all active:scale-95 ${
+                    career.contract_signed_this_season
+                      ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                      : "bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 cursor-pointer shadow-emerald-950"
+                  }`}
                 >
                   <Check className="w-4 h-4" />
-                  <span>Підписати Контракт (+{offer.signingBonus.toLocaleString()} ₴)</span>
+                  <span>
+                    {career.contract_signed_this_season
+                      ? "Контракт вже підписано"
+                      : `Підписати Контракт (+${offer.signingBonus.toLocaleString()} ₴)`}
+                  </span>
                 </button>
               </div>
             ))}

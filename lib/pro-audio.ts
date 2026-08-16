@@ -1,6 +1,6 @@
 /**
- * Web Audio API Sound Synthesizer for KSLIGA: Від Села до УПЛ
- * Zero-latency browser audio synthesis (no external MP3 asset dependencies)
+ * Web Audio API Sound Synthesizer & Speech Synthesis for KSLIGA: Від Села до УПЛ
+ * Zero-latency browser audio synthesis and Ukrainian voice coach
  */
 
 class ProAudio {
@@ -37,6 +37,9 @@ class ProAudio {
     this.isMuted = !this.isMuted
     if (typeof window !== "undefined") {
       localStorage.setItem("ks_pro_audio_muted", String(this.isMuted))
+      if (this.isMuted && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel()
+      }
     }
     return this.isMuted
   }
@@ -209,6 +212,44 @@ class ProAudio {
 
     osc.start(now)
     osc.stop(now + 0.25)
+  }
+
+  /**
+   * Ukrainian Text-To-Speech for Coach Voice Commentary
+   */
+  public speakUkrainian(text: string): boolean {
+    if (this.isMuted) return false
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return false
+
+    try {
+      window.speechSynthesis.cancel()
+      const cleanText = text.replace(/«|»|🔥|✨|⭐|🛡️|⚠️|❌/g, "").trim()
+      const utterance = new SpeechSynthesisUtterance(cleanText)
+      utterance.lang = "uk-UA"
+      utterance.rate = 1.02
+      utterance.pitch = 1.0
+
+      // Find Ukrainian voice if available
+      const voices = window.speechSynthesis.getVoices()
+      const ukVoice = voices.find(
+        (v) => v.lang === "uk-UA" || v.lang.startsWith("uk")
+      )
+      if (ukVoice) {
+        utterance.voice = ukVoice
+      }
+
+      window.speechSynthesis.speak(utterance)
+      return true
+    } catch (e) {
+      console.warn("TTS error:", e)
+      return false
+    }
+  }
+
+  public stopSpeech() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel()
+    }
   }
 }
 

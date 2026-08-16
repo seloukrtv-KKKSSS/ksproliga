@@ -33,7 +33,10 @@ export function ProLifestyle({ career, onUpdateCareer }: ProLifestyleProps) {
     boots: "boots_basic",
     car: "car_none",
     house: "house_village",
-    trainers: []
+    trainers: [],
+    all_boots: ["boots_basic"],
+    all_cars: [],
+    all_houses: ["house_village"]
   }
 
   const filteredItems =
@@ -51,7 +54,13 @@ export function ProLifestyle({ career, onUpdateCareer }: ProLifestyleProps) {
 
     const newBalance = balance - item.price
     let newAttributes = { ...career.attributes }
-    let newInventory = { ...inventory }
+    let newInventory = {
+      ...inventory,
+      trainers: [...(inventory.trainers || [])],
+      all_boots: [...(inventory.all_boots || ["boots_basic"])],
+      all_cars: [...(inventory.all_cars || [])],
+      all_houses: [...(inventory.all_houses || ["house_village"])]
+    }
     let newMorale = Math.min(100, career.morale + (item.morale_boost || 0))
     let newReputation = career.reputation + (item.rep_boost || 0)
 
@@ -65,13 +74,22 @@ export function ProLifestyle({ career, onUpdateCareer }: ProLifestyleProps) {
     }
 
     if (item.category === "trainers") {
-      newInventory.trainers = [...(newInventory.trainers || []), item.id]
+      newInventory.trainers.push(item.id)
     } else if (item.category === "boots") {
       newInventory.boots = item.id
+      if (!newInventory.all_boots.includes(item.id)) {
+        newInventory.all_boots.push(item.id)
+      }
     } else if (item.category === "cars") {
       newInventory.car = item.id
+      if (!newInventory.all_cars.includes(item.id)) {
+        newInventory.all_cars.push(item.id)
+      }
     } else if (item.category === "houses") {
       newInventory.house = item.id
+      if (!newInventory.all_houses.includes(item.id)) {
+        newInventory.all_houses.push(item.id)
+      }
     }
 
     const newOvr = calculateOverallRating(career.position, newAttributes)
@@ -92,9 +110,9 @@ export function ProLifestyle({ career, onUpdateCareer }: ProLifestyleProps) {
   }
 
   const isPurchased = (item: ProStoreItem) => {
-    if (item.category === "boots") return inventory.boots === item.id
-    if (item.category === "cars") return inventory.car === item.id
-    if (item.category === "houses") return inventory.house === item.id
+    if (item.category === "boots") return (inventory.all_boots || []).includes(item.id)
+    if (item.category === "cars") return (inventory.all_cars || []).includes(item.id)
+    if (item.category === "houses") return (inventory.all_houses || []).includes(item.id)
     return false
   }
 
@@ -215,7 +233,7 @@ export function ProLifestyle({ career, onUpdateCareer }: ProLifestyleProps) {
               {owned ? (
                 <div className="py-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5">
                   <Check className="w-4 h-4" />
-                  <span>У твоєму володінні</span>
+                  <span>У твоїй колекції (Придбано)</span>
                 </div>
               ) : (
                 <button

@@ -6,26 +6,31 @@ import {
   ProClub,
   ProMatchMoment,
   ProMomentChoice,
+  ProMomentOutcome,
   ProMatchResult
 } from "@/lib/pro-types"
 import {
   generateKeyMomentsForMatch,
   resolveMomentChoice,
-  simulateFullMatch
+  simulateFullMatch,
+  attemptMatchFixing
 } from "@/lib/pro-engine"
 import { proAudio } from "@/lib/pro-audio"
+import { ProAvatarRenderer } from "./pro-avatar"
 import {
   Shield,
-  Play,
-  Sparkles,
-  Zap,
-  Flame,
-  Award,
-  ArrowRight,
-  TrendingUp,
   Clock,
+  Play,
+  Zap,
   Activity,
-  Heart
+  ArrowRight,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Trophy,
+  AlertTriangle,
+  Newspaper,
+  CheckCircle2
 } from "lucide-react"
 
 interface ProMatchProps {
@@ -36,7 +41,7 @@ interface ProMatchProps {
   onFinishMatch: (result: ProMatchResult) => void
 }
 
-type MatchPhase = "pre_match" | "live_sim" | "moment_decision" | "moment_resolved" | "post_match"
+type MatchPhase = "pre_match" | "simulating" | "key_moment" | "moment_resolved" | "post_match"
 
 export function ProMatch({
   career,
@@ -46,340 +51,334 @@ export function ProMatch({
   onFinishMatch
 }: ProMatchProps) {
   const [phase, setPhase] = useState<MatchPhase>("pre_match")
-  const [minute, setMinute] = useState(0)
+  const [matchMinute, setMatchMinute] = useState(0)
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
-  const [commentaryLog, setCommentaryLog] = useState<string[]>([])
+  const [isMatchFixed, setIsMatchFixed] = useState(false)
+  const [fixResultMsg, setFixResultMsg] = useState("")
 
   const [moments, setMoments] = useState<ProMatchMoment[]>([])
-  const [currentMomentIndex, setCurrentMomentIndex] = useState(0)
-  const [activeMoment, setActiveMoment] = useState<ProMatchMoment | null>(null)
-  const [selectedChoice, setSelectedChoice] = useState<ProMomentChoice | null>(null)
+  const [activeMomentIndex, setActiveMomentIndex] = useState<number>(-1)
+  const [resolvedMoments, setResolvedMoments] = useState<ProMatchMoment[]>([])
+
+  const [commentaryLog, setCommentaryLog] = useState<string[]>([])
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [finalResult, setFinalResult] = useState<ProMatchResult | null>(null)
   const [screenShake, setScreenShake] = useState(false)
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  // Trigger screen shake on decisive moments
+  const triggerScreenShake = () => {
+    setScreenShake(true)
+    setTimeout(() => setScreenShake(false), 600)
+  }
 
-  // Initialize Key Moments on mount
-  useEffect(() => {
-    const genMoments = generateKeyMomentsForMatch(
+  // Pre-match Initialization
+  const handleStartMatch = () => {
+    proAudio.playWhistle()
+    const generatedMoments = generateKeyMomentsForMatch(
       career,
       playerClub,
       opponentClub,
       isHome
     )
-    setMoments(genMoments)
-  }, [career, playerClub, opponentClub, isHome])
-
-  const handleStartMatch = () => {
-    proAudio.playWhistle()
-    setPhase("live_sim")
+    setMoments(generatedMoments)
+    setActiveMomentIndex(0)
+    setPhase("simulating")
+    setMatchMinute(0)
+    setHomeScore(0)
+    setAwayScore(0)
     setCommentaryLog([
-      `📢 Стартовий свисток на стадіоні «${
-        isHome ? playerClub.stadium_name : opponentClub.stadium_name
-      }»!`,
-      `👥 Трибуни зустрічають команди гучними оплесками!`
+      `0' Свисток арбітра! Матч між ${playerClub.name} та ${opponentClub.name} розпочався!`,
+      `5' ${playerClub.name} контролює м'яч на своїй половині поля, ${career.first_name} ${career.last_name} займає позицію.`
     ])
-    startClock(0, 0, 0, 0)
   }
 
-  const startClock = (
-    startMin: number,
-    momentIdx: number,
-    currHome: number,
-    currAway: number
-  ) => {
-    let currentMin = startMin
-    let mIdx = momentIdx
-
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    timerRef.current = setInterval(() => {
-      currentMin += 2
-      setMinute(currentMin)
-
-      // Check if we hit a key moment
-      if (mIdx < moments.length && currentMin >= moments[mIdx].minute) {
-        if (timerRef.current) clearInterval(timerRef.current)
-        const targetMoment = moments[mIdx]
-        setActiveMoment(targetMoment)
-        setCurrentMomentIndex(mIdx)
-        setPhase("moment_decision")
-        proAudio.playHeartbeat()
-        setCommentaryLog((prev) => [
-          `⚡ ${targetMoment.minute}' КЛЮЧОВИЙ МОМЕНТ: ${targetMoment.title}!`,
-          ...prev
-        ])
-        return
-      }
-
-      // Random background events
-      if (currentMin === 35 && Math.random() < 0.3) {
-        setCommentaryLog((prev) => [
-          `35' Напружена боротьба у центрі поля. Обидві команди обережно контролюють м'яч.`,
-          ...prev
-        ])
-      }
-
-      // Check End of Match at 90'
-      if (currentMin >= 90) {
-        if (timerRef.current) clearInterval(timerRef.current)
-        finishMatchSimulation(moments)
-      }
-    }, 120)
+  // Match-Fixing Attempt in Pre-match
+  const handleFixMatch = () => {
+    const res = attemptMatchFixing(career, opponentClub)
+    setFixResultMsg(res.message)
+    if (res.success) {
+      proAudio.playTrophyChime()
+      setIsMatchFixed(true)
+    } else {
+      proAudio.playMiss()
+      setIsMatchFixed(false)
+    }
   }
 
+  // Live Timer Simulation Loop
+  useEffect(() => {
+    let timer: any = null
+
+    if (phase === "simulating") {
+      timer = setInterval(() => {
+        setMatchMinute((prev) => {
+          const nextMin = prev + 1
+
+          // Check if key moment occurs
+          const currentMoment = moments[activeMomentIndex]
+          if (currentMoment && nextMin >= currentMoment.minute) {
+            clearInterval(timer)
+            proAudio.playHeartbeat()
+            setPhase("key_moment")
+            return currentMoment.minute
+          }
+
+          // Full time reached (90')
+          if (nextMin >= 90) {
+            clearInterval(timer)
+            handleCompleteMatch()
+            return 90
+          }
+
+          // Random background pitch events
+          if (nextMin === 45) {
+            setCommentaryLog((c) => [
+              `45' Перерва! Команди вирушають у роздягальню для коригування тактики.`,
+              ...c
+            ])
+          }
+
+          return nextMin
+        })
+      }, 140) // fast 2D clock tick
+    }
+
+    return () => clearInterval(timer)
+  }, [phase, activeMomentIndex, moments])
+
+  // Select Choice in Key Moment
   const handleSelectChoice = (choice: ProMomentChoice) => {
-    if (!activeMoment) return
     proAudio.playClick()
-    setSelectedChoice(choice)
-
+    const currentMoment = moments[activeMomentIndex]
     const outcome = resolveMomentChoice(
       career,
-      activeMoment,
+      currentMoment,
       choice,
       opponentClub.squad_strength
     )
 
-    const updatedMoment: ProMatchMoment = {
-      ...activeMoment,
-      chosen_option_index: activeMoment.choices.findIndex((c) => c.id === choice.id),
-      outcome
-    }
-
-    const updatedMomentsList = [...moments]
-    updatedMomentsList[currentMomentIndex] = updatedMoment
-    setMoments(updatedMomentsList)
-    setActiveMoment(updatedMoment)
-    setPhase("moment_resolved")
-
-    // Sound & Visual Celebrations
     if (outcome.result_type === "goal") {
       proAudio.playGoalExplosion()
-      setScreenShake(true)
-      setTimeout(() => setScreenShake(false), 600)
-      if (isHome) {
-        setHomeScore((s) => s + 1)
-      } else {
-        setAwayScore((s) => s + 1)
-      }
+      triggerScreenShake()
+      if (isHome) setHomeScore((h) => h + 1)
+      else setAwayScore((a) => a + 1)
     } else if (outcome.result_type === "assist") {
-      proAudio.playGoalExplosion()
-      if (isHome) {
-        setHomeScore((s) => s + 1)
-      } else {
-        setAwayScore((s) => s + 1)
-      }
-    } else if (outcome.success) {
       proAudio.playTrophyChime()
+      if (isHome) setHomeScore((h) => h + 1)
+      else setAwayScore((a) => a + 1)
+    } else if (outcome.success) {
+      proAudio.playClick()
     } else {
       proAudio.playMiss()
     }
 
-    setCommentaryLog((prev) => [
-      `${activeMoment.minute}' ${outcome.commentary}`,
-      ...prev
+    const resolved: ProMatchMoment = {
+      ...currentMoment,
+      outcome
+    }
+
+    setResolvedMoments((r) => [...r, resolved])
+    setCommentaryLog((c) => [
+      `${currentMoment.minute}' [КЛЮЧОВИЙ МОМЕНТ] ${outcome.commentary}`,
+      ...c
     ])
+
+    setPhase("moment_resolved")
   }
 
+  // Resume Simulation after resolving key moment
   const handleResumeMatch = () => {
     proAudio.playClick()
-    setPhase("live_sim")
-    const nextIdx = currentMomentIndex + 1
-    if (minute >= 90 || nextIdx >= moments.length) {
-      finishMatchSimulation(moments)
+    if (activeMomentIndex + 1 < moments.length) {
+      setActiveMomentIndex((idx) => idx + 1)
+      setPhase("simulating")
     } else {
-      startClock(minute, nextIdx, homeScore, awayScore)
+      setPhase("simulating")
     }
   }
 
-  const finishMatchSimulation = (resolvedMoments: ProMatchMoment[]) => {
+  // Complete Match Calculation
+  const handleCompleteMatch = () => {
     proAudio.playWhistle()
     const result = simulateFullMatch(
       career,
       playerClub,
       opponentClub,
       isHome,
-      resolvedMoments
+      resolvedMoments,
+      isMatchFixed
     )
-
+    setFinalResult(result)
     setHomeScore(result.home_score)
     setAwayScore(result.away_score)
-    setFinalResult(result)
     setPhase("post_match")
+
+    // Automatically trigger voice coach commentary if available
+    proAudio.speakUkrainian(result.coach_commentary)
+    setIsSpeaking(true)
   }
+
+  const toggleVoiceCoach = () => {
+    if (isSpeaking) {
+      proAudio.stopSpeech()
+      setIsSpeaking(false)
+    } else if (finalResult?.coach_commentary) {
+      proAudio.speakUkrainian(finalResult.coach_commentary)
+      setIsSpeaking(true)
+    }
+  }
+
+  const activeMoment = moments[activeMomentIndex]
 
   return (
     <div
-      className={`max-w-4xl mx-auto w-full space-y-6 transition-transform ${
-        screenShake ? "animate-shake" : ""
+      className={`max-w-4xl mx-auto w-full space-y-6 animate-fade-in ${
+        screenShake ? "animate-bounce" : ""
       }`}
     >
-      {/* ─── PHASE 1: PRE-MATCH ATMOSPHERE ─── */}
+      {/* ─── LIVE MATCH SCOREBOARD ─── */}
+      <div className="relative overflow-hidden rounded-3xl bg-slate-950 border-2 border-emerald-500/50 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-4">
+          {/* Home Team */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${
+                  isHome ? playerClub.primary_color : opponentClub.primary_color
+                }, ${
+                  isHome
+                    ? playerClub.secondary_color
+                    : opponentClub.secondary_color
+                })`
+              }}
+            >
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-black text-sm sm:text-base text-white truncate">
+                {isHome ? playerClub.name : opponentClub.name}
+              </h3>
+              <span className="text-[10px] text-slate-400">Господарі</span>
+            </div>
+          </div>
+
+          {/* Dynamic Score & Clock Display */}
+          <div className="flex flex-col items-center px-4 sm:px-6 py-2 rounded-2xl bg-slate-900 border border-slate-800 shrink-0">
+            <div className="flex items-center gap-2 text-2xl sm:text-4xl font-black text-amber-300 font-mono tracking-wider">
+              <span>{homeScore}</span>
+              <span className="text-slate-600">:</span>
+              <span>{awayScore}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 mt-1">
+              <Clock className="w-3.5 h-3.5" />
+              <span>{matchMinute}&apos;</span>
+            </div>
+          </div>
+
+          {/* Away Team */}
+          <div className="flex items-center justify-end gap-3 flex-1 min-w-0 text-right">
+            <div className="min-w-0">
+              <h3 className="font-black text-sm sm:text-base text-white truncate">
+                {isHome ? opponentClub.name : playerClub.name}
+              </h3>
+              <span className="text-[10px] text-slate-400">Гості</span>
+            </div>
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${
+                  !isHome ? playerClub.primary_color : opponentClub.primary_color
+                }, ${
+                  !isHome
+                    ? playerClub.secondary_color
+                    : opponentClub.secondary_color
+                })`
+              }}
+            >
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── PHASE 1: PRE-MATCH TACTICS & START ─── */}
       {phase === "pre_match" && (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/40 p-6 sm:p-10 shadow-2xl text-center space-y-8 animate-fade-in">
-          <div className="space-y-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-              Тур {career.current_fixture_round} • {playerClub.region}
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Передматчева Атмосфера
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Стадіон: <strong className="text-slate-200">{isHome ? playerClub.stadium_name : opponentClub.stadium_name}</strong> • Очікувана відвідуваність: {isHome ? playerClub.stadium_capacity : opponentClub.stadium_capacity} вболівальників
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-6 text-center animate-fade-in">
+          <div className="space-y-2 max-w-md mx-auto">
+            <h3 className="text-xl font-black text-white">
+              Матч {career.current_fixture_round}-го туру
+            </h3>
+            <p className="text-xs text-slate-400">
+              {playerClub.name} зустрічається з {opponentClub.name} на стадіоні «{playerClub.stadium_name}».
             </p>
           </div>
 
-          {/* Versus Matchup Card */}
-          <div className="grid grid-cols-3 items-center gap-4 max-w-lg mx-auto bg-slate-950/80 border border-slate-800 rounded-3xl p-6 shadow-inner">
-            {/* Home Club */}
-            <div className="flex flex-col items-center space-y-2">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl border-2 border-white/20"
-                style={{
-                  background: `linear-gradient(135deg, ${
-                    isHome ? playerClub.primary_color : opponentClub.primary_color
-                  }, ${isHome ? playerClub.secondary_color : opponentClub.secondary_color})`
-                }}
-              >
-                <Shield className="w-8 h-8 text-white drop-shadow" />
-              </div>
-              <span className="text-sm font-black text-white text-center leading-tight">
-                {isHome ? playerClub.name : opponentClub.name}
+          {/* Match-Fixing (Договірний матч) Option */}
+          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 max-w-md mx-auto text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                Договірний матч (Тіньовий контакт):
               </span>
-              <span className="text-[10px] font-bold text-emerald-400">
-                {isHome ? "ГОСПОДАРІ" : "ГОСТІ"}
-              </span>
+              {isMatchFixed ? (
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500 text-slate-950">
+                  Домовлено ✓
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFixMatch}
+                  className="px-2.5 py-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 text-[10px] font-black border border-amber-400/40 cursor-pointer"
+                >
+                  Запропонувати ₴
+                </button>
+              )}
             </div>
-
-            {/* VS Badge */}
-            <div className="flex flex-col items-center">
-              <span className="text-2xl font-black text-amber-400 italic">VS</span>
-              <span className="text-[11px] font-bold text-slate-500">11x11</span>
-            </div>
-
-            {/* Away Club */}
-            <div className="flex flex-col items-center space-y-2">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl border-2 border-white/20"
-                style={{
-                  background: `linear-gradient(135deg, ${
-                    !isHome ? playerClub.primary_color : opponentClub.primary_color
-                  }, ${!isHome ? playerClub.secondary_color : opponentClub.secondary_color})`
-                }}
-              >
-                <Shield className="w-8 h-8 text-white drop-shadow" />
-              </div>
-              <span className="text-sm font-black text-white text-center leading-tight">
-                {!isHome ? playerClub.name : opponentClub.name}
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">
-                {!isHome ? "ГОСПОДАРІ" : "ГОСТІ"}
-              </span>
-            </div>
-          </div>
-
-          {/* Player Pre-match Status */}
-          <div className="flex items-center justify-center gap-4 max-w-md mx-auto text-xs">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
-              <Zap className="w-4 h-4 text-emerald-400" />
-              <span>Форма: <strong className="text-white">{career.form}%</strong></span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
-              <Flame className="w-4 h-4 text-amber-400" />
-              <span>Енергія: <strong className="text-white">{career.energy}%</strong></span>
-            </div>
+            {fixResultMsg && (
+              <p className="text-[11px] text-amber-300/90 font-medium">
+                {fixResultMsg}
+              </p>
+            )}
           </div>
 
           <button
             type="button"
             onClick={handleStartMatch}
-            className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-base flex items-center justify-center gap-2.5 mx-auto shadow-2xl shadow-emerald-950 transition-all active:scale-95 cursor-pointer animate-pulse"
+            className="px-10 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-sm inline-flex items-center gap-2 shadow-2xl shadow-emerald-950 transition-all active:scale-95 cursor-pointer animate-pulse"
           >
             <Play className="w-5 h-5 fill-slate-950" />
-            <span>Вийти на Поле!</span>
+            <span>Вийти на поле & Розпочати Матч</span>
           </button>
         </div>
       )}
 
-      {/* ─── PHASE 2 & 3: LIVE SIMULATION & DECISION TIME ─── */}
-      {(phase === "live_sim" || phase === "moment_decision" || phase === "moment_resolved") && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Master Live Scoreboard */}
-          <div className="relative overflow-hidden rounded-3xl bg-slate-950 border border-slate-800 p-5 sm:p-6 shadow-2xl flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-white">{isHome ? playerClub.short_name : opponentClub.short_name}</span>
-                <span className="text-3xl font-black text-white font-mono">{homeScore}</span>
-              </div>
-              <span className="text-xl font-bold text-slate-600">:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-3xl font-black text-white font-mono">{awayScore}</span>
-                <span className="text-sm font-black text-white">{!isHome ? playerClub.short_name : opponentClub.short_name}</span>
-              </div>
-            </div>
-
-            {/* Match Clock */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-900 border border-slate-700 shadow-inner">
-              <Clock className="w-4 h-4 text-amber-400 animate-spin" />
-              <span className="text-lg font-black text-amber-400 font-mono">
-                {minute}&apos;
-              </span>
-            </div>
-
-            {/* Player In-Game Tag */}
-            <div className="text-right">
-              <div className="text-xs font-black text-emerald-400">
-                {career.last_name} ({career.position})
-              </div>
-              <div className="text-[11px] text-slate-400">
-                {playerClub.name}
-              </div>
-            </div>
-          </div>
-
-          {/* DECISION / MOMENT BULLET-TIME MODAL */}
-          {phase === "moment_decision" && activeMoment && (
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/90 border-2 border-amber-400/80 p-6 sm:p-8 shadow-2xl space-y-6 animate-scale-up">
-              {/* Pulsing Bullet-Time Header */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
-                    {activeMoment.minute}&apos; • КЛЮЧОВИЙ МОМЕНТ У ГРІ
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-rose-400 font-bold animate-pulse">
-                  <Heart className="w-4 h-4 fill-rose-500" />
-                  <span>Час для рішення!</span>
-                </div>
+      {/* ─── PHASE 2 & 3: LIVE MATCH & KEY MOMENTS ─── */}
+      {(phase === "simulating" ||
+        phase === "key_moment" ||
+        phase === "moment_resolved") && (
+        <div className="space-y-4">
+          {/* BULLET TIME KEY MOMENT CARD */}
+          {phase === "key_moment" && activeMoment && (
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-amber-950/80 border-2 border-amber-400 p-6 sm:p-8 shadow-2xl space-y-6 animate-scale-up">
+              {/* Bullet Time Header */}
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black uppercase tracking-wider animate-pulse">
+                  ⚡ BULLET-TIME: Твій вирішальний момент!
+                </span>
+                <span className="text-xs font-bold text-amber-300 font-mono">
+                  {activeMoment.minute}&apos; хвилина
+                </span>
               </div>
 
               <div className="space-y-2">
                 <h3 className="text-xl sm:text-2xl font-black text-white">
                   {activeMoment.title}
                 </h3>
-                <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                <p className="text-xs sm:text-sm text-slate-300">
                   {activeMoment.situation_text}
                 </p>
-              </div>
-
-              {/* 2D Mini Pitch Visualizer */}
-              <div className="relative w-full h-32 rounded-2xl bg-gradient-to-b from-emerald-900 to-emerald-950 border-2 border-emerald-500/40 overflow-hidden flex items-center justify-center shadow-inner">
-                {/* Center Circle & Lines */}
-                <div className="absolute inset-x-0 h-0.5 bg-white/20 top-1/2 -translate-y-1/2" />
-                <div className="absolute w-20 h-20 rounded-full border border-white/20" />
-                <div className="absolute inset-y-0 w-24 border border-white/20 right-0" />
-
-                {/* Player Ball Indicator */}
-                <div className="relative flex flex-col items-center animate-bounce">
-                  <div className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-lg border border-white">
-                    ⚽
-                  </div>
-                  <span className="text-[10px] font-bold text-white bg-slate-950/90 px-1.5 py-0.5 rounded mt-1">
-                    {career.last_name}
-                  </span>
-                </div>
               </div>
 
               {/* Choices Options */}
@@ -573,26 +572,55 @@ export function ProMatch({
             </div>
           )}
 
-          {/* Coach Feedback Dialogue */}
-          <div className="max-w-md mx-auto p-4 rounded-2xl bg-slate-900 border border-slate-800 text-left text-xs text-slate-300 space-y-1">
-            <div className="font-black text-amber-400">
-              Михайлович (Головний тренер):
+          {/* Smart Coach Feedback Dialogue (with Voice TTS) */}
+          <div className="max-w-md mx-auto p-4 rounded-2xl bg-slate-900 border border-slate-800 text-left text-xs text-slate-300 space-y-2 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div className="font-black text-amber-400">
+                Головний тренер ({playerClub.name}):
+              </div>
+
+              <button
+                type="button"
+                onClick={toggleVoiceCoach}
+                className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-emerald-400 flex items-center gap-1 text-[10px] font-bold border border-slate-800 cursor-pointer"
+                title="Озвучити коментар тренера"
+              >
+                {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span>{isSpeaking ? "Вимкнути голос" : "Озвучити"}</span>
+              </button>
             </div>
-            <p>
-              {finalResult.player_rating >= 8.0
-                ? "«Неймовірний виступ! Сьогодні ти був справжнім лідером на полі. Всі Тучапи говорять про твою гру!»"
-                : finalResult.player_rating >= 6.8
-                ? "«Солідний матч, відпрацював на совість. Продовжуй у тому ж дусі на тренуваннях!»"
-                : "«Сьогодні було важко, але не опускай руки. Попереду ще багато матчів!»"}
+            <p className="italic text-slate-200 leading-relaxed">
+              {finalResult.coach_commentary}
             </p>
           </div>
+
+          {/* Newspaper Press Review Card */}
+          {finalResult.news_article && (
+            <div className="max-w-md mx-auto p-5 rounded-3xl bg-amber-950/20 border border-amber-500/40 text-left space-y-2 shadow-xl">
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1.5">
+                  <Newspaper className="w-4 h-4" />
+                  {finalResult.news_article.newspaper_name}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {finalResult.news_article.date_str}
+                </span>
+              </div>
+              <h4 className="font-black text-white text-xs sm:text-sm">
+                {finalResult.news_article.headline}
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {finalResult.news_article.text}
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
             onClick={() => onFinishMatch(finalResult)}
             className="px-8 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center justify-center gap-2 mx-auto shadow-xl shadow-emerald-950 transition-all active:scale-95 cursor-pointer"
           >
-            <span>Завершити матч & Зберегти</span>
+            <span>Завершити тур & Продовжити</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

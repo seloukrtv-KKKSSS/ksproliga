@@ -1,225 +1,256 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useRef } from "react"
 import { ProCareer, ProClub } from "@/lib/pro-types"
-import { Shield, Sparkles, Zap, Heart, Flame } from "lucide-react"
+import { ProAvatarRenderer } from "./pro-avatar"
+import { STORE_ITEMS } from "@/lib/pro-engine"
+import { Shield, Sparkles, Star, Zap, Trophy, Car, Home } from "lucide-react"
 
 interface ProCardProps {
   career: ProCareer
   club?: ProClub
-  isCompact?: boolean
+  interactive?: boolean
+  size?: "sm" | "md" | "lg"
 }
 
-export function ProCard({ career, club, isCompact = false }: ProCardProps) {
-  const [tilt, setTilt] = useState({ x: 0, y: 0, glareX: 50, glareY: 50 })
+export function ProCard({
+  career,
+  club,
+  interactive = true,
+  size = "md"
+}: ProCardProps) {
+  const [rotateX, setRotateX] = useState(0)
+  const [rotateY, setRotateY] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
+    if (!interactive || !cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     const centerX = rect.width / 2
     const centerY = rect.height / 2
-    const rotateX = ((y - centerY) / centerY) * -10
-    const rotateY = ((x - centerX) / centerX) * 10
-    const glareX = (x / rect.width) * 100
-    const glareY = (y / rect.height) * 100
 
-    setTilt({ x: rotateX, y: rotateY, glareX, glareY })
+    const rX = ((y - centerY) / centerY) * -12
+    const rY = ((x - centerX) / centerX) * 12
+
+    setRotateX(rX)
+    setRotateY(rY)
   }
 
   const handleMouseLeave = () => {
-    setTilt({ x: 0, y: 0, glareX: 50, glareY: 50 })
+    setRotateX(0)
+    setRotateY(0)
+    setIsHovered(false)
   }
 
-  const attr = career.attributes
-  const ovr = career.overall_rating
-  const isElite = ovr >= 80
-  const isGood = ovr >= 65
-
-  const borderColor = isElite
-    ? "from-amber-400 via-yellow-200 to-amber-600"
-    : isGood
-    ? "from-emerald-400 via-teal-200 to-emerald-600"
-    : "from-amber-700 via-amber-500 to-yellow-600"
-
-  const bgGradient = isElite
-    ? "from-slate-950 via-amber-950/40 to-slate-950"
-    : isGood
-    ? "from-slate-950 via-emerald-950/40 to-slate-950"
-    : "from-slate-950 via-slate-900 to-emerald-950/40"
-
-  if (isCompact) {
-    return (
-      <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30 shadow-lg">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-amber-400 p-0.5 shadow-md flex items-center justify-center">
-          <div className="w-full h-full bg-slate-950 rounded-[10px] flex flex-col items-center justify-center">
-            <span className="text-[10px] font-black text-amber-400 leading-none">
-              {career.position}
-            </span>
-            <span className="text-sm font-black text-white">{ovr}</span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h4 className="text-sm font-black text-white truncate">
-              {career.first_name} {career.last_name}
-            </h4>
-            <span className="text-xs">🇺🇦</span>
-          </div>
-          <p className="text-xs text-slate-400 truncate">
-            {club?.name || "ФК Тучапи"} • {career.age} років
-          </p>
-        </div>
-      </div>
-    )
+  const handleMouseEnter = () => {
+    setIsHovered(true)
   }
+
+  const primaryColor = club?.primary_color || "#166534"
+  const secondaryColor = club?.secondary_color || "#FACC15"
+
+  // Scale based on size
+  const cardWidth =
+    size === "sm" ? "w-[240px]" : size === "lg" ? "w-[360px]" : "w-[300px]"
+  const cardMinHeight =
+    size === "sm" ? "min-h-[380px]" : size === "lg" ? "min-h-[540px]" : "min-h-[460px]"
+
+  // Find equipped assets
+  const bootsItem = STORE_ITEMS.find((i) => i.id === career.inventory?.boots)
+  const carItem = STORE_ITEMS.find((i) => i.id === career.inventory?.car)
+  const houseItem = STORE_ITEMS.find((i) => i.id === career.inventory?.house)
 
   return (
     <div
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-        transition: "transform 0.15s ease-out"
-      }}
-      className="relative w-full max-w-[320px] aspect-[1/1.55] rounded-3xl p-1 bg-gradient-to-b shadow-2xl overflow-hidden group select-none cursor-pointer"
+      className="perspective-1000 flex justify-center items-center py-2"
+      style={{ perspective: "1000px" }}
     >
-      {/* Outer Holographic Border */}
       <div
-        className={`absolute inset-0 rounded-3xl bg-gradient-to-tr ${borderColor} opacity-90`}
-      />
-
-      {/* Holographic Glare Overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none rounded-3xl z-20 mix-blend-color-dodge opacity-40 transition-opacity duration-300"
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         style={{
-          background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%)`
+          transform: interactive
+            ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(${
+                isHovered ? "1.02" : "1"
+              }, ${isHovered ? "1.02" : "1"}, 1)`
+            : "none",
+          transition: isHovered
+            ? "transform 0.1s ease-out"
+            : "transform 0.5s ease-out"
         }}
-      />
-
-      {/* Inner Card Container */}
-      <div
-        className={`relative z-10 w-full h-full rounded-[22px] bg-gradient-to-b ${bgGradient} border border-white/10 p-5 flex flex-col justify-between overflow-hidden`}
+        className={`relative ${cardWidth} ${cardMinHeight} rounded-3xl p-5 select-none transition-shadow duration-300 shadow-2xl flex flex-col justify-between overflow-hidden cursor-pointer border border-amber-400/40`}
       >
-        {/* Background Pattern */}
-        <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+        {/* ─── HOLOGRAPHIC GOLD BACKGROUND ─── */}
+        <div
+          className="absolute inset-0 bg-gradient-to-b from-[#1c1809] via-[#0d161c] to-[#04080c] z-0"
+        />
 
-        {/* Top Header: OVR + Position + Flag + Club */}
-        <div className="flex items-start justify-between relative z-10">
-          <div className="flex flex-col items-center">
-            <span className="text-3xl sm:text-4xl font-black text-amber-300 tracking-tighter drop-shadow-md">
-              {ovr}
+        {/* Dynamic Club Color Accent Glow */}
+        <div
+          className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-3xl opacity-40 pointer-events-none"
+          style={{ backgroundColor: secondaryColor }}
+        />
+        <div
+          className="absolute -bottom-16 -left-16 w-44 h-44 rounded-full blur-3xl opacity-40 pointer-events-none"
+          style={{ backgroundColor: primaryColor }}
+        />
+
+        {/* Shiny Holographic Overlay on Hover */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-tr from-transparent via-amber-300/10 to-transparent pointer-events-none transition-opacity duration-300 z-10 ${
+            isHovered ? "opacity-100" : "opacity-0"
+          }`}
+          style={{
+            transform: `translateX(${rotateY * 4}px) translateY(${
+              rotateX * 4
+            }px)`
+          }}
+        />
+
+        {/* Card Gold Outer Border Frame */}
+        <div className="absolute inset-1 rounded-[22px] border border-amber-400/30 pointer-events-none z-10" />
+
+        {/* ─── TOP SECTION: OVR, POSITION, FLAG, CREST ─── */}
+        <div className="relative z-20 flex justify-between items-start">
+          <div className="flex flex-col items-center leading-none space-y-1">
+            <span className="text-3xl sm:text-4xl font-black text-amber-300 font-mono tracking-tighter drop-shadow-md">
+              {career.overall_rating}
             </span>
-            <span className="text-xs sm:text-sm font-black text-white/90 uppercase tracking-wider">
+            <span className="text-sm font-black text-amber-400/90 uppercase tracking-wider">
               {career.position}
             </span>
-            <div className="w-5 h-0.5 bg-amber-400/60 my-1 rounded-full" />
-            <span className="text-base" title="Україна">
+            <span className="text-base pt-0.5" title="Україна">
               🇺🇦
             </span>
+            {club && (
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs shadow-md border border-white/20 mt-1"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`
+                }}
+                title={club.name}
+              >
+                <Shield className="w-4 h-4" />
+              </div>
+            )}
           </div>
 
-          {/* Club Badge */}
-          <div className="flex flex-col items-end gap-1">
+          {/* Player Modular Face Avatar */}
+          <div className="relative -mt-2 -mr-2">
+            <ProAvatarRenderer
+              avatar={career.avatar}
+              club={club}
+              size={size === "sm" ? 95 : size === "lg" ? 140 : 120}
+            />
+
+            {/* Form Flame Indicator */}
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg border border-white/20"
-              style={{
-                background: `linear-gradient(135deg, ${
-                  club?.primary_color || "#166534"
-                }, ${club?.secondary_color || "#FACC15"})`
-              }}
+              className={`absolute bottom-0 right-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-0.5 border shadow-md ${
+                career.form >= 85
+                  ? "bg-emerald-500 text-slate-950 border-emerald-300"
+                  : career.form >= 60
+                  ? "bg-amber-400 text-slate-950 border-amber-200"
+                  : "bg-rose-600 text-white border-rose-400"
+              }`}
             >
-              <Shield className="w-5 h-5 text-white drop-shadow" />
+              <Zap className="w-2.5 h-2.5 fill-current" />
+              <span>{career.form}%</span>
             </div>
-            <span className="text-[10px] font-bold text-slate-300 max-w-[120px] truncate text-right">
-              {club?.name || "ФК Тучапи"}
-            </span>
-            <span className="text-[9px] font-semibold text-emerald-400">
-              {club?.city || "Івано-Франківщина"}
-            </span>
           </div>
         </div>
 
-        {/* Center: Player Silhouette & Name */}
-        <div className="relative z-10 text-center my-auto py-2">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-slate-800 via-slate-700 to-emerald-800 border-2 border-amber-400/50 flex items-center justify-center shadow-xl mb-3">
-            <span className="text-3xl">⚽</span>
-          </div>
-
-          <h3 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase drop-shadow-md">
+        {/* ─── MIDDLE SECTION: PLAYER NAME & CLUB ─── */}
+        <div className="relative z-20 text-center my-2 space-y-0.5 border-t border-b border-amber-400/20 py-2 bg-slate-950/40 rounded-xl backdrop-blur-xs">
+          <h3 className="text-base sm:text-lg font-black tracking-tight text-white uppercase truncate px-1">
             {career.last_name}
           </h3>
-          <p className="text-xs font-semibold text-slate-300">
-            {career.first_name} {career.nickname ? `«${career.nickname}»` : ""}
+          <p className="text-[10px] sm:text-xs font-semibold text-amber-400/90 truncate">
+            {club ? club.name : "Вільний агент"} • {career.age} р.
           </p>
+        </div>
 
-          <div className="flex items-center justify-center gap-2 mt-1.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900/90 text-amber-300 border border-amber-500/30">
-              {career.age} років
+        {/* ─── BOTTOM SECTION: 6 CORE ATTRIBUTES ─── */}
+        <div className="relative z-20 grid grid-cols-2 gap-x-3 gap-y-1 text-xs py-1">
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">PAC</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.pace}
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900/90 text-emerald-300 border border-emerald-500/30">
-              {career.foot === "left"
-                ? "Ліва нога"
-                : career.foot === "both"
-                ? "Обидві ноги"
-                : "Права нога"}
+          </div>
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">DRI</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.dribbling}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">SHO</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.shooting}
+            </span>
+          </div>
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">DEF</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.defending}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">PAS</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.passing}
+            </span>
+          </div>
+          <div className="flex justify-between items-center px-1.5 py-0.5 rounded bg-slate-950/60 border border-slate-800">
+            <span className="font-bold text-amber-400">PHY</span>
+            <span className="font-mono font-black text-white">
+              {career.attributes.physical}
             </span>
           </div>
         </div>
 
-        {/* Bottom 6 Attributes (PAC SHO PAS DRI DEF PHY) */}
-        <div className="relative z-10 pt-3 border-t border-white/15">
-          <div className="grid grid-cols-6 gap-1 text-center">
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                PAC
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.pace}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                SHO
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.shooting}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                PAS
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.passing}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                DRI
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.dribbling}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                DEF
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.defending}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase">
-                PHY
-              </div>
-              <div className="text-xs sm:text-sm font-black text-white">
-                {attr.physical}
-              </div>
-            </div>
+        {/* ─── FOOTER ASSET SHOWCASE BADGES ─── */}
+        <div className="relative z-20 flex items-center justify-between pt-2 border-t border-amber-400/20 text-[10px] text-slate-300">
+          {/* Boots */}
+          <div
+            className="flex items-center gap-1 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800"
+            title={bootsItem ? bootsItem.name : "Сільські бутси"}
+          >
+            <span>{bootsItem?.icon || "👟"}</span>
+            <span className="font-bold text-amber-300 truncate max-w-[65px]">
+              {bootsItem ? bootsItem.name.split(" ")[0] : "Колос"}
+            </span>
           </div>
+
+          {/* Car */}
+          {carItem && (
+            <div
+              className="flex items-center gap-1 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800"
+              title={carItem.name}
+            >
+              <span>{carItem.icon}</span>
+              <span className="font-bold text-emerald-300 truncate max-w-[60px]">
+                {carItem.name.split(" ")[0]}
+              </span>
+            </div>
+          )}
+
+          {/* House */}
+          {houseItem && (
+            <div
+              className="flex items-center gap-1 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800"
+              title={houseItem.name}
+            >
+              <span>{houseItem.icon}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,37 +1,67 @@
 "use client"
 
 import { useState } from "react"
-import { ProAttributes, ProCareer, ProClub, ProPosition, ProFoot } from "@/lib/pro-types"
-import { generateStarterAttributes, calculateOverallRating } from "@/lib/pro-engine"
+import {
+  ProCareer,
+  ProClub,
+  ProFoot,
+  ProPosition,
+  ProAvatar
+} from "@/lib/pro-types"
+import {
+  generateStarterAttributes,
+  calculateOverallRating,
+  calculateAnatomyModifiers
+} from "@/lib/pro-engine"
 import { proAudio } from "@/lib/pro-audio"
 import { ProCard } from "./pro-card"
-import { Shield, Sparkles, ArrowRight, Check, User, MapPin, Footprints, Ruler, Weight } from "lucide-react"
+import { ProAvatarBuilder, DEFAULT_AVATAR } from "./pro-avatar"
+import {
+  User,
+  Shield,
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Zap,
+  MapPin,
+  Scale,
+  Ruler,
+  Palette
+} from "lucide-react"
 
 interface ProCreationProps {
   clubs: ProClub[]
-  onComplete: (careerData: Partial<ProCareer>) => void
+  onComplete: (career: Partial<ProCareer>) => void
+  defaultName?: string
 }
 
-export function ProCreation({ clubs, onComplete }: ProCreationProps) {
+export function ProCreation({ clubs, onComplete, defaultName = "" }: ProCreationProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
-  // Form State
-  const [firstName, setFirstName] = useState("Андрій")
-  const [lastName, setLastName] = useState("Карпʼюк")
-  const [nickname, setNickname] = useState("")
-  const [position, setPosition] = useState<ProPosition>("RW")
-  const [foot, setFoot] = useState<ProFoot>("left")
-  const [height, setHeight] = useState(178)
-  const [weight, setWeight] = useState(72)
+  // Step 1: Bio & Physicality
+  const nameParts = defaultName.trim().split(" ")
+  const [firstName, setFirstName] = useState(nameParts[0] || "Андрій")
+  const [lastName, setLastName] = useState(nameParts.slice(1).join(" ") || "Карпʼюк")
+  const [nickname, setNickname] = useState("Снайпер")
+  const [position, setPosition] = useState<ProPosition>("ST")
+  const [foot, setFoot] = useState<ProFoot>("right")
+  const [height, setHeight] = useState(180)
+  const [weight, setWeight] = useState(74)
 
-  // Default to FC Tuchapy (Village Club)
+  // Step 2: Visual Avatar
+  const [avatar, setAvatar] = useState<ProAvatar>(DEFAULT_AVATAR)
+
+  // Step 3: Starter Club
   const villageClubs = clubs.filter((c) => c.tier === 1)
-  const defaultClub = villageClubs.find((c) => c.name === "ФК Тучапи") || villageClubs[0] || clubs[0]
+  const defaultClub = villageClubs[0] || clubs[0]
   const [selectedClubId, setSelectedClubId] = useState<number>(defaultClub?.id || 1)
 
-  // Calculate live starter attributes
-  const potential = 82 + Math.floor(Math.random() * 8)
-  const attributes = generateStarterAttributes(position, potential)
+  // Live Calculations
+  const anatomy = calculateAnatomyModifiers(height, weight, position)
+  const basePotential = 82 + Math.floor(Math.random() * 6)
+  const potential = Math.max(75, Math.min(95, basePotential + anatomy.potentialOffset))
+  const attributes = generateStarterAttributes(position, potential, height, weight)
   const ovr = calculateOverallRating(position, attributes)
 
   const selectedClub = clubs.find((c) => c.id === selectedClubId) || defaultClub
@@ -43,6 +73,7 @@ export function ProCreation({ clubs, onComplete }: ProCreationProps) {
     first_name: firstName || "Імʼя",
     last_name: lastName || "Прізвище",
     nickname: nickname || undefined,
+    avatar,
     age: 17,
     position,
     secondary_positions: [],
@@ -60,7 +91,10 @@ export function ProCreation({ clubs, onComplete }: ProCreationProps) {
       boots: "boots_basic",
       car: "car_none",
       house: "house_village",
-      trainers: []
+      trainers: [],
+      all_boots: ["boots_basic"],
+      all_cars: [],
+      all_houses: ["house_village"]
     },
     scout_interest: {
       tier2: 25,
@@ -90,283 +124,321 @@ export function ProCreation({ clubs, onComplete }: ProCreationProps) {
       season_assists: 0
     },
     season_logs: [],
-    clubs_history: [],
-    trophies: []
+    clubs_history: [
+      {
+        club_id: selectedClubId,
+        club_name: selectedClub.name,
+        city: selectedClub.city,
+        tier: 1,
+        from_year: 2026,
+        seasons_count: 1,
+        matches: 0,
+        goals: 0,
+        assists: 0
+      }
+    ],
+    trophies: [],
+    news_articles: []
   }
 
   const handleNext = () => {
     proAudio.playClick()
-    if (step < 3) setStep((s) => (s + 1) as any)
+    if (step === 1) {
+      if (!firstName.trim() || !lastName.trim()) {
+        alert("Будь ласка, введіть ім'я та прізвище футболіста")
+        return
+      }
+      setStep(2)
+    } else if (step === 2) {
+      setStep(3)
+    } else {
+      proAudio.playTrophyChime()
+      onComplete({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        nickname: nickname.trim() || undefined,
+        avatar,
+        age: 17,
+        position,
+        foot,
+        height,
+        weight,
+        overall_rating: ovr,
+        potential,
+        current_club_id: selectedClubId,
+        attributes,
+        bank_balance: 2500,
+        wage_per_week: 1200,
+        inventory: {
+          boots: "boots_basic",
+          car: "car_none",
+          house: "house_village",
+          trainers: [],
+          all_boots: ["boots_basic"],
+          all_cars: [],
+          all_houses: ["house_village"]
+        }
+      })
+    }
   }
-
-  const handleBack = () => {
-    proAudio.playClick()
-    if (step > 1) setStep((s) => (s - 1) as any)
-  }
-
-  const handleFinalSubmit = () => {
-    proAudio.playTrophyChime()
-    onComplete({
-      first_name: firstName.trim() || "Андрій",
-      last_name: lastName.trim() || "Карпʼюк",
-      nickname: nickname.trim() || undefined,
-      position,
-      foot,
-      height,
-      weight,
-      overall_rating: ovr,
-      potential,
-      attributes,
-      current_club_id: selectedClubId
-    })
-  }
-
-  const positions: { id: ProPosition; label: string; role: string }[] = [
-    { id: "ST", label: "Нападник (ST)", role: "Головний бомбардир та вістря атаки" },
-    { id: "RW", label: "Правий Вінгер (RW)", role: "Швидкість, дриблінг та простріли" },
-    { id: "LW", label: "Лівий Вінгер (LW)", role: "Зміщення в центр та обвідні удари" },
-    { id: "CAM", label: "Плеймейкер (CAM)", role: "Мозок команди, тонкі передачі" },
-    { id: "CM", label: "Центральний Півзахисник (CM)", role: "Універсал від штрафного до штрафного" },
-    { id: "CDM", label: "Опорний Півзахисник (CDM)", role: "Руйнівник атак та щит оборони" },
-    { id: "LB", label: "Лівий Захисник (LB)", role: "Фланговий захист та підключення" },
-    { id: "CB", label: "Центральний Захисник (CB)", role: "Стовп оборони та повітряні дуелі" },
-    { id: "RB", label: "Правий Захисник (RB)", role: "Фланговий відбір та кроси" },
-    { id: "GK", label: "Воротар (GK)", role: "Останній рубіж та реакція" }
-  ]
 
   return (
-    <div className="max-w-4xl mx-auto w-full space-y-6">
+    <div className="max-w-4xl mx-auto w-full space-y-6 animate-fade-in p-2">
       {/* Header Wizard Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl text-center space-y-2">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5" />
-          Створення Персонажа
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="space-y-2 text-center md:text-left">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            Створення Нової Зірки
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">
+            «Від Села до УПЛ» 2.0
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-lg">
+            Створи 17-річного таланта, налаштуй зовнішність та розпочни футбольний шлях у рідному селі!
+          </p>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-          Почни Свій Шлях «Від Села до УПЛ»
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
-          Створи 17-річного юніора, обери рідне село на Франківщині чи Буковині та розпочни свою велику футбольну історію!
-        </p>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center gap-3 pt-3">
-          {[1, 2, 3].map((st) => (
-            <div
-              key={st}
-              className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                step === st
-                  ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 scale-105"
-                  : step > st
-                  ? "bg-emerald-950 text-emerald-300 border border-emerald-500/40"
-                  : "bg-slate-900 text-slate-500 border border-slate-800"
-              }`}
-            >
-              <span>{st === 1 ? "1. Дані" : st === 2 ? "2. Амплуа" : "3. Рідний Клуб"}</span>
+        <div className="flex items-center gap-2 bg-slate-950/80 px-4 py-2.5 rounded-2xl border border-slate-800">
+          {[
+            { num: 1, label: "Анкета & Тіло" },
+            { num: 2, label: "Зовнішність" },
+            { num: 3, label: "Рідний Клуб" }
+          ].map((s) => (
+            <div key={s.num} className="flex items-center gap-1.5">
+              <span
+                className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs transition-all ${
+                  step === s.num
+                    ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/50"
+                    : step > s.num
+                    ? "bg-emerald-950 text-emerald-300 border border-emerald-500/40"
+                    : "bg-slate-900 text-slate-500"
+                }`}
+              >
+                {step > s.num ? "✓" : s.num}
+              </span>
+              <span
+                className={`text-xs font-bold hidden sm:inline ${
+                  step === s.num ? "text-white" : "text-slate-500"
+                }`}
+              >
+                {s.label}
+              </span>
+              {s.num < 3 && <span className="text-slate-600 text-xs">→</span>}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Main Grid: Settings & Live 3D Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Form Content (7 Cols) */}
-        <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
-          {/* STEP 1: Personal Identity */}
+      {/* Main Grid: Inputs and 3D Card Preview */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Interactive Wizard Forms (7 Cols) */}
+        <div className="md:col-span-7 space-y-6">
+          {/* ─── STEP 1: BIO & PHYSICALITY ─── */}
           {step === 1 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
+            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 animate-fade-in">
+              <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
                 <User className="w-4 h-4 text-emerald-400" />
-                Особисті дані футболіста
+                1. Анкета та Фізичні дані (Вплив на потенціал)
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 mb-1 block">
-                    Імʼя
-                  </label>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300">Імʼя:</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Андрій"
-                    maxLength={20}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm font-bold focus:outline-none focus:border-emerald-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:border-emerald-400 focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 mb-1 block">
-                    Прізвище
-                  </label>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300">Прізвище:</label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Карпʼюк"
-                    maxLength={20}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm font-bold focus:outline-none focus:border-emerald-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:border-emerald-400 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-400 mb-1 block">
-                  Прізвисько на полі (необовʼязково)
-                </label>
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  placeholder="напр. «Снайпер», «Ракета»"
-                  maxLength={15}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm font-bold focus:outline-none focus:border-emerald-400"
-                />
+              {/* Nickname & Position */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300">Прізвисько на полі:</label>
+                  <input
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    placeholder="Снайпер"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-bold focus:border-emerald-400 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300">Робоча нога:</label>
+                  <div className="flex gap-2">
+                    {[
+                      { id: "right", label: "Права" },
+                      { id: "left", label: "Ліва" },
+                      { id: "both", label: "Обидві" }
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFoot(f.id as any)}
+                        className={`flex-1 py-2.5 rounded-xl font-bold transition-all cursor-pointer ${
+                          foot === f.id
+                            ? "bg-emerald-600 text-white shadow-md"
+                            : "bg-slate-950 text-slate-400 border border-slate-800 hover:bg-slate-800"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Foot Picker */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 mb-1.5 block">
-                  Робоча нога
-                </label>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Position Selector */}
+              <div className="space-y-1.5 text-xs">
+                <label className="font-bold text-slate-300">Позиція на полі:</label>
+                <div className="grid grid-cols-5 gap-1.5">
                   {[
-                    { id: "right", label: "Права нога" },
-                    { id: "left", label: "Ліва нога" },
-                    { id: "both", label: "Обидві ноги" }
-                  ].map((f) => (
+                    { id: "ST", label: "ST (Форвард)" },
+                    { id: "RW", label: "RW (Пр. вінгер)" },
+                    { id: "LW", label: "LW (Лів. вінгер)" },
+                    { id: "CAM", label: "CAM (ЦАП)" },
+                    { id: "CM", label: "CM (ЦП)" },
+                    { id: "CDM", label: "CDM (Опорник)" },
+                    { id: "LB", label: "LB (Лів. захисник)" },
+                    { id: "CB", label: "CB (Центрбек)" },
+                    { id: "RB", label: "RB (Пр. захисник)" },
+                    { id: "GK", label: "GK (Воротар)" }
+                  ].map((p) => (
                     <button
-                      key={f.id}
+                      key={p.id}
                       type="button"
-                      onClick={() => {
-                        proAudio.playClick()
-                        setFoot(f.id as ProFoot)
-                      }}
-                      className={`py-2 px-3 rounded-xl font-bold text-xs border transition-all ${
-                        foot === f.id
-                          ? "bg-emerald-600 text-white border-emerald-400 shadow-md"
-                          : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                      onClick={() => setPosition(p.id as any)}
+                      className={`py-2 px-1 rounded-xl font-black transition-all text-center cursor-pointer ${
+                        position === p.id
+                          ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30 scale-105"
+                          : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-white"
                       }`}
                     >
-                      {f.label}
+                      {p.id}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Height & Weight Sliders */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div>
-                  <div className="flex justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-400">Зріст:</span>
-                    <span className="text-emerald-400">{height} см</span>
-                  </div>
+              {/* Physicality: Height & Weight Sliders */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Ruler className="w-4 h-4 text-emerald-400" />
+                    Зріст: <strong className="text-white font-mono text-sm">{height} см</strong>
+                  </span>
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Scale className="w-4 h-4 text-amber-400" />
+                    Вага: <strong className="text-white font-mono text-sm">{weight} кг</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <input
                     type="range"
-                    min={165}
-                    max={198}
+                    min={160}
+                    max={205}
                     value={height}
                     onChange={(e) => setHeight(Number(e.target.value))}
-                    className="w-full accent-emerald-500"
+                    className="w-full accent-emerald-500 cursor-pointer"
                   />
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-400">Вага:</span>
-                    <span className="text-emerald-400">{weight} кг</span>
-                  </div>
                   <input
                     type="range"
-                    min={60}
-                    max={95}
+                    min={55}
+                    max={105}
                     value={weight}
                     onChange={(e) => setWeight(Number(e.target.value))}
-                    className="w-full accent-emerald-500"
+                    className="w-full accent-amber-500 cursor-pointer"
                   />
+                </div>
+
+                {/* Live Anatomical Body Type Feedback */}
+                <div className="pt-2 border-t border-slate-800 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-amber-300">
+                      {anatomy.bodyTypeLabel}
+                    </span>
+                    <span className="text-[11px] text-emerald-400 font-bold">
+                      Потенціал: {potential}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {anatomy.description}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: Position */}
+          {/* ─── STEP 2: MODULAR AVATAR BUILDER ─── */}
           {step === 2 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <Footprints className="w-4 h-4 text-emerald-400" />
-                Обери своє амплуа на полі
+            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 animate-fade-in">
+              <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Palette className="w-4 h-4 text-emerald-400" />
+                2. Кастомізація Обличчя та Зачіски
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1">
-                {positions.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      proAudio.playClick()
-                      setPosition(p.id)
-                    }}
-                    className={`p-3 rounded-2xl border text-left transition-all ${
-                      position === p.id
-                        ? "bg-gradient-to-r from-emerald-950 to-slate-900 border-emerald-400 shadow-md shadow-emerald-950"
-                        : "bg-slate-950/80 border-slate-800 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-black text-white">
-                        {p.label}
-                      </span>
-                      {position === p.id && (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-tight">
-                      {p.role}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              <ProAvatarBuilder
+                value={avatar}
+                onChange={setAvatar}
+                club={selectedClub}
+              />
             </div>
           )}
 
-          {/* STEP 3: Starting Village Club */}
+          {/* ─── STEP 3: STARTER VILLAGE CLUB ─── */}
           {step === 3 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-emerald-400" />
-                Обери стартовий сільський клуб (Рівень 1)
+            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 animate-fade-in">
+              <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-slate-800 pb-3">
+                <Shield className="w-4 h-4 text-emerald-400" />
+                3. Обери рідний клуб (Снятинщина & Буковина)
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto pr-1">
-                {villageClubs.map((c) => (
+                {villageClubs.map((club) => (
                   <button
-                    key={c.id}
+                    key={club.id}
                     type="button"
                     onClick={() => {
                       proAudio.playClick()
-                      setSelectedClubId(c.id)
+                      setSelectedClubId(club.id)
                     }}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
-                      selectedClubId === c.id
-                        ? "bg-gradient-to-r from-emerald-950 to-slate-900 border-emerald-400 shadow-lg shadow-emerald-950"
-                        : "bg-slate-950/80 border-slate-800 hover:border-slate-700"
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                      selectedClubId === club.id
+                        ? "bg-emerald-950/80 border-emerald-500 text-white shadow-lg shadow-emerald-950 ring-2 ring-emerald-400"
+                        : "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900"
                     }`}
                   >
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-white/20 shadow-md"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs shadow-md shrink-0 border border-white/20"
                       style={{
-                        background: `linear-gradient(135deg, ${c.primary_color}, ${c.secondary_color})`
+                        background: `linear-gradient(135deg, ${club.primary_color}, ${club.secondary_color})`
                       }}
                     >
-                      <Shield className="w-5 h-5 text-white" />
+                      <Shield className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-black text-white truncate">
-                        {c.name}
+                      <div className="font-black text-xs sm:text-sm truncate">
+                        {club.name}
                       </div>
-                      <div className="text-xs text-emerald-400 truncate">
-                        {c.city} • {c.region}
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        {c.stadium_name}
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {club.stadium_name} • {club.city}
                       </div>
                     </div>
                   </button>
@@ -375,55 +447,41 @@ export function ProCreation({ clubs, onComplete }: ProCreationProps) {
             </div>
           )}
 
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+          {/* Navigation Wizard Action Buttons */}
+          <div className="flex items-center justify-between gap-3 pt-2">
             {step > 1 ? (
               <button
                 type="button"
-                onClick={handleBack}
-                className="px-5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs transition-all"
+                onClick={() => {
+                  proAudio.playClick()
+                  setStep((step - 1) as any)
+                }}
+                className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
               >
-                Назад
+                <ArrowLeft className="w-4 h-4" />
+                <span>Назад</span>
               </button>
             ) : (
               <div />
             )}
 
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer"
-              >
-                <span>Далі</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleFinalSubmit}
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-sm flex items-center gap-2 shadow-xl shadow-emerald-950 transition-all active:scale-95 cursor-pointer animate-pulse"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Розпочати Карʼєру!</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleNext}
+              className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-emerald-950 transition-all active:scale-95 cursor-pointer"
+            >
+              <span>{step === 3 ? "Розпочати Карʼєру 🚀" : "Продовжити"}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Right 3D Holographic Card Live Preview (5 Cols) */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center space-y-3">
-          <div className="text-center">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Твоя Картка Гравця (17 років)
-            </span>
-          </div>
-
-          <ProCard career={previewCareer} club={selectedClub} />
-
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-center max-w-[320px] w-full text-xs text-slate-400">
-            Потенціал: <strong className="text-amber-300 font-mono text-sm">{potential}</strong> OVR. Твій розвиток залежить від гри в матчах та рішень!
-          </div>
+        {/* Right Column: 3D Holographic Card Live Preview (5 Cols) */}
+        <div className="md:col-span-5 flex flex-col items-center justify-center space-y-3">
+          <ProCard career={previewCareer} club={selectedClub} size="md" />
+          <span className="text-[11px] font-bold text-slate-400 text-center">
+            ✨ Картка оновлюється наживо за вашими параметрами
+          </span>
         </div>
       </div>
     </div>
