@@ -21,6 +21,12 @@ export interface ProUser {
 
 export function proGetStoredUser(): ProUser | null {
   if (typeof window === "undefined") return null
+  if (localStorage.getItem("ks_pro_v2_reset_done") !== "true") {
+    localStorage.removeItem(USER_STORAGE_KEY)
+    localStorage.removeItem(CAREER_STORAGE_KEY)
+    localStorage.setItem("ks_pro_v2_reset_done", "true")
+    return null
+  }
   const data = localStorage.getItem(USER_STORAGE_KEY)
   if (!data) return null
   try {
@@ -32,6 +38,12 @@ export function proGetStoredUser(): ProUser | null {
 
 export function proGetStoredCareer(): ProCareer | null {
   if (typeof window === "undefined") return null
+  if (localStorage.getItem("ks_pro_v2_reset_done") !== "true") {
+    localStorage.removeItem(USER_STORAGE_KEY)
+    localStorage.removeItem(CAREER_STORAGE_KEY)
+    localStorage.setItem("ks_pro_v2_reset_done", "true")
+    return null
+  }
   const data = localStorage.getItem(CAREER_STORAGE_KEY)
   if (!data) return null
   try {
