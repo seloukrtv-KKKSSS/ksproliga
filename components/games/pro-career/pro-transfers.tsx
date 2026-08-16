@@ -306,14 +306,22 @@ export function ProTransfers({
               >
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20"
-                      style={{
-                        background: `linear-gradient(135deg, ${offer.club.primary_color}, ${offer.club.secondary_color})`
-                      }}
-                    >
-                      <Shield className="w-6 h-6 text-white drop-shadow" />
-                    </div>
+                    {offer.club.logo_url ? (
+                      <img
+                        src={offer.club.logo_url}
+                        alt={offer.club.name}
+                        className="w-12 h-12 object-contain drop-shadow shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border border-white/20 shrink-0"
+                        style={{
+                          background: `linear-gradient(135deg, ${offer.club.primary_color}, ${offer.club.secondary_color})`
+                        }}
+                      >
+                        <Shield className="w-6 h-6 text-white drop-shadow" />
+                      </div>
+                    )}
                     <div>
                       <h4 className="text-base font-black text-white">
                         {offer.club.name}
