@@ -771,7 +771,7 @@ export default function KSLigaSite() {
     { id: "games", label: "KS Games", shortLabel: "Ігри", icon: Gamepad2 },
     { id: "admin", label: "Панель адміністратора", shortLabel: "Адмін", icon: Settings },
   ]
-  const mobilePrimaryNavigation = mobileNavigation.filter(({ id }) => ["overview", "calendar"].includes(id))
+  const mobilePrimaryNavigation = mobileNavigation.filter(({ id }) => ["overview", "table", "cup", "calendar"].includes(id))
   const isSecondaryMobileSection = !mobilePrimaryNavigation.some(({ id }) => id === activeTab)
 
   const handleMobileNavigation = (id: string) => {
