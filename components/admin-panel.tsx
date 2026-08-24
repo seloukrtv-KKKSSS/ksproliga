@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -92,6 +93,11 @@ import {
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
 import type { AnalyticsSummary } from "@/lib/database"
+
+const OrganizersModule = dynamic(
+  () => import("@/components/admin/organizers-module").then((module) => module.OrganizersModule),
+  { loading: () => <div className="admin-step-card text-sm text-slate-500">Завантаження модуля доступів…</div> },
+)
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -186,6 +192,7 @@ export function AdminPanel({
     }
   }, [hasNoChampionships])
   const [editingOrganizer, setEditingOrganizer] = useState<Organizer | null>(null)
+  const [organizerNotice, setOrganizerNotice] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Championship form state
   const [championshipForm, setChampionshipForm] = useState<{
@@ -384,8 +391,9 @@ export function AdminPanel({
   // Organizer handlers
   const handleOrganizerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setOrganizerNotice(null)
     if (!organizerForm.name.trim() || !organizerForm.email.trim()) {
-      alert("Вкажіть ім’я та email організатора")
+      setOrganizerNotice({ type: "error", text: "Вкажіть ім’я та email організатора." })
       return
     }
     setLoading(true)
@@ -395,14 +403,15 @@ export function AdminPanel({
         setEditingOrganizer(null)
       } else {
         await addOrganizer(organizerForm)
-        alert("Запрошення надіслано на email організатора. За посиланням він зможе створити власний пароль.")
+        setOrganizerNotice({ type: "success", text: "Запрошення надіслано. Організатор зможе створити пароль за посиланням у листі." })
       }
+      if (editingOrganizer) setOrganizerNotice({ type: "success", text: "Доступ організатора оновлено." })
       setOrganizerForm({ name: "", email: "", championship_ids: [] })
       await loadData()
       onDataChange?.()
     } catch (error) {
       console.error("Error saving organizer:", error)
-      alert(`Помилка: ${getErrorMessage(error)}`)
+      setOrganizerNotice({ type: "error", text: `Помилка: ${getErrorMessage(error)}` })
     }
     setLoading(false)
   }
@@ -3287,173 +3296,19 @@ export function AdminPanel({
 
         {isMainAdmin && (
           <TabsContent value="organizers" className="space-y-4">
-            <form onSubmit={handleOrganizerSubmit} className="bg-white p-6 border border-slate-200 rounded-xl space-y-4 shadow-xs">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[var(--lg-blue)]" />
-                {editingOrganizer ? "Редагування організатора" : "Створення нового організатора"}
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="organizer-name" className="text-slate-700 font-semibold text-xs">
-                    Назва або ім'я організатора
-                  </Label>
-                  <Input
-                    id="organizer-name"
-                    value={organizerForm.name}
-                    onChange={(e) => setOrganizerForm({ ...organizerForm, name: e.target.value })}
-                    placeholder="Наприклад: Організатор Ліги Коломия"
-                    className="glass-input text-sm h-10 px-4"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="organizer-email" className="text-slate-700 font-semibold text-xs">
-                    Email організатора
-                  </Label>
-                  <Input
-                    id="organizer-email"
-                    type="email"
-                    autoComplete="email"
-                    value={organizerForm.email}
-                    onChange={(e) => setOrganizerForm({ ...organizerForm, email: e.target.value.toLowerCase() })}
-                    placeholder="organizer@example.com"
-                    className="glass-input text-sm h-10 px-4"
-                    required
-                  />
-                </div>
-              </div>
-
-              {!editingOrganizer && (
-                <div className="rounded-xl border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-xs leading-relaxed text-blue-900">
-                  Організатор отримає захищене email-запрошення та самостійно створить пароль. Пароль не буде доступний адміністраторам або збережений у таблиці сайту.
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold text-xs">
-                  Дозволені турніри / кубки (якими керує цей організатор)
-                </Label>
-                {championships.length === 0 ? (
-                  <div className="text-xs text-slate-400 italic">Спочатку створіть чемпіонати у першій вкладці</div>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {championships.map((champ) => {
-                      const isChecked = organizerForm.championship_ids.includes(champ.id)
-                      return (
-                        <div
-                          key={champ.id}
-                          onClick={() => toggleOrganizerChampionship(champ.id)}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                            isChecked
-                              ? "bg-blue-50/80 border-blue-300 text-blue-900 font-semibold"
-                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? "bg-blue-600 border-blue-600 text-white" : "border-slate-300 bg-white"}`}>
-                            {isChecked && <Check className="h-3 w-3" />}
-                          </div>
-                          <span className="text-xs truncate font-medium">
-                            {champ.name} ({champ.season})
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button type="submit" disabled={loading} className="ios-btn-primary text-xs font-bold h-10 px-6">
-                  {editingOrganizer ? "Зберегти зміни" : "Додати організатора"}
-                </Button>
-                {editingOrganizer && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingOrganizer(null)
-                      setOrganizerForm({ name: "", email: "", championship_ids: [] })
-                    }}
-                    className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
-                  >
-                    Скасувати
-                  </Button>
-                )}
-              </div>
-            </form>
-
-            {/* List of organizers */}
-            <div className="space-y-3">
-              {organizers.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 bg-white border border-slate-200 rounded-xl">
-                  Немає створених організаторів. Створіть першого організатора вище.
-                </div>
-              ) : (
-                organizers.map((org) => (
-                  <div
-                    key={org.user_id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all"
-                  >
-                    <div className="space-y-1.5 flex-1">
-                      <div className="font-bold text-slate-900 text-base flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-[var(--lg-blue)]" />
-                        <span>{org.name}</span>
-                      </div>
-                      <div className="text-xs text-slate-600 font-medium flex flex-wrap items-center gap-3">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-slate-800">
-                          {org.email}
-                        </span>
-                        <span className="text-slate-400">|</span>
-                        <span className="text-slate-500">
-                          Останній вхід: {org.last_login_at ? new Date(org.last_login_at).toLocaleString("uk-UA") : "Ще не входив"}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {org.championship_ids.length === 0 ? (
-                          <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            Немає призначених турнірів
-                          </span>
-                        ) : (
-                          org.championship_ids.map((cid) => {
-                            const c = championships.find((ch) => ch.id === cid)
-                            return (
-                              <span key={cid} className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {c ? c.name : `Турнір #${cid}`}
-                              </span>
-                            )
-                          })
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingOrganizer(org)
-                          setOrganizerForm({
-                            name: org.name,
-                            email: org.email,
-                            championship_ids: org.championship_ids || [],
-                          })
-                        }}
-                        className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteOrganizer(org.user_id)}
-                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <OrganizersModule
+              championships={championships}
+              organizers={organizers}
+              form={organizerForm}
+              setForm={setOrganizerForm}
+              editing={editingOrganizer}
+              setEditing={setEditingOrganizer}
+              loading={loading}
+              notice={organizerNotice}
+              onSubmit={handleOrganizerSubmit}
+              onDelete={handleDeleteOrganizer}
+              onToggleChampionship={toggleOrganizerChampionship}
+            />
           </TabsContent>
         )}
 

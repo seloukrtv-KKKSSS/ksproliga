@@ -548,6 +548,26 @@ export async function getTeams(championshipId?: number): Promise<Team[]> {
   }
 }
 
+export async function getTeamById(id: number): Promise<Team | null> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockTeams.find((team) => team.id === id) || null)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("id,name,logo,city,roster,championship_id,created_at")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error) throw error
+    return data || null
+  } catch (error) {
+    console.warn("Database error getting team by id:", error)
+    return mockTeams.find((team) => team.id === id) || null
+  }
+}
+
 export async function updateTeam(id: number, updates: Partial<Team>, oldNameOverride?: string): Promise<Team> {
   if (shouldUseMockData()) {
     const index = mockTeams.findIndex((t) => t.id === id)
@@ -711,6 +731,39 @@ export async function getMatchById(id: number): Promise<Match | null> {
   } catch (error) {
     console.warn("Database error getting match by id:", error)
     return mockMatches.find((m) => m.id === id) || null
+  }
+}
+
+export async function getMatchesForTeam(teamName: string, championshipId: number): Promise<Match[]> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(
+      mockMatches.filter(
+        (match) =>
+          match.championship_id === championshipId &&
+          (match.home_team === teamName || match.away_team === teamName),
+      ),
+    )
+  }
+
+  try {
+    const safeTeamName = teamName.replaceAll(",", "\\,")
+    const { data, error } = await supabase
+      .from("matches")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
+      .eq("championship_id", championshipId)
+      .or(`home_team.eq.${safeTeamName},away_team.eq.${safeTeamName}`)
+      .order("date", { ascending: false })
+      .order("round", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting team matches:", error)
+    return mockMatches.filter(
+      (match) =>
+        match.championship_id === championshipId &&
+        (match.home_team === teamName || match.away_team === teamName),
+    )
   }
 }
 
@@ -938,6 +991,62 @@ export async function getPlayers(championshipId?: number): Promise<Player[]> {
   } catch (error) {
     console.warn("Database error, using mock data:", error)
     return championshipId ? mockPlayers.filter((p) => p.championship_id === championshipId) : mockPlayers
+  }
+}
+
+export async function getPlayerById(id: number): Promise<Player | null> {
+  if (shouldUseMockData()) {
+    return Promise.resolve(mockPlayers.find((player) => player.id === id) || null)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("players")
+      .select("id,name,team,goals,championship_id,created_at")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error) throw error
+    return data || null
+  } catch (error) {
+    console.warn("Database error getting player by id:", error)
+    return mockPlayers.find((player) => player.id === id) || null
+  }
+}
+
+export async function getPlayerGoals(playerName: string): Promise<MatchGoal[]> {
+  if (shouldUseMockData()) return Promise.resolve([])
+
+  try {
+    const { data, error } = await supabase
+      .from("match_goals")
+      .select("id,match_id,player_name,team_name,minute,goal_type,created_at")
+      .eq("player_name", playerName)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting player goals:", error)
+    return []
+  }
+}
+
+export async function getPlayerCards(playerName: string): Promise<MatchCard[]> {
+  if (shouldUseMockData()) return Promise.resolve([])
+
+  try {
+    const { data, error } = await supabase
+      .from("match_cards")
+      .select("id,match_id,player_name,team_name,minute,card_type,created_at")
+      .eq("player_name", playerName)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.warn("Database error getting player cards:", error)
+    return []
   }
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import Script from 'next/script'
+import { PwaManager } from '@/components/pwa-manager'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -26,7 +27,13 @@ export const metadata: Metadata = {
     title: 'KS LIGA — Karpiuk Sport League',
     description: 'Турнірна таблиця, календар, результати та статистика',
     type: 'website',
-    images: [{ url: '/images/ks-logo.png' }],
+    images: [{ url: '/og.png', width: 1733, height: 910, alt: 'KS LIGA — Football, Community, Passion' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KS LIGA — Karpiuk Sport League',
+    description: 'Турнірна таблиця, календар, результати та статистика',
+    images: ['/og.png'],
   },
 }
 
@@ -49,6 +56,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://tkshtyrfwvihpzsnbmvx.supabase.co" />
       </head>
       <body className={`${GeistSans.className} antialiased`}>
+        <PwaManager />
         {children}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-PBKCJ68RYL" strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">

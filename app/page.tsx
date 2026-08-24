@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import Image from "next/image"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +45,7 @@ import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoti
 import type { LeagueStanding } from "@/lib/league-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
+import { SportsOverview } from "@/components/sports-overview"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -394,10 +396,20 @@ export default function KSLigaSite() {
   }, [])
 
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("admin") === "1") {
-      setActiveTab("admin")
-    }
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const requestedSection = params.get("section")
+    const validSections = new Set(["table", "cup", "calendar", "results", "scorers", "lion", "shop", "games", "admin"])
+    if (params.get("admin") === "1") setActiveTab("admin")
+    else if (requestedSection && validSections.has(requestedSection)) setActiveTab(requestedSection)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    url.searchParams.set("section", activeTab)
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`)
+  }, [activeTab])
 
   // Load championship-specific data when championship changes
   useEffect(() => {
@@ -465,7 +477,7 @@ export default function KSLigaSite() {
       }
 
       if (activeTab === "results") await loadMatchEvents(finishedMatches, championshipId)
-      if (activeTab === "lion") await loadVotingData(championshipId)
+      void loadVotingData(championshipId)
     } catch (error) {
       console.error("Error loading championship data:", error)
     } finally {
@@ -971,6 +983,22 @@ export default function KSLigaSite() {
                 <p className="text-xs text-slate-500">Завантаження даних...</p>
               </div>
             ) : (
+              <>
+              {currentChampionship && !["shop", "games", "admin"].includes(activeTab) && (
+                <SportsOverview
+                  championshipName={currentChampionship.name}
+                  teams={teams}
+                  standings={currentChampionship.tournament_type === "league" ? table : []}
+                  upcomingMatches={calendar}
+                  finishedMatches={results}
+                  activeVotingMatchId={votings.find((voting) => {
+                    const now = new Date()
+                    return voting.is_active
+                      && (!voting.start_time || now >= new Date(voting.start_time))
+                      && (!voting.end_time || now <= new Date(voting.end_time))
+                  })?.match_id}
+                />
+              )}
               <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
@@ -1088,6 +1116,7 @@ export default function KSLigaSite() {
 
                         {table.map((team, index) => {
                           const position = index + 1
+                          const teamRecord = teams.find((item) => item.name === team.name)
                           let posBadgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200/60"
                           if (position === 1) {
                             posBadgeClass = "bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 font-black shadow-xs border border-amber-400"
@@ -1121,12 +1150,19 @@ export default function KSLigaSite() {
                                 </div>
 
                                 <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
-                                  <span
-                                    className="font-bold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight"
-                                    title={team.name}
-                                  >
-                                    {team.name}
-                                  </span>
+                                  {teamRecord ? (
+                                    <Link
+                                      href={`/teams/${teamRecord.id}`}
+                                      className="font-bold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight hover:text-blue-600"
+                                      title={`Профіль ${team.name}`}
+                                    >
+                                      {team.name}
+                                    </Link>
+                                  ) : (
+                                    <span className="font-bold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight" title={team.name}>
+                                      {team.name}
+                                    </span>
+                                  )}
                                   {team.city && (
                                     <span
                                       className="text-[9px] sm:text-xs font-medium text-slate-500 truncate leading-none mt-0.5"
@@ -1287,6 +1323,12 @@ export default function KSLigaSite() {
                                         <div className="text-[9px] sm:text-[10px] font-medium text-slate-500">
                                           {new Date(match.date).toLocaleDateString("uk-UA")}
                                         </div>
+                                        <Link
+                                          href={`/matches/${match.id}`}
+                                          className="text-[9px] font-extrabold text-blue-600 hover:text-blue-800"
+                                        >
+                                          Центр матчу →
+                                        </Link>
                                       </div>
                                     </CardContent>
                                   </Card>
@@ -1450,14 +1492,19 @@ export default function KSLigaSite() {
                                         {match.match_time ? `${formatTime(match.match_time)} · ` : ""}
                                         {new Date(match.date).toLocaleDateString("uk-UA")}
                                       </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
-                                        className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
-                                      >
-                                        <span>{expandedMatchId === match.id ? "Сховати" : "Деталі"}</span>
-                                        {expandedMatchId === match.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                      </button>
+                                      <div className="flex items-center gap-2">
+                                        <Link href={`/matches/${match.id}`} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
+                                          Протокол
+                                        </Link>
+                                        <button
+                                          type="button"
+                                          onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                                          className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <span>{expandedMatchId === match.id ? "Сховати" : "Швидко"}</span>
+                                          {expandedMatchId === match.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                        </button>
+                                      </div>
                                     </div>
 
                                     {/* Expanded Details: Two-Column Scorers & Cards */}
@@ -1612,9 +1659,9 @@ export default function KSLigaSite() {
                                     {position}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="text-sm font-bold text-slate-900 truncate">
+                                    <Link href={`/players/${scorer.id}`} className="block text-sm font-bold text-slate-900 truncate hover:text-blue-600">
                                       {scorer.name}
-                                    </div>
+                                    </Link>
                                     <div className="text-xs text-slate-500 mt-1">
                                       <TeamDisplay
                                         teamName={scorer.team}
@@ -2329,6 +2376,7 @@ export default function KSLigaSite() {
                   </Card>
                 </TabsContent>
               </Tabs>
+              </>
             )}
           </div>
         )}
