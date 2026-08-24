@@ -1500,9 +1500,16 @@ export default function KSLigaSite() {
                                       </span>
                                       <div className="flex items-center gap-2">
                                         {match.youtube_url && (
-                                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600">
+                                          <a
+                                            href={match.youtube_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            onClick={(event) => event.stopPropagation()}
+                                            aria-label={`Відкрити запис матчу ${match.home_team} — ${match.away_team} на YouTube`}
+                                            className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[10px] font-extrabold text-red-600 ring-1 ring-red-100 transition-colors hover:bg-red-100 hover:text-red-700"
+                                          >
                                             <Tv className="h-3 w-3" /> Запис
-                                          </span>
+                                          </a>
                                         )}
                                         <Link href={`/matches/${match.id}`} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
                                           Протокол
