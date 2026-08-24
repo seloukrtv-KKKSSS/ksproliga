@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -212,6 +212,7 @@ export function AdminPanel({
   // Team form state
   const [teamForm, setTeamForm] = useState({ name: "", logo: "", city: "", roster_text: "" })
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
+  const teamFormRef = useRef<HTMLFormElement>(null)
 
   // Match form state
   const [matchForm, setMatchForm] = useState({
@@ -233,6 +234,7 @@ export function AdminPanel({
     finished_after_penalties: false,
   })
   const [editingMatch, setEditingMatch] = useState<Match | null>(null)
+  const matchFormRef = useRef<HTMLFormElement>(null)
 
   // Player form state
   const [playerForm, setPlayerForm] = useState({ name: "", team: "", goals: 0 })
@@ -275,7 +277,7 @@ export function AdminPanel({
 
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
 
-  const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<{ [round: number]: boolean }>({})
+  const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<Record<string, boolean>>({})
 
   // Analytics & Logs states
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary>({
@@ -295,6 +297,17 @@ export function AdminPanel({
     () => [...new Set(sortedMatches.map((m) => m.round))].sort((a, b) => b - a),
     [sortedMatches]
   )
+
+  const revealEditForm = useCallback((form: HTMLFormElement | null) => {
+    if (!form) return
+
+    requestAnimationFrame(() => {
+      form.scrollIntoView({ behavior: "smooth", block: "start" })
+      form
+        .querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button:not([disabled])')
+        ?.focus({ preventScroll: true })
+    })
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -1461,8 +1474,9 @@ export function AdminPanel({
                 </div>
               </div>
               <form
+                ref={teamFormRef}
                 onSubmit={handleTeamSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
+                className="scroll-mt-24 space-y-4 p-4 sm:scroll-mt-28 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
@@ -1578,6 +1592,7 @@ export function AdminPanel({
                         <Button
                           size="sm"
                           variant="outline"
+                          aria-label={`Редагувати команду ${team.name}`}
                           onClick={() => {
                             setEditingTeam(team)
                             setTeamForm({
@@ -1586,6 +1601,7 @@ export function AdminPanel({
                               city: team.city || "",
                               roster_text: team.roster ? team.roster.join("\n") : "",
                             })
+                            revealEditForm(teamFormRef.current)
                           }}
                           className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
@@ -1627,8 +1643,9 @@ export function AdminPanel({
                 <div className="text-slate-500 mt-1">Матчі будуть додані до цього чемпіонату</div>
               </div>
               <form
+                ref={matchFormRef}
                 onSubmit={handleMatchSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
+                className="scroll-mt-24 space-y-4 p-4 sm:scroll-mt-28 sm:p-6 bg-white border border-slate-200 rounded-xl shadow-sm"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
@@ -1972,7 +1989,8 @@ export function AdminPanel({
               </div>
             ) : (
               adminMatchRounds.map((round) => {
-                const isCollapsed = collapsedAdminRounds[round]
+                const roundStateKey = `${currentChampionshipId}:${round}`
+                const isCollapsed = collapsedAdminRounds[roundStateKey] ?? true
                 const roundMatches = sortedMatches.filter((m) => m.round === round)
                 const roundTitle = currentChampionship?.tournament_type === "cup"
                   ? sortedMatches.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
@@ -1983,7 +2001,11 @@ export function AdminPanel({
                     {/* Round Spoiler Header */}
                     <button
                       type="button"
-                      onClick={() => setCollapsedAdminRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
+                      aria-expanded={!isCollapsed}
+                      onClick={() => setCollapsedAdminRounds((prev) => ({
+                        ...prev,
+                        [roundStateKey]: !(prev[roundStateKey] ?? true),
+                      }))}
                       className="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 transition-all cursor-pointer select-none font-bold text-slate-800 text-xs sm:text-sm"
                     >
                       <div className="flex items-center gap-2.5">
@@ -2096,6 +2118,7 @@ export function AdminPanel({
                       <Button
                         size="sm"
                         variant="outline"
+                        aria-label={`Редагувати матч ${match.home_team} — ${match.away_team}`}
                         onClick={() => {
                           setEditingMatch(match)
                           setMatchForm({
@@ -2116,6 +2139,7 @@ export function AdminPanel({
                             penalty_winner: match.penalty_winner || "",
                             finished_after_penalties: match.penalty_home !== null && match.penalty_away !== null,
                           })
+                          revealEditForm(matchFormRef.current)
                         }}
                         className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                       >
