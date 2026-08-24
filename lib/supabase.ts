@@ -72,6 +72,7 @@ export interface Match {
   penalty_home?: number | null
   penalty_away?: number | null
   penalty_winner?: string
+  youtube_url?: string | null
   created_at: string
 }
 

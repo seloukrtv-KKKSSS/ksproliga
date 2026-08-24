@@ -34,6 +34,7 @@ import {
   Gamepad2,
   Mail,
   KeyRound,
+  Tv,
 } from "lucide-react"
 import {
   buildLeagueTable,
@@ -1323,6 +1324,11 @@ export default function KSLigaSite() {
                                         <div className="text-[9px] sm:text-[10px] font-medium text-slate-500">
                                           {new Date(match.date).toLocaleDateString("uk-UA")}
                                         </div>
+                                        {match.youtube_url && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-extrabold text-red-600 ring-1 ring-red-100">
+                                            <Tv className="h-3 w-3" /> Трансляція
+                                          </span>
+                                        )}
                                         <Link
                                           href={`/matches/${match.id}`}
                                           className="text-[9px] font-extrabold text-blue-600 hover:text-blue-800"
@@ -1493,6 +1499,11 @@ export default function KSLigaSite() {
                                         {new Date(match.date).toLocaleDateString("uk-UA")}
                                       </span>
                                       <div className="flex items-center gap-2">
+                                        {match.youtube_url && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600">
+                                            <Tv className="h-3 w-3" /> Запис
+                                          </span>
+                                        )}
                                         <Link href={`/matches/${match.id}`} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
                                           Протокол
                                         </Link>

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { ArrowLeft, Award, CalendarDays, Clock, Goal, ShieldAlert, Users } from "lucide-react"
 import { MatchDetailActions } from "@/components/match-detail-actions"
 import { TeamDisplay } from "@/components/team-display"
+import { YouTubeBroadcast } from "@/components/youtube-broadcast"
 import {
   getChampionships,
   getMatchById,
@@ -25,8 +26,8 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
 
   const title = `${match.home_team} — ${match.away_team} | KS LIGA`
   const description = match.is_finished
-    ? `Результат ${formatMatchScore(match)}. Протокол матчу KS LIGA.`
-    : `Матч ${getMatchDateTime(match).toLocaleString("uk-UA")}. Календар KS LIGA.`
+    ? `Результат ${formatMatchScore(match)}. Протокол матчу KS LIGA.${match.youtube_url ? " Доступний запис трансляції." : ""}`
+    : `Матч ${getMatchDateTime(match).toLocaleString("uk-UA")}. Календар KS LIGA.${match.youtube_url ? " Доступна YouTube-трансляція." : ""}`
 
   return {
     title,
@@ -93,6 +94,8 @@ export default async function MatchPage({ params }: MatchPageProps) {
           </div>
           <MatchDetailActions match={match} />
         </section>
+
+        {match.youtube_url && <YouTubeBroadcast match={match} />}
 
         <div className="detail-grid">
           <section className="detail-card">

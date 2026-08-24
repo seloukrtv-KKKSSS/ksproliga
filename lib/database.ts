@@ -697,7 +697,7 @@ export async function getMatches(championshipId?: number): Promise<Match[]> {
   try {
     let query = supabase
       .from("matches")
-      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,youtube_url,created_at")
       .order("round", { ascending: true })
       .order("date", { ascending: true })
 
@@ -722,7 +722,7 @@ export async function getMatchById(id: number): Promise<Match | null> {
   try {
     const { data, error } = await supabase
       .from("matches")
-      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,youtube_url,created_at")
       .eq("id", id)
       .maybeSingle()
 
@@ -749,7 +749,7 @@ export async function getMatchesForTeam(teamName: string, championshipId: number
     const safeTeamName = teamName.replaceAll(",", "\\,")
     const { data, error } = await supabase
       .from("matches")
-      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,youtube_url,created_at")
       .eq("championship_id", championshipId)
       .or(`home_team.eq.${safeTeamName},away_team.eq.${safeTeamName}`)
       .order("date", { ascending: false })
@@ -1108,7 +1108,7 @@ export async function getCupMatches(championshipId: number, stage: string): Prom
   try {
     const { data, error } = await supabase
       .from("matches")
-      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,youtube_url,created_at")
       .eq("championship_id", championshipId)
       .eq("cup_stage", stage)
       .order("date", { ascending: true })

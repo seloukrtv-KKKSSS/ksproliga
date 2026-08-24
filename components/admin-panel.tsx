@@ -93,6 +93,7 @@ import {
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
 import type { AnalyticsSummary } from "@/lib/database"
+import { normalizeYouTubeUrl } from "@/lib/match-utils"
 
 const OrganizersModule = dynamic(
   () => import("@/components/admin/organizers-module").then((module) => module.OrganizersModule),
@@ -222,6 +223,7 @@ export function AdminPanel({
     away_score: "",
     is_finished: false,
     match_time: "",
+    youtube_url: "",
     cup_stage: "",
     is_technical_defeat: false,
     technical_winner: "",
@@ -666,6 +668,13 @@ export function AdminPanel({
       return
     }
 
+    const rawYouTubeUrl = matchForm.youtube_url.trim()
+    const youtubeUrl = rawYouTubeUrl ? normalizeYouTubeUrl(rawYouTubeUrl) : null
+    if (rawYouTubeUrl && !youtubeUrl) {
+      alert("Вкажіть коректне посилання YouTube: youtube.com/watch, youtu.be, youtube.com/live або youtube.com/embed.")
+      return
+    }
+
     setLoading(true)
     try {
       const matchData = {
@@ -684,6 +693,7 @@ export function AdminPanel({
         is_finished: matchForm.is_technical_defeat ? true : matchForm.is_finished,
         championship_id: currentChampionshipId,
         match_time: matchForm.match_time || undefined,
+        youtube_url: youtubeUrl,
         cup_stage: currentChampionship?.tournament_type === "cup" ? (matchForm.cup_stage || undefined) : undefined,
         is_technical_defeat: matchForm.is_technical_defeat || undefined,
         technical_winner: matchForm.is_technical_defeat ? (matchForm.technical_winner || undefined) : undefined,
@@ -712,6 +722,7 @@ export function AdminPanel({
         away_score: "",
         is_finished: false,
         match_time: "",
+        youtube_url: "",
         cup_stage: "",
         is_technical_defeat: false,
         technical_winner: "",
@@ -1677,6 +1688,26 @@ export function AdminPanel({
                     />
                   </div>
                 </div>
+                <div className="rounded-xl border border-red-100 bg-red-50/60 p-3.5">
+                  <Label htmlFor="match-youtube-url" className="flex items-center gap-2 text-slate-800 font-semibold text-xs">
+                    <Tv className="h-4 w-4 text-red-600" />
+                    YouTube-трансляція
+                    <span className="font-medium text-slate-400">(необов’язково)</span>
+                  </Label>
+                  <Input
+                    id="match-youtube-url"
+                    type="text"
+                    inputMode="url"
+                    autoComplete="url"
+                    value={matchForm.youtube_url}
+                    onChange={(e) => setMatchForm({ ...matchForm, youtube_url: e.target.value })}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="bg-white border-red-100 text-slate-900 rounded-lg h-10 mt-2"
+                  />
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                    Підтримуються youtube.com, youtu.be, /live/ та /embed/. Посилання можна додати заздалегідь, а після завершення матчу воно автоматично показуватиметься як запис.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="home-team" className="text-slate-700 font-semibold text-xs">
@@ -1916,6 +1947,7 @@ export function AdminPanel({
                           away_score: "",
                           is_finished: false,
                           match_time: "",
+                          youtube_url: "",
                           cup_stage: "",
                           is_technical_defeat: false,
                           technical_winner: "",
@@ -2002,6 +2034,18 @@ export function AdminPanel({
                             </span>
                           )
                         })()}
+                        {match.youtube_url && (
+                          <a
+                            href={match.youtube_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700 font-bold"
+                          >
+                            <Tv className="h-3.5 w-3.5" />
+                            YouTube
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
                         {match.is_technical_defeat && (
                           <span className="flex items-center gap-1 text-red-700 font-medium">
                             <AlertTriangle className="h-3 w-3 text-red-500" />
@@ -2063,6 +2107,7 @@ export function AdminPanel({
                             away_score: match.away_score?.toString() || "",
                             is_finished: match.is_finished,
                             match_time: match.match_time || "",
+                            youtube_url: match.youtube_url || "",
                             cup_stage: match.cup_stage || "",
                             is_technical_defeat: match.is_technical_defeat || false,
                             technical_winner: match.technical_winner || "",
