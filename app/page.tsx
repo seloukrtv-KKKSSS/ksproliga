@@ -230,15 +230,26 @@ export default function KSLigaSite() {
 
   // Filtered votings — computed once, used in both empty-check and render
   const filteredVotings = useMemo(() => {
+    const now = new Date()
+
     return votings.filter((voting) => {
-      if (showArchive) return true
-      const now = new Date()
       const startTime = voting.start_time ? new Date(voting.start_time) : null
       const endTime = voting.end_time ? new Date(voting.end_time) : null
       const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
+
+      if (showArchive) {
+        const visibleCandidates = candidates.filter(
+          (candidate) => candidate.match_id === voting.match_id && !candidate.is_hidden
+        )
+        const hasVotes = visibleCandidates.reduce((sum, candidate) => sum + (candidate.votes || 0), 0) > 0
+        const isCompleted = !voting.is_active || Boolean(endTime && now > endTime)
+
+        return isCompleted && visibleCandidates.length > 0 && hasVotes
+      }
+
       return voting.is_active && isWithinTime
     })
-  }, [votings, showArchive])
+  }, [votings, candidates, showArchive])
 
   // All matches merged for voting match lookup
   const allMatches = useMemo(() => [...calendar, ...results], [calendar, results])
@@ -1528,11 +1539,11 @@ export default function KSLigaSite() {
                       <CardContent className="p-6">
                         <Crown className="h-12 w-12 mx-auto mb-3 text-amber-400" />
                         <div className="text-base font-bold text-slate-900">
-                          {showArchive ? "Голосувань ще немає" : "Немає активних голосувань"}
+                          {showArchive ? "Завершених голосувань ще немає" : "Немає активних голосувань"}
                         </div>
                         <div className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                          {showArchive 
-                            ? "Адміністратор ще не створив голосування за Лева матчу." 
+                          {showArchive
+                            ? "Тут з’являться завершені голосування, у яких є кандидати та зараховані голоси."
                             : "Увімкніть архів, щоб переглянути результати минулих матчів."}
                         </div>
                       </CardContent>
