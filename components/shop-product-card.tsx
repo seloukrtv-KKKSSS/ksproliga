@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, useCallback } from "react"
 import {
   ChevronLeft,
   ChevronRight,
-  ShoppingBag,
   ExternalLink,
   Heart,
   Camera,
@@ -216,7 +215,7 @@ export function ShopProductCard({
     <div
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col group/card focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+      className="glass-product-card flex flex-col group/card focus:outline-none focus:ring-4 focus:ring-blue-500/15"
     >
       {/* ── Instagram / Tinder Photo Carousel Canvas ── */}
       <div
@@ -446,7 +445,7 @@ export function ShopProductCard({
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col gap-2.5">
         {/* Source label for announcements */}
         {product.is_official === false && (
-          <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">
+          <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
             Оголошення · {product.author_name || "Організатор"}
           </div>
         )}
@@ -521,7 +520,7 @@ export function ShopProductCard({
           href={product.instagram_url || "https://www.instagram.com/ks_fan.shop/"}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-auto w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-extrabold text-xs shadow-md shadow-pink-500/15 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
+          className="mt-auto w-full flex items-center justify-center gap-2 h-11 rounded-[14px] bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
         >
           <InstagramIcon className="h-3.5 w-3.5" />
           <span>Замовити в Instagram</span>

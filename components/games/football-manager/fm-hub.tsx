@@ -216,14 +216,14 @@ export function FMHub() {
   return (
     <div
       ref={containerRef}
-      className={`w-full transition-all duration-300 ${
+      className={`fm-shell w-full transition-all duration-300 ${
         isFullScreen
           ? "fixed inset-0 z-[100] bg-slate-950 overflow-y-auto p-4 sm:p-6"
           : "space-y-6"
       }`}
     >
       {/* TOP MASTER HUD BAR */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/90 border border-emerald-500/30 p-4 sm:p-5 shadow-2xl backdrop-blur-xl">
+      <div className="glass-hero relative overflow-hidden p-4 sm:p-5 !rounded-[22px]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Club Info & Crest */}
           <div className="flex items-center gap-3.5">
@@ -240,7 +240,7 @@ export function FMHub() {
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow">
                   {club.name}
                 </h2>
-                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-500/20 text-cyan-200 border border-blue-400/40">
                   Рівень {club.manager_level}
                 </span>
                 {(club.cups_won || 0) > 0 && (
@@ -258,11 +258,11 @@ export function FMHub() {
           {/* Wallet & HUD Actions */}
           <div className="flex items-center gap-2.5 sm:gap-3 ml-auto">
             {/* Club Balance */}
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/80 border border-emerald-500/40 shadow-inner">
-              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-950/70 border border-blue-400/35 shadow-inner">
+              <span className="text-xs font-semibold text-cyan-300 uppercase tracking-wider">
                 Бюджет:
               </span>
-              <span className="text-base sm:text-lg font-black text-emerald-300">
+              <span className="text-base sm:text-lg font-black text-white">
                 {club.balance.toLocaleString()} ₴
               </span>
             </div>
@@ -328,11 +328,11 @@ export function FMHub() {
                 onClick={() => handleTabChange(item.id)}
                 className={`relative flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 ${
                   isActive
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-950 border border-emerald-400/50 scale-[1.02]"
+                    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-950/50 border border-cyan-300/40 scale-[1.02]"
                     : "bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-100 border border-slate-800/80"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-emerald-200" : "text-slate-400"}`} />
+                <Icon className={`w-4 h-4 ${isActive ? "text-cyan-100" : "text-slate-400"}`} />
                 <span>{item.label}</span>
                 {item.badge && (
                   <span className="px-1.5 py-0.2 text-[10px] font-black uppercase rounded-md bg-amber-500 text-slate-950 animate-pulse">

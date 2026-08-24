@@ -25,20 +25,14 @@ import {
   ChevronUp,
   AlertCircle,
   ShoppingBag,
-  Tag,
-  ChevronLeft,
-  ChevronRight,
   X,
-  ExternalLink,
-  Maximize2,
   Sparkles,
   Award,
-  Flame,
   Search,
   Filter,
-  ShieldCheck,
-  Truck,
   Gamepad2,
+  Mail,
+  KeyRound,
 } from "lucide-react"
 import {
   buildLeagueTable,
@@ -46,7 +40,7 @@ import {
   getMatchStatusInfo,
   sortChampionships,
 } from "@/lib/league-utils"
-import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Product } from "@/lib/supabase"
+import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Product, Organizer } from "@/lib/supabase"
 import type { LeagueStanding } from "@/lib/league-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
@@ -83,11 +77,14 @@ const KsGamesHub = dynamic(() => import("@/components/games/ks-games-hub").then(
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
-  const [isMainAdmin, setIsMainAdmin] = useState(true)
-  const [allowedChampionshipIds, setAllowedChampionshipIds] = useState<number[] | "all">("all")
+  const [isMainAdmin, setIsMainAdmin] = useState(false)
+  const [allowedChampionshipIds, setAllowedChampionshipIds] = useState<number[] | "all">([])
   const [organizerName, setOrganizerName] = useState<string>("")
+  const [adminEmail, setAdminEmail] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [loginInfo, setLoginInfo] = useState<string | null>(null)
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
 
   const [teams, setTeams] = useState<Team[]>([])
   const [table, setTable] = useState<LeagueStanding[]>([])
@@ -168,7 +165,7 @@ export default function KSLigaSite() {
       const elapsedSec = Math.round((Date.now() - tabStartTime) / 1000)
       if (analyticsRowId && elapsedSec > 1) {
         void databasePromise.then(({ updateAnalyticsDuration }) =>
-          updateAnalyticsDuration(analyticsRowId as number, elapsedSec),
+          updateAnalyticsDuration(analyticsRowId as number, elapsedSec, sessionId),
         )
       }
     }
@@ -396,6 +393,12 @@ export default function KSLigaSite() {
     loadInitialData()
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("admin") === "1") {
+      setActiveTab("admin")
+    }
+  }, [])
+
   // Load championship-specific data when championship changes
   useEffect(() => {
     if (currentChampionshipId) {
@@ -592,46 +595,121 @@ export default function KSLigaSite() {
     }
   }, [activeTab, currentChampionshipId, matchEventsLoadedFor, productsLoaded, results])
 
+  const applyOrganizerProfile = useCallback((profile: Organizer | null) => {
+    if (!profile?.is_active) {
+      setIsAdmin(false)
+      setIsMainAdmin(false)
+      setAllowedChampionshipIds([])
+      setOrganizerName("")
+      return
+    }
+
+    const mainAdmin = profile.role === "admin"
+    setIsAdmin(true)
+    setIsMainAdmin(mainAdmin)
+    setAllowedChampionshipIds(mainAdmin ? "all" : profile.championship_ids)
+    setOrganizerName(profile.name)
+    setAdminEmail(profile.email)
+
+    if (
+      !mainAdmin &&
+      !profile.championship_ids.includes(currentChampionshipId || 0) &&
+      profile.championship_ids.length > 0
+    ) {
+      setCurrentChampionshipId(profile.championship_ids[0])
+    }
+  }, [currentChampionshipId])
+
+  useEffect(() => {
+    let active = true
+    let subscription: { unsubscribe: () => void } | undefined
+
+    void Promise.all([loadDatabase(), import("@/lib/supabase")]).then(async ([database, supabaseModule]) => {
+      if (!active) return
+
+      const hasCredentialLink = typeof window !== "undefined"
+        && /(?:^|[&#])type=(?:invite|recovery)(?:&|$)/.test(window.location.hash)
+
+      const authListener = supabaseModule.supabase.auth.onAuthStateChange((event) => {
+        if (
+          typeof window !== "undefined" &&
+          (event === "PASSWORD_RECOVERY" || (hasCredentialLink && event === "SIGNED_IN"))
+        ) {
+          window.location.replace("/auth/update-password")
+        }
+      })
+      subscription = authListener.data.subscription
+
+      try {
+        const profile = await database.getCurrentOrganizerProfile()
+        if (active) applyOrganizerProfile(profile)
+      } catch (error) {
+        console.error("Error restoring administrator session:", error)
+        if (active) applyOrganizerProfile(null)
+      } finally {
+        if (active) setIsAuthChecking(false)
+      }
+    })
+
+    return () => {
+      active = false
+      subscription?.unsubscribe()
+    }
+  }, [applyOrganizerProfile])
+
   const handleLogin = async () => {
     setLoginError(null)
-    if (!adminPassword) return
+    setLoginInfo(null)
+    if (!adminEmail.trim() || !adminPassword) {
+      setLoginError("Введіть email і пароль")
+      return
+    }
 
-    const { authenticateUser, logOrganizerAction } = await loadDatabase()
-    const authResult = await authenticateUser(adminPassword)
-    if (authResult) {
-      setIsAdmin(true)
-      const name = authResult.type === "main" ? "Головний адміністратор" : authResult.organizer.name
-      void logOrganizerAction(name, "login", "Успішний вхід в систему адміністрування")
-
-      if (authResult.type === "main") {
-        setIsMainAdmin(true)
-        setAllowedChampionshipIds("all")
-        setOrganizerName("Головний адміністратор")
-      } else {
-        setIsMainAdmin(false)
-        setAllowedChampionshipIds(authResult.organizer.championship_ids)
-        setOrganizerName(authResult.organizer.name)
-
-        if (
-          !authResult.organizer.championship_ids.includes(currentChampionshipId || 0) &&
-          authResult.organizer.championship_ids.length > 0
-        ) {
-          const firstAllowed = authResult.organizer.championship_ids[0]
-          setCurrentChampionshipId(firstAllowed)
-          loadDataForChampionship(firstAllowed)
-        }
-      }
+    try {
+      const { authenticateUser, logOrganizerAction } = await loadDatabase()
+      const profile = await authenticateUser(adminEmail, adminPassword)
+      applyOrganizerProfile(profile)
+      void logOrganizerAction(profile.name, "login", "Успішний вхід у систему адміністрування")
       setAdminPassword("")
-    } else {
-      setLoginError("Невірний пароль доступу. Перевірте пароль та спробуйте ще раз.")
+    } catch (error) {
+      console.error("Administrator login failed:", error)
+      const message = error instanceof Error ? error.message : ""
+      setLoginError(
+        message.includes("Invalid login credentials")
+          ? "Невірний email або пароль"
+          : message || "Не вдалося увійти. Спробуйте ще раз.",
+      )
     }
   }
 
-  const handleLogout = () => {
-    setIsAdmin(false)
-    setIsMainAdmin(true)
-    setAllowedChampionshipIds("all")
-    setOrganizerName("")
+  const handleForgotPassword = async () => {
+    setLoginError(null)
+    setLoginInfo(null)
+    if (!adminEmail.trim()) {
+      setLoginError("Спочатку введіть email облікового запису")
+      return
+    }
+
+    try {
+      const { requestPasswordReset } = await loadDatabase()
+      await requestPasswordReset(adminEmail)
+      setLoginInfo("Якщо цей email зареєстрований, ми надіслали посилання для зміни пароля.")
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Не вдалося надіслати лист")
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      const { signOutUser } = await loadDatabase()
+      await signOutUser()
+    } catch (error) {
+      console.error("Administrator logout failed:", error)
+    } finally {
+      applyOrganizerProfile(null)
+      setAdminPassword("")
+      setLoginInfo(null)
+    }
   }
 
   const handleChampionshipChange = (value: string) => {
@@ -654,6 +732,19 @@ export default function KSLigaSite() {
     return ""
   }
 
+  const mobileNavigation = [
+    currentChampionship?.tournament_type === "cup"
+      ? { id: "cup", label: "Кубок", shortLabel: "Кубок", icon: Crown }
+      : { id: "table", label: "Таблиця", shortLabel: "Таблиця", icon: Trophy },
+    { id: "calendar", label: "Календар", shortLabel: "Календар", icon: Calendar },
+    { id: "results", label: "Результати", shortLabel: "Результ.", icon: Zap },
+    { id: "scorers", label: "Бомбардири", shortLabel: "Бомбард.", icon: Target },
+    { id: "lion", label: "Лев матчу", shortLabel: "Лев", icon: Vote },
+    { id: "shop", label: "KS Shop", shortLabel: "Shop", icon: ShoppingBag },
+    { id: "games", label: "KS Games", shortLabel: "Ігри", icon: Gamepad2 },
+    { id: "admin", label: "Панель адміністратора", shortLabel: "Адмін", icon: Settings },
+  ]
+
   // Loading state
   if (loading && championships.length === 0) {
     return (
@@ -668,7 +759,7 @@ export default function KSLigaSite() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
+    <div className="app-shell min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
       {/* ── Mobile Pull to Refresh Animated Floating Indicator ── */}
       {(isPulling || isPullRefreshing || refreshSuccess || pullDistance > 0) && (
         <div
@@ -678,7 +769,7 @@ export default function KSLigaSite() {
             opacity: isPullRefreshing || refreshSuccess ? 1 : Math.min(1, pullDistance / 35)
           }}
         >
-          <div className="flex items-center gap-2 bg-slate-900/90 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-2xl backdrop-blur-xl border border-white/20">
+          <div className="glass-hero flex items-center gap-2 text-white text-xs font-bold px-4 py-2 !rounded-full">
             {refreshSuccess ? (
               <>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 animate-bounce" />
@@ -705,11 +796,11 @@ export default function KSLigaSite() {
         </div>
       )}
 
-      <header className="liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-xs pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="app-header liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+        <div className="app-header__inner max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 liquid-glass-card !rounded-[12px] sm:!rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
+            <div className="brand-mark w-9 h-9 sm:w-11 sm:h-11 rounded-[12px] sm:rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
               <Image
                 src="/images/ks-logo.png"
                 alt="Логотип KS LIGA"
@@ -721,11 +812,11 @@ export default function KSLigaSite() {
               />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-tight">
+              <h1 className="text-base sm:text-lg font-black tracking-[-0.035em] text-slate-900 leading-tight">
                 KS LIGA
               </h1>
               <p className="text-[8px] sm:text-[9px] text-slate-500 font-semibold uppercase tracking-[0.15em] hidden min-[360px]:block">
-                Karpiuk Sport League
+                Football · Community · Passion
               </p>
             </div>
           </div>
@@ -734,7 +825,7 @@ export default function KSLigaSite() {
           {championships.length > 0 && currentChampionshipId && (
             <div className="shrink-0 max-w-[58%] sm:max-w-xs">
               <Select value={currentChampionshipId.toString()} onValueChange={handleChampionshipChange}>
-                <SelectTrigger className="w-full glass-input h-9 sm:h-10 text-xs font-semibold !rounded-[var(--glass-radius-sm)] px-2.5 sm:px-3 bg-white/60 border-slate-200/80 shadow-xs hover:bg-white/80 transition-colors">
+                <SelectTrigger className="w-full h-10 text-xs font-semibold px-2.5 sm:px-3 shadow-none">
                   <SelectValue placeholder="Оберіть чемпіонат">
                     {(() => {
                       const active = championships.find((c) => c.id === currentChampionshipId)
@@ -755,7 +846,7 @@ export default function KSLigaSite() {
                     })()}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="liquid-glass-card !rounded-[var(--glass-radius-sm)] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] max-w-[calc(100vw-2rem)] min-w-[220px]">
+                <SelectContent className="max-w-[calc(100vw-2rem)] min-w-[220px]">
                   {sortedChampionshipsList.map((championship: Championship) => (
                     <SelectItem
                       key={championship.id}
@@ -812,21 +903,45 @@ export default function KSLigaSite() {
               <CardContent className="p-6 space-y-4">
                 {!isAdmin ? (
                   <div className="space-y-3">
-                    <Input
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Пароль доступу (адмін або організатор)"
-                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                      className="glass-input text-sm h-10 px-4"
-                    />
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        placeholder="Email адміністратора або організатора"
+                        className="glass-input h-11 pl-10 pr-4 text-sm"
+                      />
+                    </div>
+                    <div className="relative">
+                      <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        type="password"
+                        autoComplete="current-password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Пароль"
+                        onKeyDown={(e) => e.key === "Enter" && void handleLogin()}
+                        className="glass-input h-11 pl-10 pr-4 text-sm"
+                      />
+                    </div>
                     {loginError && <p className="text-xs font-semibold text-red-600 px-1">{loginError}</p>}
+                    {loginInfo && <p className="text-xs font-semibold text-emerald-700 px-1">{loginInfo}</p>}
                     <Button
-                      onClick={handleLogin}
-                      className="w-full ios-btn-primary text-xs font-bold h-10 ios-active-scale"
+                      onClick={() => void handleLogin()}
+                      disabled={isAuthChecking}
+                      className="w-full ios-btn-primary text-xs font-bold h-11 ios-active-scale"
                     >
-                      Увійти
+                      {isAuthChecking ? "Перевірка сесії…" : "Увійти"}
                     </Button>
+                    <button
+                      type="button"
+                      onClick={() => void handleForgotPassword()}
+                      className="mx-auto block text-xs font-bold text-blue-600 transition-colors hover:text-blue-800"
+                    >
+                      Забули пароль?
+                    </button>
                   </div>
                 ) : (
                   <AdminPanel
@@ -862,7 +977,7 @@ export default function KSLigaSite() {
                 className="w-full space-y-6"
               >
                 {/* iOS Liquid Glass Segmented Tab Bar for Desktop */}
-                <div className="hidden md:flex overflow-x-auto pb-2.5 scrollbar-none justify-start">
+                <div className="desktop-glass-nav hidden md:flex overflow-x-auto pb-2.5 scrollbar-none justify-center">
                   <TabsList className="ios-segmented-control w-max">
                     {currentChampionship?.tournament_type === "league" && (
                       <TabsTrigger
@@ -932,7 +1047,7 @@ export default function KSLigaSite() {
 
                 {/* League Table Tab */}
                 {currentChampionship?.tournament_type === "league" && (
-                  <TabsContent value="table" className="outline-none space-y-3">
+                  <TabsContent value="table" className="liquid-module outline-none space-y-3">
                     <div className="ios-section-header">Турнірна таблиця</div>
 
                     {table.length === 0 ? (
@@ -1066,13 +1181,13 @@ export default function KSLigaSite() {
 
                 {/* Cup Tournament Tab */}
                 {currentChampionship?.tournament_type === "cup" && currentChampionshipId && (
-                  <TabsContent value="cup" className="outline-none">
+                  <TabsContent value="cup" className="liquid-module outline-none">
                     <CupTournament championshipId={currentChampionshipId} />
                   </TabsContent>
                 )}
 
                 {/* Calendar Tab */}
-                <TabsContent value="calendar" className="outline-none space-y-4">
+                <TabsContent value="calendar" className="liquid-module outline-none space-y-4">
                   {calendar.length === 0 ? (
                     <Card className="liquid-glass-card py-12 text-center">
                       <CardContent className="p-6">
@@ -1186,7 +1301,7 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* Results Tab */}
-                <TabsContent value="results" className="outline-none space-y-4">
+                <TabsContent value="results" className="liquid-module outline-none space-y-4">
                   {results.length === 0 ? (
                     <Card className="liquid-glass-card py-12 text-center">
                       <CardContent className="p-6">
@@ -1469,7 +1584,7 @@ export default function KSLigaSite() {
             </TabsContent>
 
                 {/* Scorers Tab */}
-                <TabsContent value="scorers" className="outline-none space-y-2">
+                <TabsContent value="scorers" className="liquid-module outline-none space-y-2">
                   <div className="ios-section-header">Рейтинг бомбардирів</div>
                   <Card className="liquid-glass-card overflow-hidden">
                     <CardContent className="p-0">
@@ -1525,7 +1640,7 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* Lion of the Match Tab */}
-                <TabsContent value="lion" className="outline-none space-y-6">
+                <TabsContent value="lion" className="liquid-module outline-none space-y-6">
                   {/* Hero Glass Banner for Lion of the Match */}
                   <div className="relative overflow-hidden rounded-3xl bg-white/60 backdrop-blur-2xl border border-slate-200/80 p-4 sm:p-6 shadow-sm">
                     <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1935,9 +2050,9 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* KS Shop Tab */}
-                <TabsContent value="shop" className="outline-none space-y-6">
+                <TabsContent value="shop" className="liquid-module outline-none space-y-6">
                   {/* Shop Banner / Header */}
-                  <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-blue-900/40">
+                  <div className="glass-hero rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
                     <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="relative z-10 space-y-3 max-w-3xl">
                       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold tracking-wide backdrop-blur-md">
@@ -1955,7 +2070,7 @@ export default function KSLigaSite() {
                               href="https://www.instagram.com/ks_fan.shop/"
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-pink-400 hover:text-pink-300 font-bold underline transition-colors"
+                              className="text-cyan-300 hover:text-cyan-200 font-bold underline decoration-cyan-300/40 underline-offset-2 transition-colors"
                             >
                               @ks_fan.shop
                             </a>
@@ -1969,7 +2084,7 @@ export default function KSLigaSite() {
                   </div>
 
                   {/* Navigation, Search & Filters Bar */}
-                  <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                  <div className="glass-control-bar p-3 sm:p-4 !rounded-[22px] space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
                     {/* Sub-tabs Switcher */}
                     {(() => {
                       const officialCount = products.filter((p) => p.is_official !== false && p.is_approved !== false).length
@@ -1996,12 +2111,12 @@ export default function KSLigaSite() {
                             onClick={() => setShopSubTab("announcements")}
                             className={`flex-1 sm:flex-initial py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                               shopSubTab === "announcements"
-                                ? "bg-white text-purple-600 shadow-xs border border-slate-200/80"
+                                ? "bg-white text-blue-600 shadow-xs border border-slate-200/80"
                                 : "text-slate-600 hover:text-slate-900"
                             }`}
                           >
                             <span>Оголошення</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${shopSubTab === "announcements" ? "bg-purple-100 text-purple-700" : "bg-slate-200 text-slate-600"}`}>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${shopSubTab === "announcements" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
                               {announcementCount}
                             </span>
                           </button>
@@ -2141,12 +2256,12 @@ export default function KSLigaSite() {
                 </TabsContent>
 
                 {/* KS Games Tab */}
-                <TabsContent value="games" className="outline-none space-y-4 w-full flex flex-col items-center">
+                <TabsContent value="games" className="liquid-module outline-none space-y-4 w-full flex flex-col items-center">
                   <KsGamesHub teams={teams} />
                 </TabsContent>
 
                 {/* Admin Tab */}
-                <TabsContent value="admin" className="outline-none">
+                <TabsContent value="admin" className="liquid-module outline-none">
                   <Card className="liquid-glass-card overflow-hidden">
                     <CardHeader className="border-b border-slate-200/50 py-4 px-6 bg-white/40">
                       <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-900 flex items-center gap-2">
@@ -2157,21 +2272,45 @@ export default function KSLigaSite() {
                     <CardContent className="p-6">
                       {!isAdmin ? (
                         <div className="space-y-3 max-w-sm mx-auto py-6">
-                          <Input
-                            type="password"
-                            value={adminPassword}
-                            onChange={(e) => setAdminPassword(e.target.value)}
-                            placeholder="Введіть пароль доступу"
-                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                            className="glass-input text-sm h-10 px-4"
-                          />
+                          <div className="relative">
+                            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              type="email"
+                              autoComplete="email"
+                              value={adminEmail}
+                              onChange={(e) => setAdminEmail(e.target.value)}
+                              placeholder="Email"
+                              className="glass-input h-11 pl-10 pr-4 text-sm"
+                            />
+                          </div>
+                          <div className="relative">
+                            <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              type="password"
+                              autoComplete="current-password"
+                              value={adminPassword}
+                              onChange={(e) => setAdminPassword(e.target.value)}
+                              placeholder="Пароль"
+                              onKeyDown={(e) => e.key === "Enter" && void handleLogin()}
+                              className="glass-input h-11 pl-10 pr-4 text-sm"
+                            />
+                          </div>
                           {loginError && <p className="text-xs font-semibold text-red-600 text-center px-1">{loginError}</p>}
+                          {loginInfo && <p className="text-xs font-semibold text-emerald-700 text-center px-1">{loginInfo}</p>}
                           <Button
-                            onClick={handleLogin}
-                            className="w-full ios-btn-primary text-sm font-bold h-10 ios-active-scale"
+                            onClick={() => void handleLogin()}
+                            disabled={isAuthChecking}
+                            className="w-full ios-btn-primary text-sm font-bold h-11 ios-active-scale"
                           >
-                            Увійти
+                            {isAuthChecking ? "Перевірка сесії…" : "Увійти"}
                           </Button>
+                          <button
+                            type="button"
+                            onClick={() => void handleForgotPassword()}
+                            className="mx-auto block text-xs font-bold text-blue-600 transition-colors hover:text-blue-800"
+                          >
+                            Забули пароль?
+                          </button>
                         </div>
                       ) : (
                         <AdminPanel
@@ -2196,7 +2335,7 @@ export default function KSLigaSite() {
       </main>
       
       {/* Footer */}
-      <footer className="liquid-glass-header mt-16 py-8 border-t border-white/30 text-xs text-slate-500 font-medium">
+      <footer className="app-footer liquid-glass-header mt-16 py-8 text-xs text-slate-500 font-medium">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             &copy; {new Date().getFullYear()} KS LIGA — Karpiuk Sport League. Всі права захищені.
@@ -2216,157 +2355,26 @@ export default function KSLigaSite() {
         </div>
       </footer>
 
-      {/* Mobile App Bottom Navigation Bar */}
+      {/* Mobile navigation: all destinations remain visible without an overflow menu. */}
       {championships.length > 0 && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pl-[max(0.25rem,env(safe-area-inset-left,0px))] pr-[max(0.25rem,env(safe-area-inset-right,0px))] py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
-          <div className="flex items-center justify-around max-w-md mx-auto">
-            {currentChampionship?.tournament_type === "league" && (
+        <nav className="mobile-glass-nav md:hidden" aria-label="Основна навігація">
+          <div className="mobile-nav-grid mx-auto max-w-md">
+            {mobileNavigation.map(({ id, label, shortLabel, icon: Icon }) => (
               <button
+                key={id}
                 type="button"
                 onClick={() => {
-                  setActiveTab("table")
+                  setActiveTab(id)
                   window.scrollTo({ top: 0, behavior: "smooth" })
                 }}
-                className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                  activeTab === "table"
-                    ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                    : "text-slate-500 font-medium hover:text-slate-900"
-                }`}
+                className={`mobile-nav-button ${activeTab === id ? "is-active" : ""}`}
+                aria-label={label}
+                aria-current={activeTab === id ? "page" : undefined}
               >
-                <Trophy className="h-5 w-5" />
-                <span className="text-[10px] leading-tight mt-1">Таблиця</span>
+                <Icon />
+                <span>{shortLabel}</span>
               </button>
-            )}
-
-            {currentChampionship?.tournament_type === "cup" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("cup")
-                  window.scrollTo({ top: 0, behavior: "smooth" })
-                }}
-                className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                  activeTab === "cup"
-                    ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                    : "text-slate-500 font-medium hover:text-slate-900"
-                }`}
-              >
-                <Crown className="h-5 w-5" />
-                <span className="text-[10px] leading-tight mt-1">Кубок</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("calendar")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "calendar"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Calendar className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Календар</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("results")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "results"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Zap className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Результати</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("scorers")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "scorers"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Target className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Бомбардири</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("lion")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "lion"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Vote className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Лев матчу</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("shop")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "shop"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <ShoppingBag className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">KS Shop</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("games")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "games"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Gamepad2 className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Ігри</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("admin")
-                window.scrollTo({ top: 0, behavior: "smooth" })
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition-all duration-200 ${
-                activeTab === "admin"
-                  ? "text-[var(--lg-blue)] font-bold bg-blue-50/80 shadow-xs"
-                  : "text-slate-500 font-medium hover:text-slate-900"
-              }`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="text-[10px] leading-tight mt-1">Адмін</span>
-            </button>
+            ))}
           </div>
         </nav>
       )}

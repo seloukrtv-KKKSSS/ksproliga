@@ -29,9 +29,9 @@ if (!isSupabaseConfigured && process.env.NODE_ENV === "development") {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-    persistSession: false,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    persistSession: true,
   },
 })
 
@@ -123,12 +123,15 @@ export interface VotingCandidate {
 }
 
 export interface Organizer {
-  id: number
+  user_id: string
   name: string
-  password: string
+  email: string
+  role: "admin" | "organizer"
   championship_ids: number[]
+  is_active: boolean
   last_login_at?: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface Product {
@@ -145,6 +148,7 @@ export interface Product {
   is_official?: boolean
   is_approved?: boolean
   author_name?: string
+  author_user_id?: string | null
   created_at: string
 }
 

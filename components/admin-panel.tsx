@@ -27,7 +27,6 @@ import {
   UserCheck,
   ShieldCheck,
   Check,
-  Key,
   ShoppingBag,
   BarChart3,
   Activity,
@@ -165,11 +164,11 @@ export function AdminPanel({
   // Organizer form state
   const [organizerForm, setOrganizerForm] = useState<{
     name: string
-    password: string
+    email: string
     championship_ids: number[]
   }>({
     name: "",
-    password: "",
+    email: "",
     championship_ids: [],
   })
 
@@ -385,19 +384,20 @@ export function AdminPanel({
   // Organizer handlers
   const handleOrganizerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!organizerForm.name.trim() || !organizerForm.password.trim()) {
-      alert("Вкажіть назву та пароль організатора")
+    if (!organizerForm.name.trim() || !organizerForm.email.trim()) {
+      alert("Вкажіть ім’я та email організатора")
       return
     }
     setLoading(true)
     try {
       if (editingOrganizer) {
-        await updateOrganizer(editingOrganizer.id, organizerForm)
+        await updateOrganizer(editingOrganizer.user_id, organizerForm)
         setEditingOrganizer(null)
       } else {
         await addOrganizer(organizerForm)
+        alert("Запрошення надіслано на email організатора. За посиланням він зможе створити власний пароль.")
       }
-      setOrganizerForm({ name: "", password: "", championship_ids: [] })
+      setOrganizerForm({ name: "", email: "", championship_ids: [] })
       await loadData()
       onDataChange?.()
     } catch (error) {
@@ -407,10 +407,10 @@ export function AdminPanel({
     setLoading(false)
   }
 
-  const handleDeleteOrganizer = async (id: number) => {
-    if (confirm("Ви впевнені, що хочете видалити цього організатора?")) {
+  const handleDeleteOrganizer = async (userId: string) => {
+    if (confirm("Видалити організатора та повністю закрити його доступ до адмін-панелі?")) {
       try {
-        await deleteOrganizer(id)
+        await deleteOrganizer(userId)
         await loadData()
         onDataChange?.()
       } catch (error) {
@@ -1121,9 +1121,9 @@ export function AdminPanel({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="ks-admin-scope space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/90 p-3.5 sm:p-4 rounded-2xl border border-blue-900/40 text-white shadow-lg backdrop-blur-md">
+      <div className="glass-hero flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 !rounded-[22px] text-white">
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
           {championships.length > 0 ? (
             <Select
@@ -3307,20 +3307,27 @@ export function AdminPanel({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="organizer-password" className="text-slate-700 font-semibold text-xs">
-                    Пароль доступу для організатора
+                  <Label htmlFor="organizer-email" className="text-slate-700 font-semibold text-xs">
+                    Email організатора
                   </Label>
                   <Input
-                    id="organizer-password"
-                    type="text"
-                    value={organizerForm.password}
-                    onChange={(e) => setOrganizerForm({ ...organizerForm, password: e.target.value })}
-                    placeholder="Придумайте пароль (напр: org2025)"
-                    className="glass-input text-sm h-10 px-4 font-mono"
+                    id="organizer-email"
+                    type="email"
+                    autoComplete="email"
+                    value={organizerForm.email}
+                    onChange={(e) => setOrganizerForm({ ...organizerForm, email: e.target.value.toLowerCase() })}
+                    placeholder="organizer@example.com"
+                    className="glass-input text-sm h-10 px-4"
                     required
                   />
                 </div>
               </div>
+
+              {!editingOrganizer && (
+                <div className="rounded-xl border border-blue-200/70 bg-blue-50/70 px-4 py-3 text-xs leading-relaxed text-blue-900">
+                  Організатор отримає захищене email-запрошення та самостійно створить пароль. Пароль не буде доступний адміністраторам або збережений у таблиці сайту.
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label className="text-slate-700 font-semibold text-xs">
@@ -3365,7 +3372,7 @@ export function AdminPanel({
                     variant="outline"
                     onClick={() => {
                       setEditingOrganizer(null)
-                      setOrganizerForm({ name: "", password: "", championship_ids: [] })
+                      setOrganizerForm({ name: "", email: "", championship_ids: [] })
                     }}
                     className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10 px-4"
                   >
@@ -3384,7 +3391,7 @@ export function AdminPanel({
               ) : (
                 organizers.map((org) => (
                   <div
-                    key={org.id}
+                    key={org.user_id}
                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all"
                   >
                     <div className="space-y-1.5 flex-1">
@@ -3393,8 +3400,8 @@ export function AdminPanel({
                         <span>{org.name}</span>
                       </div>
                       <div className="text-xs text-slate-600 font-medium flex flex-wrap items-center gap-3">
-                        <span className="font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-slate-800">
-                          Пароль: {org.password}
+                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-slate-800">
+                          {org.email}
                         </span>
                         <span className="text-slate-400">|</span>
                         <span className="text-slate-500">
@@ -3426,7 +3433,7 @@ export function AdminPanel({
                           setEditingOrganizer(org)
                           setOrganizerForm({
                             name: org.name,
-                            password: org.password,
+                            email: org.email,
                             championship_ids: org.championship_ids || [],
                           })
                         }}
@@ -3437,7 +3444,7 @@ export function AdminPanel({
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleDeleteOrganizer(org.id)}
+                        onClick={() => handleDeleteOrganizer(org.user_id)}
                         className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -3705,7 +3712,7 @@ export function AdminPanel({
                 type="button"
                 onClick={() => setAdminShopFilter("approved_announcements")}
                 className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  adminShopFilter === "approved_announcements" ? "bg-purple-600 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                  adminShopFilter === "approved_announcements" ? "bg-blue-600 text-white shadow-xs" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 Затверджені оголошення ({products.filter((p) => p.is_official === false && p.is_approved === true).length})
@@ -3991,7 +3998,7 @@ export function AdminPanel({
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Найпопулярніший розділ
                 </span>
-                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                   <Trophy className="w-5 h-5" />
                 </div>
               </div>

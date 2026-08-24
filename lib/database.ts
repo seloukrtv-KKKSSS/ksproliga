@@ -242,88 +242,123 @@ export async function updateChampionshipsOrder(orderedChampionships: Championshi
   }
 }
 
-// Organizers & Authentication
+// Organizers & Supabase Auth
+export type OrganizerInput = Pick<Organizer, "name" | "email" | "championship_ids">
+
+const ORGANIZER_PROFILE_COLUMNS =
+  "user_id,name,email,role,championship_ids,is_active,last_login_at,created_at,updated_at"
+
+function getAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message
+  return "Не вдалося виконати операцію авторизації"
+}
+
+export async function getCurrentOrganizerProfile(): Promise<Organizer | null> {
+  if (shouldUseMockData()) return null
+
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) return null
+
+  const { data, error } = await supabase
+    .from("organizer_profiles")
+    .select(ORGANIZER_PROFILE_COLUMNS)
+    .eq("user_id", userData.user.id)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data?.is_active) return null
+  return data as Organizer
+}
+
 export async function getOrganizers(): Promise<Organizer[]> {
-  if (shouldUseMockData()) {
-    return Promise.resolve([...mockOrganizers])
-  }
+  if (shouldUseMockData()) return Promise.resolve([...mockOrganizers])
 
-  try {
-    const { data, error } = await supabase.from("organizers").select("*").order("created_at", { ascending: false })
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.warn("Database error, using mock data for organizers:", error)
-    return mockOrganizers
-  }
-}
+  const { data, error } = await supabase
+    .from("organizer_profiles")
+    .select(ORGANIZER_PROFILE_COLUMNS)
+    .eq("role", "organizer")
+    .order("created_at", { ascending: false })
 
-export async function addOrganizer(organizer: Omit<Organizer, "id" | "created_at">): Promise<Organizer> {
-  if (shouldUseMockData()) {
-    const newOrganizer: Organizer = {
-      ...organizer,
-      id: Math.max(0, ...mockOrganizers.map((o) => o.id)) + 1,
-      created_at: new Date().toISOString(),
-    }
-    mockOrganizers.push(newOrganizer)
-    return Promise.resolve(newOrganizer)
-  }
-
-  const { data, error } = await supabase.from("organizers").insert([organizer]).select().single()
   if (error) throw error
-  return data
+  return (data || []) as Organizer[]
 }
 
-export async function updateOrganizer(id: number, updates: Partial<Organizer>): Promise<Organizer> {
-  if (shouldUseMockData()) {
-    const index = mockOrganizers.findIndex((o) => o.id === id)
-    if (index !== -1) {
-      mockOrganizers[index] = { ...mockOrganizers[index], ...updates }
-      return Promise.resolve(mockOrganizers[index])
+async function invokeAdminUsers<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("admin-users", { body })
+  if (error) {
+    const context = (error as { context?: Response }).context
+    if (context) {
+      try {
+        const payload = await context.clone().json()
+        if (payload?.error) throw new Error(payload.error)
+      } catch (contextError) {
+        if (contextError instanceof Error && contextError.message !== "Unexpected end of JSON input") {
+          throw contextError
+        }
+      }
     }
-    throw new Error("Organizer not found")
+    throw new Error(getAuthErrorMessage(error))
   }
+  if (!data?.success) throw new Error(data?.error || "Операцію з організатором не виконано")
+  return data.profile as T
+}
 
-  const { data, error } = await supabase.from("organizers").update(updates).eq("id", id).select().single()
+export async function addOrganizer(organizer: OrganizerInput): Promise<Organizer> {
+  if (shouldUseMockData()) throw new Error("Supabase Auth не налаштовано")
+  return invokeAdminUsers<Organizer>({ action: "invite", organizer })
+}
+
+export async function updateOrganizer(
+  userId: string,
+  updates: OrganizerInput,
+): Promise<Organizer> {
+  if (shouldUseMockData()) throw new Error("Supabase Auth не налаштовано")
+  return invokeAdminUsers<Organizer>({ action: "update", userId, organizer: updates })
+}
+
+export async function deleteOrganizer(userId: string): Promise<void> {
+  if (shouldUseMockData()) return
+  await invokeAdminUsers<Organizer>({ action: "delete", userId })
+}
+
+export async function authenticateUser(email: string, password: string): Promise<Organizer> {
+  if (shouldUseMockData()) throw new Error("Supabase Auth не налаштовано")
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  })
   if (error) throw error
-  return data
-}
 
-export async function deleteOrganizer(id: number): Promise<void> {
-  if (shouldUseMockData()) {
-    const index = mockOrganizers.findIndex((o) => o.id === id)
-    if (index !== -1) {
-      mockOrganizers.splice(index, 1)
-    }
-    return Promise.resolve()
+  const profile = await getCurrentOrganizerProfile()
+  if (!profile) {
+    await supabase.auth.signOut()
+    throw new Error("Обліковий запис не має активного доступу до адмін-панелі")
   }
 
-  const { error } = await supabase.from("organizers").delete().eq("id", id)
+  const { error: touchError } = await supabase.rpc("touch_organizer_login")
+  if (touchError) console.warn("Could not update organizer last login:", touchError)
+
+  return { ...profile, last_login_at: new Date().toISOString() }
+}
+
+export async function signOutUser(): Promise<void> {
+  const { error } = await supabase.auth.signOut()
   if (error) throw error
 }
 
-export async function authenticateUser(password: string): Promise<
-  | { type: "main" }
-  | { type: "organizer"; organizer: Organizer }
-  | null
-> {
-  if (password === "ks2025") {
-    return { type: "main" }
-  }
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (shouldUseMockData()) throw new Error("Supabase Auth не налаштовано")
+  const redirectTo = typeof window === "undefined"
+    ? "https://ksliga.com/auth/update-password"
+    : `${window.location.origin}/auth/update-password`
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo })
+  if (error) throw error
+}
 
-  const organizers = await getOrganizers()
-  const found = organizers.find((o) => o.password === password)
-  if (found) {
-    const now = new Date().toISOString()
-    try {
-      await updateOrganizer(found.id, { last_login_at: now })
-    } catch (e) {
-      console.error("Failed to update organizer last_login_at:", e)
-    }
-    return { type: "organizer", organizer: { ...found, last_login_at: now } }
-  }
-
-  return null
+export async function updateCurrentPassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
 }
 
 // Products (KS Shop)
@@ -394,7 +429,7 @@ export async function getProducts(): Promise<Product[]> {
 
   const { data, error } = await supabase
     .from("products")
-    .select("id,title,description,price,old_price,images,badge,instagram_url,is_available,sort_order,is_official,is_approved,author_name,created_at")
+    .select("id,title,description,price,old_price,images,badge,instagram_url,is_available,sort_order,is_official,is_approved,author_name,author_user_id,created_at")
     .order("sort_order", { ascending: true })
 
   if (error) {
@@ -418,7 +453,13 @@ export async function addProduct(
     return Promise.resolve(newProduct)
   }
 
-  const { data, error } = await supabase.from("products").insert([product]).select().single()
+  const payload = { ...product }
+  if (payload.is_official === false && !payload.author_user_id) {
+    const { data: userData } = await supabase.auth.getUser()
+    payload.author_user_id = userData.user?.id ?? null
+  }
+
+  const { data, error } = await supabase.from("products").insert([payload]).select().single()
   if (error) throw error
   return data
 }
@@ -1161,21 +1202,8 @@ export async function incrementCandidateVotes(id: number): Promise<void> {
     return Promise.resolve()
   }
 
-  const { data: candidate, error: fetchError } = await supabase
-    .from("voting_candidates")
-    .select("votes")
-    .eq("id", id)
-    .single()
-
-  if (fetchError) throw fetchError
-
-  const currentVotes = candidate?.votes || 0
-  const { error: updateError } = await supabase
-    .from("voting_candidates")
-    .update({ votes: currentVotes + 1 })
-    .eq("id", id)
-
-  if (updateError) throw updateError
+  const { error } = await supabase.rpc("cast_match_vote", { candidate_id: id })
+  if (error) throw error
 }
 
 export async function updateVotingCandidate(id: number, playerName: string): Promise<VotingCandidate> {
@@ -1311,28 +1339,30 @@ export async function recordUserAnalytics(sessionId: string, activeTab: string, 
       }
     }
 
-    const { data, error } = await supabase.from("user_analytics").insert([{
-      session_id: sessionId,
-      active_tab: activeTab,
-      duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)),
-      user_agent: userAgent
-    }]).select("id")
+    const { data, error } = await supabase.rpc("record_user_analytics", {
+      analytics_session_id: sessionId,
+      analytics_active_tab: activeTab,
+      analytics_duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)),
+      analytics_user_agent: userAgent,
+    })
 
     if (error) throw error
-    return data?.[0]?.id ?? null
+    return typeof data === "number" ? data : null
   } catch (error) {
     console.error("Error recording user analytics:", error)
     return null
   }
 }
 
-export async function updateAnalyticsDuration(rowId: number, durationSeconds: number): Promise<void> {
+export async function updateAnalyticsDuration(rowId: number, durationSeconds: number, sessionId: string): Promise<void> {
   if (shouldUseMockData()) return
   try {
-    await supabase
-      .from("user_analytics")
-      .update({ duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)) })
-      .eq("id", rowId)
+    const { error } = await supabase.rpc("update_user_analytics_duration", {
+      analytics_id: rowId,
+      analytics_session_id: sessionId,
+      analytics_duration_seconds: Math.max(1, Math.min(Math.round(durationSeconds), 86400)),
+    })
+    if (error) throw error
   } catch (error) {
     console.error("Error updating analytics duration:", error)
   }
@@ -1578,61 +1608,16 @@ export async function saveGameScore(playerName: string, gameType: "dino" | "snak
   }
 
   try {
-    // 1. Check if this player already has a score for this game (get their top score)
-    const { data: existingList, error: fetchError } = await supabase
-      .from("game_scores")
-      .select("*")
-      .ilike("player_name", cleanName)
-      .eq("game_type", gameType)
-      .order("score", { ascending: false })
-      .limit(1)
-
-    if (fetchError) {
-      console.warn("Error checking existing score:", fetchError)
-    }
-
-    const existing = existingList && existingList.length > 0 ? existingList[0] : null
-
-    if (existing) {
-      // Only update if new score is strictly higher than existing best
-      if (score > existing.score) {
-        const { data, error } = await supabase
-          .from("game_scores")
-          .update({
-            player_name: cleanName,
-            score,
-            created_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id)
-          .select()
-          .single()
-
-        if (error) {
-          console.error("Error updating score in DB:", error)
-          throw error
-        }
-        return data
-      }
-      // If score is not higher, return existing best record
-      return existing
-    }
-
-    // 2. If new player, insert new high score
-    const { data, error } = await supabase
-      .from("game_scores")
-      .insert([{
-        player_name: cleanName,
-        game_type: gameType,
-        score,
-      }])
-      .select()
-      .single()
-
+    const { data, error } = await supabase.rpc("submit_game_score", {
+      score_player_name: cleanName,
+      score_game_type: gameType,
+      score_value: score,
+    })
     if (error) {
-      console.error("Error inserting score in DB:", error)
+      console.error("Error saving score in DB:", error)
       throw error
     }
-    return data
+    return data as GameScore
   } catch (error) {
     console.error("Error saving game score:", error)
     return null

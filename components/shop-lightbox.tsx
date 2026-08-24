@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Heart,
   Camera,
-  ShoppingBag,
 } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram-icon"
 import type { Product } from "@/lib/supabase"

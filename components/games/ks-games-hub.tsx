@@ -10,7 +10,7 @@ import type { Team } from "@/lib/supabase"
 function GameLoading() {
   return (
     <div className="flex min-h-72 w-full items-center justify-center" role="status">
-      <div className="h-9 w-9 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+      <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
       <span className="sr-only">Завантаження гри…</span>
     </div>
   )
@@ -84,20 +84,20 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 w-full flex flex-col items-center">
+    <div className="ks-games-scope space-y-6 max-w-5xl mx-auto pb-12 w-full flex flex-col items-center">
       {/* Hero Games Room Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950/80 to-slate-900 text-white p-5 sm:p-7 shadow-xl border border-emerald-500/20 w-full">
+      <div className="glass-hero relative overflow-hidden p-5 sm:p-7 w-full">
         {/* Ambient Neon Blobs */}
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           {/* Title & Badge */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-amber-400 p-0.5 shadow-md flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-300 p-0.5 shadow-md flex items-center justify-center">
                 <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                  <Gamepad2 className="h-5 w-5 text-emerald-400" />
+                  <Gamepad2 className="h-5 w-5 text-cyan-300" />
                 </div>
               </div>
               <div>
@@ -175,7 +175,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
       {/* Main Navigation Segmented Control */}
       <div 
-        className="flex items-center justify-center gap-1.5 p-1.5 rounded-2xl bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-md select-none max-w-2xl mx-auto w-full overflow-x-auto"
+        className="glass-control-bar flex items-center justify-center gap-1.5 p-1.5 select-none max-w-2xl mx-auto w-full overflow-x-auto"
         onContextMenu={(e) => e.preventDefault()}
       >
         <button
@@ -187,7 +187,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "dino"
-              ? "bg-slate-900 text-white shadow-md"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
@@ -204,7 +204,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "snake"
-              ? "bg-slate-900 text-white shadow-md"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
@@ -244,7 +244,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
             />
 
             {/* Quick Rules Card */}
-            <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs w-full">
+            <div className="liquid-glass-card p-4 sm:p-5 w-full">
               <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-blue-600" />
                 Як грати в KS Dino Runner:
@@ -273,7 +273,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
             />
 
             {/* Quick Rules Card */}
-            <div className="bg-white/60 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs w-full">
+            <div className="liquid-glass-card p-4 sm:p-5 w-full">
               <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-emerald-600" />
                 Як грати в KS Retro Snake:

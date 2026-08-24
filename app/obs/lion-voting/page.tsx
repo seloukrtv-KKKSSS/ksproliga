@@ -2,8 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { getMatchById, getMatchVoting, getVotingCandidates, getTeams } from "@/lib/database"
-import type { Match, MatchVoting, VotingCandidate, Team } from "@/lib/supabase"
+import { getMatchById, getVotingCandidates, getTeams } from "@/lib/database"
+import type { Match, VotingCandidate, Team } from "@/lib/supabase"
 import { Trophy, Crown, Flame, Sparkles, Award } from "lucide-react"
 
 function OBSLionVotingContent() {
@@ -12,7 +12,6 @@ function OBSLionVotingContent() {
   const matchId = matchIdParam ? parseInt(matchIdParam, 10) : null
 
   const [match, setMatch] = useState<Match | null>(null)
-  const [voting, setVoting] = useState<MatchVoting | null>(null)
   const [candidates, setCandidates] = useState<VotingCandidate[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,14 +22,12 @@ function OBSLionVotingContent() {
       return
     }
     try {
-      const [m, v, c, t] = await Promise.all([
+      const [m, c, t] = await Promise.all([
         getMatchById(matchId),
-        getMatchVoting(matchId),
         getVotingCandidates(matchId),
         getTeams(),
       ])
       setMatch(m)
-      setVoting(v)
       setCandidates(c.filter((cand) => !cand.is_hidden).sort((a, b) => b.votes - a.votes))
       setTeams(t)
     } catch (e) {
@@ -63,7 +60,7 @@ function OBSLionVotingContent() {
             background-image: none !important;
           }
         `}</style>
-        <div className="max-w-md p-6 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl">
+        <div className="obs-glass-widget max-w-md p-6 space-y-3">
           <Trophy className="w-12 h-12 text-amber-400 mx-auto" />
           <h2 className="text-xl font-bold">OBS / vMix Віджет «Лев Матчу»</h2>
           <p className="text-xs text-slate-400">
@@ -108,7 +105,7 @@ function OBSLionVotingContent() {
       `}</style>
 
       {/* Container Widget Box — Liquid Glass iOS Container */}
-      <div className="w-full max-w-[420px] bg-slate-950/85 backdrop-blur-2xl border border-amber-500/40 rounded-3xl shadow-[0_0_35px_rgba(245,158,11,0.3)] p-5 space-y-4 text-white animate-in zoom-in-95 duration-300 relative overflow-hidden">
+      <div className="obs-glass-widget w-full max-w-[420px] p-5 space-y-4 text-white animate-in zoom-in-95 duration-300">
         
         {/* Ambient Top Glow Effect */}
         <div className="absolute -top-12 -left-12 w-36 h-36 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
@@ -160,20 +157,20 @@ function OBSLionVotingContent() {
               const isSecond = index === 1
               const isThird = index === 2
 
-              let borderStyle = "border-slate-800 bg-slate-900/80"
+              let borderStyle = "obs-glass-row"
               let badgeStyle = "bg-slate-800 text-slate-200 border-slate-700"
               let barGradient = "from-blue-500 to-indigo-600"
 
               if (isFirst) {
-                borderStyle = "border-amber-400/90 bg-gradient-to-r from-amber-950/70 to-slate-900/90 shadow-[0_0_20px_rgba(245,158,11,0.25)]"
+                borderStyle = "border-amber-400/90 bg-gradient-to-r from-amber-950/70 to-blue-950/85 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                 badgeStyle = "bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black border-amber-300 shadow-md"
                 barGradient = "from-amber-400 via-amber-300 to-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"
               } else if (isSecond) {
-                borderStyle = "border-slate-300/60 bg-slate-900/80"
+                borderStyle = "obs-glass-row border-slate-300/60"
                 badgeStyle = "bg-slate-300 text-slate-950 font-black border-slate-200"
                 barGradient = "from-slate-300 to-slate-400"
               } else if (isThird) {
-                borderStyle = "border-amber-600/50 bg-slate-900/80"
+                borderStyle = "obs-glass-row border-amber-600/50"
                 badgeStyle = "bg-amber-600 text-white font-black border-amber-500"
                 barGradient = "from-amber-600 to-amber-700"
               }

@@ -22,7 +22,7 @@ export function TeamDisplay({ teamName, teamLogo, size = "md", showName = true, 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <div
-        className={`${sizeClasses[size]} bg-white rounded-md flex items-center justify-center shadow-xs border border-slate-200/80 shrink-0`}
+        className={`${sizeClasses[size]} bg-white/70 rounded-[10px] flex items-center justify-center shadow-xs border border-white/80 shrink-0 backdrop-blur-md`}
       >
         {teamLogo ? (
           <img
