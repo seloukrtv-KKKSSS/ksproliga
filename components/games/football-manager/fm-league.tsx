@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FMClub, FMLeagueStanding, FMMatch } from "@/lib/fm-types"
+import type { FMClub, FMLeagueStanding, FMMatch } from "@/lib/fm-types"
 import { fmGetLeagueStandings, fmGetRecentMatches } from "@/lib/fm-database"
-import { Trophy, Shield, Medal, Flame, Calendar } from "lucide-react"
+import { Trophy, Calendar } from "lucide-react"
 
 interface FMLeagueProps {
   club?: FMClub

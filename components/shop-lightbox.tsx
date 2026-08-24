@@ -10,6 +10,7 @@ import {
   Camera,
 } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram-icon"
+import { SafeImage } from "@/components/safe-image"
 import type { Product } from "@/lib/supabase"
 
 interface ShopLightboxProps {
@@ -44,7 +45,8 @@ export function ShopLightbox({
   const lastTapTimeRef = useRef(0)
 
   useEffect(() => {
-    setCurrentIndex(initialIndex)
+    const updateId = window.setTimeout(() => setCurrentIndex(initialIndex), 0)
+    return () => window.clearTimeout(updateId)
   }, [initialIndex])
 
   const goToSlide = useCallback(
@@ -273,17 +275,19 @@ export function ShopLightbox({
       >
         {/* Main Track */}
         <div
-          className={`relative max-w-full max-h-[72vh] flex items-center justify-center will-change-transform ${
+          className={`relative h-[72vh] max-h-full w-full flex items-center justify-center will-change-transform ${
             isAnimating ? "transition-transform duration-350 ease-[cubic-bezier(0.2,0.9,0.3,1)]" : ""
           }`}
           style={{
             transform: `translateX(${dragOffset}px) rotate(${dragOffset * 0.015}deg)`,
           }}
         >
-          <img
+          <SafeImage
             src={images[currentIndex]}
             alt={product.title}
-            className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl pointer-events-none select-none"
+            fill
+            sizes="(max-width: 768px) 100vw, 768px"
+            className="object-contain rounded-2xl drop-shadow-2xl pointer-events-none select-none"
             draggable={false}
           />
         </div>
@@ -298,10 +302,12 @@ export function ShopLightbox({
               transform: `translateX(calc(-100% + ${dragOffset}px))`,
             }}
           >
-            <img
+            <SafeImage
               src={images[currentIndex > 0 ? currentIndex - 1 : totalImages - 1]}
               alt=""
-              className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+              fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-contain rounded-2xl drop-shadow-2xl"
               draggable={false}
             />
           </div>
@@ -317,10 +323,12 @@ export function ShopLightbox({
               transform: `translateX(calc(100% + ${dragOffset}px))`,
             }}
           >
-            <img
+            <SafeImage
               src={images[currentIndex < totalImages - 1 ? currentIndex + 1 : 0]}
               alt=""
-              className="max-w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl"
+              fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-contain rounded-2xl drop-shadow-2xl"
               draggable={false}
             />
           </div>
@@ -375,13 +383,13 @@ export function ShopLightbox({
               <button
                 key={idx}
                 onClick={() => goToSlide(idx)}
-                className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 transition-all cursor-pointer border-2 ${
+                className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 transition-all cursor-pointer border-2 ${
                   currentIndex === idx
                     ? "border-blue-400 scale-110 shadow-lg shadow-blue-500/30 opacity-100 ring-2 ring-white/30"
                     : "border-transparent opacity-40 hover:opacity-80"
                 }`}
               >
-                <img src={img} alt="" className="w-full h-full object-cover" />
+                <SafeImage src={img} alt="" fill sizes="48px" className="object-cover" />
               </button>
             ))}
           </div>

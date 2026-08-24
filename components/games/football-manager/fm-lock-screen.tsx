@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Lock, Shield, KeyRound, ArrowRight, Sparkles, CheckCircle2, AlertCircle, Delete } from "lucide-react"
+import { Lock, KeyRound, CheckCircle2, AlertCircle, Delete } from "lucide-react"
 import { fmAudio } from "@/lib/fm-audio"
 
 interface FMLockScreenProps {

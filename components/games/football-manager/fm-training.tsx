@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FMClub, FMPlayer, FMStadium, SpecialAbilityId } from "@/lib/fm-types"
+import type { FMClub, FMPlayer, SpecialAbilityId } from "@/lib/fm-types"
 import { SPECIAL_ABILITIES, SPECIAL_ABILITIES_MAP } from "@/lib/fm-engine"
 import {
   fmUpgradePlayerSkill,
@@ -13,26 +13,18 @@ import {
   Dumbbell,
   Zap,
   Sparkles,
-  Heart,
-  Plus,
-  Star,
   CheckCircle2,
-  ChevronRight,
-  Flame,
-  Award
 } from "lucide-react"
 
 interface FMTrainingProps {
   club: FMClub
   players: FMPlayer[]
-  stadium: FMStadium | null
   onSquadUpdated: () => void
 }
 
 export function FMTraining({
   club,
   players,
-  stadium,
   onSquadUpdated
 }: FMTrainingProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<FMPlayer | null>(players[0] || null)

@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import dynamic from "next/dynamic"
 import type {
   FMUser,
   FMClub,
   FMPlayer,
+  FMSection,
   FMTactics,
   FMStadium
 } from "@/lib/fm-types"
@@ -32,10 +33,9 @@ import {
   Maximize2,
   Minimize2,
   LogOut,
-  Sparkles,
   Award,
-  Zap,
-  Lock
+  Lock,
+  type LucideIcon,
 } from "lucide-react"
 
 const fmModuleOptions = {
@@ -61,9 +61,7 @@ export function FMHub() {
   const [stadium, setStadium] = useState<FMStadium | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [activeTab, setActiveTab] = useState<
-    "dashboard" | "squad" | "tournaments" | "training" | "city" | "transfers" | "youth" | "league"
-  >("dashboard")
+  const [activeTab, setActiveTab] = useState<FMSection>("dashboard")
 
   const [isMuted, setIsMuted] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
@@ -72,12 +70,11 @@ export function FMHub() {
 
   // Password Lock state check
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const unlocked =
-        sessionStorage.getItem("ks_fm_unlocked") === "true" ||
-        localStorage.getItem("ks_fm_unlocked") === "true"
-      setIsUnlocked(unlocked)
-    }
+    const unlocked =
+      sessionStorage.getItem("ks_fm_unlocked") === "true" ||
+      localStorage.getItem("ks_fm_unlocked") === "true"
+    const updateId = window.setTimeout(() => setIsUnlocked(unlocked), 0)
+    return () => window.clearTimeout(updateId)
   }, [])
 
   // Fullscreen event listener to sync state with native browser Esc / F11
@@ -93,18 +90,7 @@ export function FMHub() {
     }
   }, [])
 
-  // Initialize session
-  useEffect(() => {
-    const stored = fmGetStoredUser()
-    if (stored) {
-      setCurrentUser(stored)
-      loadClubData(stored.id)
-    } else {
-      setLoading(false)
-    }
-  }, [])
-
-  const loadClubData = async (userId: number) => {
+  const loadClubData = useCallback(async (userId: number) => {
     setLoading(true)
     try {
       const userClub = await fmGetClubByUserId(userId)
@@ -124,7 +110,21 @@ export function FMHub() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Initialize session
+  useEffect(() => {
+    const initializeId = window.setTimeout(() => {
+      const stored = fmGetStoredUser()
+      if (stored) {
+        setCurrentUser(stored)
+        void loadClubData(stored.id)
+      } else {
+        setLoading(false)
+      }
+    }, 0)
+    return () => window.clearTimeout(initializeId)
+  }, [loadClubData])
 
   const handleSoundToggle = () => {
     const newMuted = fmAudio.toggleMute()
@@ -153,7 +153,7 @@ export function FMHub() {
     }
   }
 
-  const handleTabChange = (tab: any) => {
+  const handleTabChange = (tab: FMSection) => {
     fmAudio.playClick()
     setActiveTab(tab)
   }
@@ -202,7 +202,7 @@ export function FMHub() {
     )
   }
 
-  const navItems = [
+  const navItems: Array<{ id: FMSection; label: string; icon: LucideIcon; badge?: string }> = [
     { id: "dashboard", label: "Огляд", icon: LayoutDashboard },
     { id: "squad", label: "Склад & Поле", icon: SlidersHorizontal },
     { id: "tournaments", label: "Кубки 11x11", icon: Trophy, badge: "ТОП" },
@@ -387,7 +387,6 @@ export function FMHub() {
           <FMTraining
             club={club}
             players={players}
-            stadium={stadium}
             onSquadUpdated={() => loadClubData(currentUser.id)}
           />
         )}
@@ -395,7 +394,6 @@ export function FMHub() {
         {activeTab === "transfers" && (
           <FMTransferMarket
             club={club}
-            players={players}
             onPurchased={() => loadClubData(currentUser.id)}
           />
         )}

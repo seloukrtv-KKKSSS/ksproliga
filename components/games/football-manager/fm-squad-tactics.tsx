@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
+import type {
   FMClub,
   FMPlayer,
   FMTactics,
@@ -10,11 +10,9 @@ import {
   PassingStyle,
   PressingIntensity,
   TacklingAggression,
-  PlayerPosition
 } from "@/lib/fm-types"
 import {
   FORMATIONS_MAP,
-  PitchSlot,
   calculateTeamPower,
   getPositionSuitability,
   SPECIAL_ABILITIES_MAP
@@ -26,17 +24,8 @@ import {
 } from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import {
-  Shield,
-  Zap,
   Sliders,
   Users,
-  Check,
-  Star,
-  AlertTriangle,
-  Sparkles,
-  ArrowUpDown,
-  Tag,
-  Info
 } from "lucide-react"
 
 interface FMSquadTacticsProps {
@@ -58,15 +47,11 @@ export function FMSquadTactics({
   const [mentality, setMentality] = useState<TeamMentality>(
     tactics?.mentality || "balanced"
   )
-  const [passingStyle, setPassingStyle] = useState<PassingStyle>(
-    tactics?.passing_style || "mixed"
-  )
+  const passingStyle: PassingStyle = tactics?.passing_style || "mixed"
   const [pressing, setPressing] = useState<PressingIntensity>(
     tactics?.pressing || "normal"
   )
-  const [tackling, setTackling] = useState<TacklingAggression>(
-    tactics?.tackling || "normal"
-  )
+  const tackling: TacklingAggression = tactics?.tackling || "normal"
 
   const [activeSlot, setActiveSlot] = useState<number | null>(null)
   const [inspectingPlayer, setInspectingPlayer] = useState<FMPlayer | null>(null)
@@ -101,6 +86,7 @@ export function FMSquadTactics({
   }
 
   const handleAssignPlayerToSlot = async (player: FMPlayer, targetSlot: number) => {
+    if (saving) return
     fmAudio.playTacticalSwap()
     setSaving(true)
 

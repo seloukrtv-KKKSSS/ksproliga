@@ -49,6 +49,7 @@ import type { LeagueStanding } from "@/lib/league-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
 import { SportsOverview } from "@/components/sports-overview"
+import { SafeImage } from "@/components/safe-image"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -278,134 +279,30 @@ export default function KSLigaSite() {
   const allMatches = useMemo(() => [...calendar, ...results], [calendar, results])
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const keys = Object.keys(localStorage)
-      const votedIds = keys
-        .filter((key) => key.startsWith("ksliga_voted_"))
-        .map((key) => Number(key.replace("ksliga_voted_", "")))
-        .filter((id) => !isNaN(id))
-      setVotedMatches(votedIds)
-    }
+    const votedIds = Object.keys(localStorage)
+      .filter((key) => key.startsWith("ksliga_voted_"))
+      .map((key) => Number(key.replace("ksliga_voted_", "")))
+      .filter((id) => !Number.isNaN(id))
+    const updateId = window.setTimeout(() => setVotedMatches(votedIds), 0)
+    return () => window.clearTimeout(updateId)
   }, [])
-
-
-  // Keep the homepage voting shortcut current while Overview or voting is visible.
-  useEffect(() => {
-    if (!currentChampionshipId || !["overview", "lion"].includes(activeTab)) return
-
-    const refreshVoting = () => {
-      if (document.visibilityState === "visible") {
-        void loadVotingData(currentChampionshipId)
-      }
-    }
-
-    refreshVoting()
-    const pollInterval = window.setInterval(refreshVoting, 15000)
-    window.addEventListener("focus", refreshVoting)
-
-    return () => {
-      window.clearInterval(pollInterval)
-      window.removeEventListener("focus", refreshVoting)
-    }
-  }, [currentChampionshipId, activeTab])
 
   // Mobile Pull to Refresh gesture handling
   const PULL_THRESHOLD = 70
 
   useEffect(() => {
     if (typeof window === "undefined") return
-
-    let startY = 0
-    let isAtTop = false
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (window.scrollY <= 0) {
-        startY = e.touches[0].clientY
-        isAtTop = true
-      } else {
-        isAtTop = false
-      }
-    }
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isAtTop || isPullRefreshing) return
-      const currentY = e.touches[0].clientY
-      const deltaY = currentY - startY
-
-      if (deltaY > 0 && window.scrollY <= 0) {
-        const distance = Math.min(110, Math.pow(deltaY, 0.82) * 0.9)
-        setPullDistance(distance)
-        setIsPulling(true)
-      } else {
-        setPullDistance(0)
-        setIsPulling(false)
-      }
-    }
-
-    const handleTouchEnd = () => {
-      if (!isAtTop || isPullRefreshing) return
-
-      setPullDistance((currentDist) => {
-        if (currentDist >= PULL_THRESHOLD) {
-          triggerPullRefresh()
-        } else {
-          setIsPulling(false)
-        }
-        return 0
-      })
-    }
-
-    window.addEventListener("touchstart", handleTouchStart, { passive: true })
-    window.addEventListener("touchmove", handleTouchMove, { passive: true })
-    window.addEventListener("touchend", handleTouchEnd, { passive: true })
-
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart)
-      window.removeEventListener("touchmove", handleTouchMove)
-      window.removeEventListener("touchend", handleTouchEnd)
-    }
-  }, [isPullRefreshing, currentChampionshipId])
-
-  const triggerPullRefresh = async () => {
-    setIsPullRefreshing(true)
-    setIsPulling(false)
-    setRefreshSuccess(false)
-
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      try { navigator.vibrate(40) } catch {}
-    }
-
-    try {
-      await loadInitialData()
-      if (currentChampionshipId) {
-        await loadDataForChampionship(currentChampionshipId, true)
-      }
-      if (activeTab === "lion") await loadVotingData(currentChampionshipId)
-      if (activeTab === "shop") await loadProductsData()
-
-      setRefreshSuccess(true)
-      await new Promise((res) => setTimeout(res, 800))
-    } catch (err) {
-      console.error("Error on pull refresh:", err)
-    } finally {
-      setIsPullRefreshing(false)
-      setRefreshSuccess(false)
-      setPullDistance(0)
-    }
-  }
-
-  // Load initial data (championships list)
-  useEffect(() => {
-    loadInitialData()
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
     const requestedSection = params.get("section")
     const validSections = new Set(["overview", "table", "cup", "calendar", "results", "scorers", "lion", "shop", "games", "admin"])
-    if (params.get("admin") === "1") setActiveTab("admin")
-    else if (requestedSection && validSections.has(requestedSection)) setActiveTab(requestedSection)
+    const requestedTab = params.get("admin") === "1"
+      ? "admin"
+      : requestedSection && validSections.has(requestedSection)
+        ? requestedSection
+        : null
+    if (!requestedTab) return
+    const updateId = window.setTimeout(() => setActiveTab(requestedTab), 0)
+    return () => window.clearTimeout(updateId)
   }, [])
 
   useEffect(() => {
@@ -425,39 +322,75 @@ export default function KSLigaSite() {
     return () => document.removeEventListener("keydown", closeOnEscape)
   }, [isMobileMenuOpen])
 
-  // Load championship-specific data when championship changes
-  useEffect(() => {
-    if (currentChampionshipId) {
-      loadDataForChampionship(currentChampionshipId)
-    }
-  }, [currentChampionshipId])
-
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     try {
       setLoading(true)
       const { getChampionships } = await loadDatabase()
       const championshipsData = await getChampionships()
 
       setChampionships(championshipsData)
-
-      const currentStillExists = championshipsData.some((championship) => championship.id === currentChampionshipId)
-      const championshipId = currentStillExists
-        ? currentChampionshipId
-        : championshipsData.find((championship) => championship.is_active)?.id ?? championshipsData[0]?.id
-
-      if (championshipId) {
-        setCurrentChampionshipId(championshipId)
-      } else {
-        setCurrentChampionshipId(null)
-      }
+      setCurrentChampionshipId((currentId) => {
+        const currentStillExists = championshipsData.some((championship) => championship.id === currentId)
+        return currentStillExists
+          ? currentId
+          : championshipsData.find((championship) => championship.is_active)?.id ?? championshipsData[0]?.id ?? null
+      })
     } catch (error) {
       console.error("Error loading initial data:", error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadDataForChampionship = async (championshipId: number, silent = false) => {
+  const loadMatchEvents = useCallback(async (finishedMatches: Match[], championshipId: number) => {
+    const finishedMatchIds = finishedMatches.map((match) => match.id)
+    const goalsData: Record<number, MatchGoal[]> = Object.fromEntries(
+      finishedMatchIds.map((matchId) => [matchId, []]),
+    )
+    const cardsData: Record<number, MatchCard[]> = Object.fromEntries(
+      finishedMatchIds.map((matchId) => [matchId, []]),
+    )
+
+    if (finishedMatchIds.length > 0) {
+      const { getMatchesCards, getMatchesGoals } = await loadDatabase()
+      const [allGoals, allCards] = await Promise.all([
+        getMatchesGoals(finishedMatchIds),
+        getMatchesCards(finishedMatchIds),
+      ])
+
+      allGoals.forEach((goal) => goalsData[goal.match_id]?.push(goal))
+      allCards.forEach((card) => cardsData[card.match_id]?.push(card))
+    }
+
+    setMatchGoals(goalsData)
+    setMatchCards(cardsData)
+    setMatchEventsLoadedFor(championshipId)
+  }, [])
+
+  const loadVotingData = useCallback(async (championshipId: number | null) => {
+    if (!championshipId) return
+    try {
+      const { getChampionshipVotingData } = await loadDatabase()
+      const votingData = await getChampionshipVotingData(championshipId)
+      setVotings(votingData.votings)
+      setCandidates(votingData.candidates)
+    } catch (error) {
+      console.error("Error loading voting data:", error)
+    }
+  }, [])
+
+  const loadProductsData = useCallback(async () => {
+    try {
+      const { getProducts } = await loadDatabase()
+      const productsData = await getProducts()
+      setProducts(productsData)
+      setProductsLoaded(true)
+    } catch (error) {
+      console.error("Error loading shop products:", error)
+    }
+  }, [])
+
+  const loadDataForChampionship = useCallback(async (championshipId: number, silent = false) => {
     const requestId = ++championshipRequestRef.current
 
     try {
@@ -484,68 +417,128 @@ export default function KSLigaSite() {
       // Set current championship info
       const championship = championships.find((c) => c.id === championshipId)
       setCurrentChampionship(championship || null)
-      if (championship?.tournament_type === "cup" && activeTab === "table") {
-        setActiveTab("cup")
-      } else if (championship?.tournament_type === "league" && activeTab === "cup") {
-        setActiveTab("table")
-      }
+      setActiveTab((currentTab) => {
+        if (championship?.tournament_type === "cup" && currentTab === "table") return "cup"
+        if (championship?.tournament_type === "league" && currentTab === "cup") return "table"
+        return currentTab
+      })
 
-      if (activeTab === "results") await loadMatchEvents(finishedMatches, championshipId)
       void loadVotingData(championshipId)
     } catch (error) {
       console.error("Error loading championship data:", error)
     } finally {
       if (!silent && requestId === championshipRequestRef.current) setLoading(false)
     }
-  }
+  }, [championships, loadVotingData])
 
-  const loadMatchEvents = async (finishedMatches: Match[], championshipId: number) => {
-    const finishedMatchIds = finishedMatches.map((match) => match.id)
-    const goalsData: Record<number, MatchGoal[]> = Object.fromEntries(
-      finishedMatchIds.map((matchId) => [matchId, []]),
-    )
-    const cardsData: Record<number, MatchCard[]> = Object.fromEntries(
-      finishedMatchIds.map((matchId) => [matchId, []]),
-    )
+  const triggerPullRefresh = useCallback(async () => {
+    setIsPullRefreshing(true)
+    setIsPulling(false)
+    setRefreshSuccess(false)
 
-    if (finishedMatchIds.length > 0) {
-      const { getMatchesCards, getMatchesGoals } = await loadDatabase()
-      const [allGoals, allCards] = await Promise.all([
-        getMatchesGoals(finishedMatchIds),
-        getMatchesCards(finishedMatchIds),
-      ])
-
-      allGoals.forEach((goal) => goalsData[goal.match_id]?.push(goal))
-      allCards.forEach((card) => cardsData[card.match_id]?.push(card))
+    if (navigator.vibrate) {
+      try { navigator.vibrate(40) } catch {}
     }
 
-    setMatchGoals(goalsData)
-    setMatchCards(cardsData)
-    setMatchEventsLoadedFor(championshipId)
-  }
-
-  const loadVotingData = async (championshipId = currentChampionshipId) => {
-    if (!championshipId) return
     try {
-      const { getChampionshipVotingData } = await loadDatabase()
-      const votingData = await getChampionshipVotingData(championshipId)
-      setVotings(votingData.votings)
-      setCandidates(votingData.candidates)
-    } catch (error) {
-      console.error("Error loading voting data:", error)
-    }
-  }
+      await loadInitialData()
+      if (currentChampionshipId) {
+        await loadDataForChampionship(currentChampionshipId, true)
+      }
+      if (activeTab === "lion") await loadVotingData(currentChampionshipId)
+      if (activeTab === "shop") await loadProductsData()
 
-  const loadProductsData = async () => {
-    try {
-      const { getProducts } = await loadDatabase()
-      const productsData = await getProducts()
-      setProducts(productsData)
-      setProductsLoaded(true)
+      setRefreshSuccess(true)
+      await new Promise((resolve) => setTimeout(resolve, 800))
     } catch (error) {
-      console.error("Error loading shop products:", error)
+      console.error("Error on pull refresh:", error)
+    } finally {
+      setIsPullRefreshing(false)
+      setRefreshSuccess(false)
+      setPullDistance(0)
     }
-  }
+  }, [activeTab, currentChampionshipId, loadDataForChampionship, loadInitialData, loadProductsData, loadVotingData])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadInitialData(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadInitialData])
+
+  useEffect(() => {
+    if (!currentChampionshipId) return
+    const loadId = window.setTimeout(() => void loadDataForChampionship(currentChampionshipId), 0)
+    return () => window.clearTimeout(loadId)
+  }, [currentChampionshipId, loadDataForChampionship])
+
+  // Keep the homepage voting shortcut current while Overview or voting is visible.
+  useEffect(() => {
+    if (!currentChampionshipId || !["overview", "lion"].includes(activeTab)) return
+
+    const refreshVoting = () => {
+      if (document.visibilityState === "visible") {
+        void loadVotingData(currentChampionshipId)
+      }
+    }
+
+    refreshVoting()
+    const pollInterval = window.setInterval(refreshVoting, 15000)
+    window.addEventListener("focus", refreshVoting)
+
+    return () => {
+      window.clearInterval(pollInterval)
+      window.removeEventListener("focus", refreshVoting)
+    }
+  }, [activeTab, currentChampionshipId, loadVotingData])
+
+  useEffect(() => {
+    let startY = 0
+    let isAtTop = false
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (window.scrollY <= 0) {
+        startY = event.touches[0].clientY
+        isAtTop = true
+      } else {
+        isAtTop = false
+      }
+    }
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!isAtTop || isPullRefreshing) return
+      const deltaY = event.touches[0].clientY - startY
+
+      if (deltaY > 0 && window.scrollY <= 0) {
+        setPullDistance(Math.min(110, Math.pow(deltaY, 0.82) * 0.9))
+        setIsPulling(true)
+      } else {
+        setPullDistance(0)
+        setIsPulling(false)
+      }
+    }
+
+    const handleTouchEnd = () => {
+      if (!isAtTop || isPullRefreshing) return
+
+      setPullDistance((currentDistance) => {
+        if (currentDistance >= PULL_THRESHOLD) {
+          void triggerPullRefresh()
+        } else {
+          setIsPulling(false)
+        }
+        return 0
+      })
+    }
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true })
+    window.addEventListener("touchmove", handleTouchMove, { passive: true })
+    window.addEventListener("touchend", handleTouchEnd, { passive: true })
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart)
+      window.removeEventListener("touchmove", handleTouchMove)
+      window.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isPullRefreshing, triggerPullRefresh])
 
   const handleVoteSubmit = async (matchId: number) => {
     const candidateId = selectedCandidate[matchId]
@@ -573,7 +566,7 @@ export default function KSLigaSite() {
       const { incrementCandidateVotes } = await loadDatabase()
       await incrementCandidateVotes(candidateId)
       // 3. Silent background refresh of latest data from server
-      await loadVotingData()
+      await loadVotingData(currentChampionshipId)
     } catch (error) {
       console.error("Error submitting vote:", error)
       alert("Помилка при голосуванні: " + (error instanceof Error ? error.message : String(error)))
@@ -582,12 +575,6 @@ export default function KSLigaSite() {
         prev.map((c) => (c.id === candidateId ? { ...c, votes: Math.max(0, (c.votes || 0) - 1) } : c))
       )
       setVotedMatches((prev) => prev.filter((id) => id !== matchId))
-    }
-  }
-
-  const handleGoalsUpdated = async () => {
-    if (currentChampionshipId) {
-      await loadDataForChampionship(currentChampionshipId)
     }
   }
 
@@ -606,20 +593,24 @@ export default function KSLigaSite() {
     } catch (error) {
       console.error("Error refreshing data after admin change:", error)
     }
-  }, [currentChampionshipId, productsLoaded])
+  }, [currentChampionshipId, loadDataForChampionship, loadProductsData, productsLoaded])
 
   // Heavy secondary data is fetched only when its tab is opened.
   useEffect(() => {
     if (!currentChampionshipId) return
 
-    if (activeTab === "results" && matchEventsLoadedFor !== currentChampionshipId) {
-      void loadMatchEvents(results, currentChampionshipId)
-    } else if (activeTab === "lion") {
-      void loadVotingData(currentChampionshipId)
-    } else if (activeTab === "shop" && !productsLoaded) {
-      void loadProductsData()
-    }
-  }, [activeTab, currentChampionshipId, matchEventsLoadedFor, productsLoaded, results])
+    const loadId = window.setTimeout(() => {
+      if (activeTab === "results" && matchEventsLoadedFor !== currentChampionshipId) {
+        void loadMatchEvents(results, currentChampionshipId)
+      } else if (activeTab === "lion") {
+        void loadVotingData(currentChampionshipId)
+      } else if (activeTab === "shop" && !productsLoaded) {
+        void loadProductsData()
+      }
+    }, 0)
+
+    return () => window.clearTimeout(loadId)
+  }, [activeTab, currentChampionshipId, loadMatchEvents, loadProductsData, loadVotingData, matchEventsLoadedFor, productsLoaded, results])
 
   const applyOrganizerProfile = useCallback((profile: Organizer | null) => {
     if (!profile?.is_active) {
@@ -1181,12 +1172,13 @@ export default function KSLigaSite() {
                                 </span>
 
                                 <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                  <img
+                                  <SafeImage
                                     src={getTeamLogo(team.name) || "/placeholder.svg"}
                                     alt={`${team.name} Logo`}
+                                    width={32}
+                                    height={32}
                                     className="w-full h-full object-contain"
                                     loading="lazy"
-                                    decoding="async"
                                   />
                                 </div>
 
@@ -1317,12 +1309,13 @@ export default function KSLigaSite() {
                                         {/* Team 1 */}
                                         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 overflow-hidden">
                                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                            <img
+                                            <SafeImage
                                               src={getTeamLogo(match.home_team)}
                                               alt="Home Team"
+                                              width={28}
+                                              height={28}
                                               className="w-full h-full object-contain"
                                               loading="lazy"
-                                              decoding="async"
                                             />
                                           </div>
                                           <span
@@ -1335,12 +1328,13 @@ export default function KSLigaSite() {
                                         {/* Team 2 */}
                                         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 overflow-hidden">
                                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                                            <img
+                                            <SafeImage
                                               src={getTeamLogo(match.away_team)}
                                               alt="Away Team"
+                                              width={28}
+                                              height={28}
                                               className="w-full h-full object-contain"
                                               loading="lazy"
-                                              decoding="async"
                                             />
                                           </div>
                                           <span
@@ -1466,12 +1460,13 @@ export default function KSLigaSite() {
                                             ? "border-2 border-[#007AFF] ring-2 ring-[#007AFF]/20 shadow-xs scale-105"
                                             : "border border-slate-200 shadow-2xs opacity-85"
                                         }`}>
-                                          <img
+                                          <SafeImage
                                             src={getTeamLogo(match.home_team)}
                                             alt="Home Team"
+                                            width={28}
+                                            height={28}
                                             className="w-full h-full object-contain"
                                             loading="lazy"
-                                            decoding="async"
                                           />
                                         </div>
                                         <span
@@ -1521,12 +1516,13 @@ export default function KSLigaSite() {
                                             ? "border-2 border-[#007AFF] ring-2 ring-[#007AFF]/20 shadow-xs scale-105"
                                             : "border border-slate-200 shadow-2xs opacity-85"
                                         }`}>
-                                          <img
+                                          <SafeImage
                                             src={getTeamLogo(match.away_team)}
                                             alt="Away Team"
+                                            width={28}
+                                            height={28}
                                             className="w-full h-full object-contain"
                                             loading="lazy"
-                                            decoding="async"
                                           />
                                         </div>
                                       </div>
@@ -1845,7 +1841,7 @@ export default function KSLigaSite() {
                             <div className="flex items-center justify-between bg-white/70 backdrop-blur-md border border-slate-200/80 rounded-2xl p-3 shadow-2xs">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shrink-0 flex items-center justify-center shadow-2xs">
-                                  <img src={getTeamLogo(match.home_team)} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                                  <SafeImage src={getTeamLogo(match.home_team)} alt="" width={28} height={28} className="w-full h-full object-contain" loading="lazy" />
                                 </div>
                                 <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">{match.home_team}</span>
                               </div>
@@ -1857,7 +1853,7 @@ export default function KSLigaSite() {
                               <div className="flex items-center gap-2 flex-1 min-w-0 justify-end text-right">
                                 <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">{match.away_team}</span>
                                 <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shrink-0 flex items-center justify-center shadow-2xs">
-                                  <img src={getTeamLogo(match.away_team)} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                                  <SafeImage src={getTeamLogo(match.away_team)} alt="" width={28} height={28} className="w-full h-full object-contain" loading="lazy" />
                                 </div>
                               </div>
                             </div>
@@ -1893,7 +1889,7 @@ export default function KSLigaSite() {
                                   {/* Home Team Candidates */}
                                   <div className="space-y-2.5">
                                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 pb-2 border-b border-slate-100">
-                                      <img src={getTeamLogo(match.home_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
+                                      <SafeImage src={getTeamLogo(match.home_team)} alt="" width={16} height={16} className="w-4 h-4 object-contain" loading="lazy" />
                                       <span>{match.home_team} (Господарі)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.home_team).length === 0 ? (
@@ -1946,7 +1942,7 @@ export default function KSLigaSite() {
                                   {/* Away Team Candidates */}
                                   <div className="space-y-2.5">
                                     <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 pb-2 border-b border-slate-100">
-                                      <img src={getTeamLogo(match.away_team)} alt="" className="w-4 h-4 object-contain" loading="lazy" decoding="async" />
+                                      <SafeImage src={getTeamLogo(match.away_team)} alt="" width={16} height={16} className="w-4 h-4 object-contain" loading="lazy" />
                                       <span>{match.away_team} (Гості)</span>
                                     </div>
                                     {matchCandidates.filter((c) => c.team_name === match.away_team).length === 0 ? (
@@ -2043,7 +2039,7 @@ export default function KSLigaSite() {
                                                 </div>
                                                 <div className="text-sm font-black text-slate-900 truncate">{candidate.player_name}</div>
                                                 <div className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5 mt-0.5 truncate">
-                                                  <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3.5 h-3.5 object-contain" loading="lazy" decoding="async" />
+                                                  <SafeImage src={getTeamLogo(candidate.team_name)} alt="" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="lazy" />
                                                   {candidate.team_name}
                                                 </div>
                                               </div>
@@ -2079,7 +2075,7 @@ export default function KSLigaSite() {
                                               <div className="min-w-0">
                                                 <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">{candidate.player_name}</div>
                                                 <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
-                                                  <img src={getTeamLogo(candidate.team_name)} alt="" className="w-3 h-3 object-contain" loading="lazy" decoding="async" />
+                                                  <SafeImage src={getTeamLogo(candidate.team_name)} alt="" width={12} height={12} className="w-3 h-3 object-contain" loading="lazy" />
                                                   {candidate.team_name}
                                                 </div>
                                               </div>

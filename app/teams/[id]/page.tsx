@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarDays, MapPin, Shield, Target, Trophy, Users } from "
 import { getChampionships, getMatchesForTeam, getPlayers, getTeamById, getTeams } from "@/lib/database"
 import { buildLeagueTable } from "@/lib/league-utils"
 import { formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
+import { SafeImage } from "@/components/safe-image"
 
 type TeamPageProps = { params: Promise<{ id: string }> }
 
@@ -47,7 +48,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
         <Link href="/?section=table" className="detail-back"><ArrowLeft /> До таблиці</Link>
         <section className="profile-hero liquid-glass-card">
           <div className="profile-hero__logo">
-            <img src={team.logo || "/placeholder-logo.png"} alt={`Логотип ${team.name}`} />
+            <SafeImage src={team.logo || "/placeholder-logo.png"} alt={`Логотип ${team.name}`} width={160} height={160} />
           </div>
           <div>
             <span className="glass-badge"><Shield /> {championship?.name || "KS LIGA"}</span>

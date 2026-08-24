@@ -24,6 +24,15 @@ const nextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [60, 75, 85],
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "ksliga.com" },
+      {
+        protocol: "https",
+        hostname: "tkshtyrfwvihpzsnbmvx.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
   },
 }
 

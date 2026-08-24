@@ -1,10 +1,11 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Play, RotateCcw, Volume2, VolumeX, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Sparkles, Send, Flame, Maximize2, Minimize2 } from "lucide-react"
+import { Play, RotateCcw, Volume2, VolumeX, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Sparkles, Send, Maximize2, Minimize2 } from "lucide-react"
 import { retroAudio } from "@/lib/retro-audio"
 import { saveGameScore } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
+import { SafeImage } from "@/components/safe-image"
 
 interface KsSnakeGameProps {
   teams: Team[]
@@ -31,6 +32,11 @@ interface FoodItem {
 
 const GRID_SIZE = 20
 const INITIAL_SPEED = 185 // ms per tick (starts calm and accessible)
+const createInitialSnake = (): Point[] => [
+  { x: 10, y: 10 },
+  { x: 10, y: 11 },
+  { x: 10, y: 12 },
+]
 
 export function KsSnakeGame({
   teams,
@@ -47,7 +53,6 @@ export function KsSnakeGame({
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [scoreSubmitted, setScoreSubmitted] = useState(false)
   const [localPlayerName, setLocalPlayerName] = useState(playerName || "")
   const [particles, setParticles] = useState<{ id: number; text: string; x: number; y: number }[]>([])
   const [scrollLocked, setScrollLocked] = useState(false)
@@ -58,11 +63,7 @@ export function KsSnakeGame({
   const highScoreRef = useRef(0)
   const startBaselineScoreRef = useRef(0)
   const lastSavedScoreRef = useRef(0)
-  const snakeRef = useRef<Point[]>([
-    { x: 10, y: 10 },
-    { x: 10, y: 11 },
-    { x: 10, y: 12 },
-  ])
+  const snakeRef = useRef<Point[]>(createInitialSnake())
   const dirRef = useRef<Direction>("UP")
   const directionQueueRef = useRef<Direction[]>([])
   const foodRef = useRef<FoodItem | null>(null)
@@ -71,6 +72,11 @@ export function KsSnakeGame({
   const speedRef = useRef(INITIAL_SPEED)
   const gameLoopTimerRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const [board, setBoard] = useState<{
+    snake: Point[]
+    food: FoodItem | null
+    goldenFood: FoodItem | null
+  }>({ snake: createInitialSnake(), food: null, goldenFood: null })
 
   // Fullscreen change listener
   useEffect(() => {
@@ -98,19 +104,21 @@ export function KsSnakeGame({
   const [renderTick, setRenderTick] = useState(0)
 
   useEffect(() => {
-    setLocalPlayerName(playerName)
     localPlayerNameRef.current = playerName
+    const updateId = window.setTimeout(() => setLocalPlayerName(playerName), 0)
+    return () => window.clearTimeout(updateId)
   }, [playerName])
 
   useEffect(() => {
-    setIsMuted(retroAudio.isMuted)
     const savedHi = localStorage.getItem("ks_snake_highscore")
-    if (savedHi) {
-      const parsed = parseInt(savedHi, 10) || 0
+    const parsed = savedHi ? parseInt(savedHi, 10) || 0 : 0
+    highScoreRef.current = parsed
+    lastSavedScoreRef.current = parsed
+    const initializeId = window.setTimeout(() => {
+      setIsMuted(retroAudio.isMuted)
       setHighScore(parsed)
-      highScoreRef.current = parsed
-      lastSavedScoreRef.current = parsed
-    }
+    }, 0)
+    return () => window.clearTimeout(initializeId)
   }, [])
 
   useEffect(() => {
@@ -127,14 +135,6 @@ export function KsSnakeGame({
     }
   }, [scrollLocked])
 
-  useEffect(() => {
-    if (gameState === "playing") {
-      setScrollLocked(true)
-    } else {
-      setScrollLocked(false)
-    }
-  }, [gameState])
-
   // Toggle Mute
   const handleToggleMute = () => {
     const next = !isMuted
@@ -149,7 +149,7 @@ export function KsSnakeGame({
         if (type === "eat") navigator.vibrate(25)
         else if (type === "bonus") navigator.vibrate([30, 40, 30])
         else if (type === "gameover") navigator.vibrate([60, 40, 80])
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -205,6 +205,26 @@ export function KsSnakeGame({
     }
   }, [])
 
+  // Start / Restart Game
+  const startGame = useCallback(() => {
+    const initialSnake = createInitialSnake()
+    const initialFood = spawnFood()
+    snakeRef.current = initialSnake
+    dirRef.current = "UP"
+    directionQueueRef.current = []
+    scoreRef.current = 0
+    startBaselineScoreRef.current = highScoreRef.current
+    speedRef.current = INITIAL_SPEED
+    foodRef.current = initialFood
+    goldenFoodRef.current = null
+
+    setBoard({ snake: initialSnake, food: initialFood, goldenFood: null })
+    setScore(0)
+    setIsNewRecord(false)
+    setScrollLocked(true)
+    setGameState("playing")
+  }, [spawnFood])
+
   // Direction changer with input queue buffer to prevent sticky/missed rapid turns
   const changeDirection = useCallback((newDir: Direction) => {
     const queue = directionQueueRef.current
@@ -247,7 +267,7 @@ export function KsSnakeGame({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [changeDirection, gameState])
+  }, [changeDirection, gameState, startGame])
 
   // Touch Swipe Handlers for mobile playing
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -273,27 +293,6 @@ export function KsSnakeGame({
       }
     }
     touchStartRef.current = null
-  }
-
-  // Start / Restart Game
-  const startGame = () => {
-    snakeRef.current = [
-      { x: 10, y: 10 },
-      { x: 10, y: 11 },
-      { x: 10, y: 12 },
-    ]
-    dirRef.current = "UP"
-    directionQueueRef.current = []
-    scoreRef.current = 0
-    startBaselineScoreRef.current = highScoreRef.current // Baseline score for true new record detection
-    speedRef.current = INITIAL_SPEED
-    foodRef.current = spawnFood()
-    goldenFoodRef.current = null
-
-    setScore(0)
-    setIsNewRecord(false)
-    setScoreSubmitted(false)
-    setGameState("playing")
   }
 
   // Main Tick Cycle
@@ -325,6 +324,7 @@ export function KsSnakeGame({
     const triggerGameOver = async () => {
       retroAudio.playGameOver()
       triggerHaptic("gameover")
+      setScrollLocked(false)
       setGameState("gameover")
 
       const finalScore = scoreRef.current
@@ -351,7 +351,6 @@ export function KsSnakeGame({
           const saved = await saveGameScore(nameToUse, "snake", finalScore)
           if (saved) {
             lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, saved.score)
-            setScoreSubmitted(true)
             onScoreSubmitted?.(saved.id)
             localStorage.setItem("ks_player_name", nameToUse)
           }
@@ -433,6 +432,11 @@ export function KsSnakeGame({
     }
 
     snakeRef.current = newSnake
+    setBoard({
+      snake: newSnake,
+      food: foodRef.current,
+      goldenFood: goldenFoodRef.current,
+    })
     setScore(scoreRef.current)
 
     if (scoreRef.current > highScoreRef.current) {
@@ -442,7 +446,7 @@ export function KsSnakeGame({
     }
 
     setRenderTick((t) => t + 1)
-  }, [gameState, spawnFood, spawnGoldenFood])
+  }, [gameState, onScoreSubmitted, spawnFood, spawnGoldenFood])
 
   // Timer loop
   useEffect(() => {
@@ -518,7 +522,7 @@ export function KsSnakeGame({
           <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-25 pointer-events-none" />
 
           {/* Snake Segments */}
-          {snakeRef.current.map((seg, idx) => {
+          {board.snake.map((seg, idx) => {
             const isHead = idx === 0
             return (
               <div
@@ -549,19 +553,21 @@ export function KsSnakeGame({
           })}
 
           {/* Regular Food (Team Logo) */}
-          {foodRef.current && (
+          {board.food && (
             <div
               className="relative flex items-center justify-center p-[1px] animate-pulse"
               style={{
-                gridColumnStart: foodRef.current.x + 1,
-                gridRowStart: foodRef.current.y + 1,
+                gridColumnStart: board.food.x + 1,
+                gridRowStart: board.food.y + 1,
               }}
             >
               <div className="w-full h-full rounded-full bg-white border border-blue-500 shadow-md shadow-blue-500/40 p-0.5 flex items-center justify-center overflow-hidden">
-                {foodRef.current.teamLogo ? (
-                  <img
-                    src={foodRef.current.teamLogo}
-                    alt={foodRef.current.teamName || ""}
+                {board.food.teamLogo ? (
+                  <SafeImage
+                    src={board.food.teamLogo}
+                    alt={board.food.teamName || ""}
+                    width={20}
+                    height={20}
                     loading="eager"
                     className="w-full h-full object-contain pointer-events-none"
                     onError={(e) => {
@@ -571,7 +577,7 @@ export function KsSnakeGame({
                   />
                 ) : (
                   <div className="w-full h-full rounded-full bg-blue-600 flex items-center justify-center text-[7px] font-black text-white">
-                    {(foodRef.current.teamName || "KS").slice(0, 2).toUpperCase()}
+                    {(board.food.teamName || "KS").slice(0, 2).toUpperCase()}
                   </div>
                 )}
               </div>
@@ -579,12 +585,12 @@ export function KsSnakeGame({
           )}
 
           {/* Golden Trophy Bonus Food */}
-          {goldenFoodRef.current && (
+          {board.goldenFood && (
             <div
               className="relative flex items-center justify-center p-[1px] animate-bounce"
               style={{
-                gridColumnStart: goldenFoodRef.current.x + 1,
-                gridRowStart: goldenFoodRef.current.y + 1,
+                gridColumnStart: board.goldenFood.x + 1,
+                gridRowStart: board.goldenFood.y + 1,
               }}
             >
               <div className="w-full h-full rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 border-2 border-white shadow-lg shadow-amber-400/80 flex items-center justify-center text-[10px]">
@@ -745,7 +751,7 @@ export function KsSnakeGame({
           type="button"
           onPointerDown={(e) => {
             e.preventDefault()
-            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
             changeDirection("UP")
           }}
           onContextMenu={(e) => e.preventDefault()}
@@ -759,7 +765,7 @@ export function KsSnakeGame({
             type="button"
             onPointerDown={(e) => {
               e.preventDefault()
-              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
               changeDirection("LEFT")
             }}
             onContextMenu={(e) => e.preventDefault()}
@@ -775,7 +781,7 @@ export function KsSnakeGame({
             type="button"
             onPointerDown={(e) => {
               e.preventDefault()
-              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
               changeDirection("RIGHT")
             }}
             onContextMenu={(e) => e.preventDefault()}
@@ -789,7 +795,7 @@ export function KsSnakeGame({
           type="button"
           onPointerDown={(e) => {
             e.preventDefault()
-            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
             changeDirection("DOWN")
           }}
           onContextMenu={(e) => e.preventDefault()}

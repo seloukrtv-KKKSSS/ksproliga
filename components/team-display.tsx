@@ -1,3 +1,5 @@
+import { SafeImage } from "@/components/safe-image"
+
 interface TeamDisplayProps {
   teamName: string
   teamLogo?: string
@@ -25,9 +27,11 @@ export function TeamDisplay({ teamName, teamLogo, size = "md", showName = true, 
         className={`${sizeClasses[size]} bg-white/70 rounded-[10px] flex items-center justify-center shadow-xs border border-white/80 shrink-0 backdrop-blur-md`}
       >
         {teamLogo ? (
-          <img
+          <SafeImage
             src={teamLogo || "/placeholder.svg"}
             alt={`${teamName} logo`}
+            width={48}
+            height={48}
             className="w-full h-full object-contain"
           />
         ) : (

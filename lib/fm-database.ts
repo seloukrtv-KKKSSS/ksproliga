@@ -10,9 +10,9 @@ import {
   FMYouthProspect,
   FMLeagueStanding,
   FMTournament,
+  FMTournamentBracket,
   FMStaff,
   SpecialAbilityId,
-  PlayerPosition
 } from "./fm-types"
 import { generateStarterSquad, generateYouthProspect, generateTournamentBracket } from "./fm-engine"
 
@@ -57,7 +57,7 @@ export async function fmRegisterUser(
     }
 
     return { user: data }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmRegisterUser error:", err)
     // Fallback for offline / mock resilience
     const mockUser: FMUser = {
@@ -98,7 +98,7 @@ export async function fmLoginUser(
     }
 
     return { user: data }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmLoginUser error:", err)
     return { error: "Помилка зв'язку із сервером авторизації" }
   }
@@ -240,7 +240,7 @@ export async function fmCreateClub(
     }
 
     return { club }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmCreateClub error:", err)
     return { error: "Не вдалося заснувати клуб. Спробуйте ще раз." }
   }
@@ -283,7 +283,7 @@ export async function fmGetClubPlayers(clubId: number): Promise<FMPlayer[]> {
     if (error) throw error
 
     // Map 11x11 properties with fallback
-    return (data || []).map((p: any) => ({
+    return (data || []).map((p: FMPlayer) => ({
       ...p,
       skill: p.skill || (p.overall_rating ? p.overall_rating * 3 : 150),
       talent: p.talent || 3,
@@ -375,7 +375,7 @@ export async function fmLearnPlayerSpecialAbility(
     await supabase.from("fm_clubs").update({ balance: newBalance }).eq("id", clubId)
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmLearnPlayerSpecialAbility error:", err)
     return { success: false, error: "Помилка при вивченні спецуміння" }
   }
@@ -402,7 +402,7 @@ export async function fmRestoreSquadEnergy(
       .eq("id", clubId)
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmRestoreSquadEnergy error:", err)
     return { success: false, error: "Помилка при відновленні сил команди" }
   }
@@ -479,7 +479,7 @@ export async function fmUpgradeCityBuilding(
     const { data: stadium } = await supabase.from("fm_stadiums").select("*").eq("club_id", clubId).single()
     if (!stadium) return { success: false, error: "Дані стадіону не знайдено" }
 
-    const updates: any = { updated_at: new Date().toISOString() }
+    const updates: Partial<FMStadium> & { updated_at: string } = { updated_at: new Date().toISOString() }
 
     if (buildingId === "stadium") updates.capacity = (stadium.capacity || 5000) + 5000
     else if (buildingId === "base") updates.base_level = (stadium.base_level || 1) + 1
@@ -501,7 +501,7 @@ export async function fmUpgradeCityBuilding(
     await supabase.from("fm_clubs").update({ balance: club.balance - cost }).eq("id", clubId)
 
     return { success: true, stadium: updatedStadium }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmUpgradeCityBuilding error:", err)
     return { success: false, error: "Помилка при оновленні споруди" }
   }
@@ -623,7 +623,7 @@ export async function fmCreateTournament(
 
 export async function fmUpdateTournament(
   tournamentId: number,
-  bracket: any,
+  bracket: FMTournamentBracket,
   status: string,
   winnerClubId?: number | null,
   winnerClubName?: string | null
@@ -722,7 +722,7 @@ export async function fmGetTransferMarket(): Promise<FMTransfer[]> {
 
     if (error) return []
 
-    return (data || []).map((t: any) => ({
+    return (data || []).map((t: FMTransfer & { rating?: number }) => ({
       ...t,
       skill: t.skill || (t.rating ? t.rating * 3 : 180),
       talent: t.talent || 3,
@@ -768,7 +768,7 @@ export async function fmPlaceTransferBid(
       .eq("id", transferId)
 
     return { success: !error }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmPlaceTransferBid error:", err)
     return { success: false, error: "Помилка при розміщенні ставки на аукціоні" }
   }
@@ -822,7 +822,7 @@ export async function fmBuyoutTransfer(
       .eq("id", transferId)
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmBuyoutTransfer error:", err)
     return { success: false, error: "Помилка при викупі гравця" }
   }
@@ -879,7 +879,7 @@ export async function fmGetYouthProspects(clubId: number): Promise<FMYouthProspe
 
     if (error) return []
 
-    return (data || []).map((yp: any) => ({
+    return (data || []).map((yp: FMYouthProspect & { rating?: number; potential?: number }) => ({
       ...yp,
       skill: yp.skill || (yp.rating ? yp.rating * 2.5 : 120),
       talent: yp.talent || (yp.potential ? Math.min(6, Math.max(1, Math.round(yp.potential / 16))) : 3),
@@ -968,7 +968,7 @@ export async function fmSignYouthToFirstTeam(
     await supabase.from("fm_youth_prospects").update({ is_signed: true }).eq("id", prospectId)
 
     return { success: true }
-  } catch (err: any) {
+  } catch (err) {
     console.error("fmSignYouthToFirstTeam error:", err)
     return { success: false, error: "Помилка при оформленні контракту" }
   }
@@ -983,6 +983,7 @@ export async function fmGetLeagueStandings(leagueId: number = 1): Promise<FMLeag
     const { data, error } = await supabase
       .from("fm_league_standings")
       .select("*")
+      .eq("league_id", leagueId)
       .order("points", { ascending: false })
       .order("goals_for", { ascending: false })
 

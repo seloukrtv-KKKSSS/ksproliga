@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { InstagramIcon } from "@/components/icons/instagram-icon"
+import { SafeImage } from "@/components/safe-image"
 import type { Product } from "@/lib/supabase"
 
 interface ShopProductCardProps {
@@ -50,10 +51,10 @@ export function ShopProductCard({
 
   // Sync external index if provided
   useEffect(() => {
-    if (currentImageIndex !== activeIndex && currentImageIndex >= 0 && currentImageIndex < totalImages) {
-      setActiveIndex(currentImageIndex)
-    }
-  }, [currentImageIndex, totalImages])
+    if (currentImageIndex === activeIndex || currentImageIndex < 0 || currentImageIndex >= totalImages) return
+    const updateId = window.setTimeout(() => setActiveIndex(currentImageIndex), 0)
+    return () => window.clearTimeout(updateId)
+  }, [activeIndex, currentImageIndex, totalImages])
 
   const goToSlide = useCallback(
     (newIndex: number) => {
@@ -249,12 +250,13 @@ export function ShopProductCard({
           }}
         >
           {/* Main Current Slide Image */}
-          <img
+          <SafeImage
             src={images[activeIndex]}
             alt={product.title}
-            className="w-full h-full object-cover pointer-events-none"
+            fill
+            sizes="(max-width: 640px) 100vw, 50vw"
+            className="object-cover pointer-events-none"
             loading="lazy"
-            decoding="async"
             draggable={false}
           />
         </div>
@@ -269,10 +271,12 @@ export function ShopProductCard({
               transform: `translateX(calc(-100% + ${dragOffset}px))`,
             }}
           >
-            <img
+            <SafeImage
               src={images[activeIndex > 0 ? activeIndex - 1 : totalImages - 1]}
               alt=""
-              className="w-full h-full object-cover"
+              fill
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="object-cover"
               draggable={false}
             />
           </div>
@@ -288,10 +292,12 @@ export function ShopProductCard({
               transform: `translateX(calc(100% + ${dragOffset}px))`,
             }}
           >
-            <img
+            <SafeImage
               src={images[activeIndex < totalImages - 1 ? activeIndex + 1 : 0]}
               alt=""
-              className="w-full h-full object-cover"
+              fill
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="object-cover"
               draggable={false}
             />
           </div>
@@ -497,16 +503,18 @@ export function ShopProductCard({
                   e.stopPropagation()
                   goToSlide(idx)
                 }}
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg overflow-hidden shrink-0 transition-all cursor-pointer border-2 ${
+                className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-lg overflow-hidden shrink-0 transition-all cursor-pointer border-2 ${
                   activeIndex === idx
                     ? "border-blue-500 ring-2 ring-blue-400/30 opacity-100 scale-105 shadow-xs"
                     : "border-transparent opacity-50 hover:opacity-85"
                 }`}
               >
-                <img
+                <SafeImage
                   src={img}
                   alt=""
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="44px"
+                  className="object-cover"
                   loading="lazy"
                   draggable={false}
                 />

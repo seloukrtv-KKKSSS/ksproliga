@@ -1,39 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { FMUser, FMClub, FMPlayer } from "@/lib/fm-types"
+import type { FMUser, FMClub } from "@/lib/fm-types"
 import { fmRegisterUser, fmLoginUser, fmCreateClub, fmGetClubByUserId } from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
 import {
   Shield,
   Trophy,
-  Crown,
-  Star,
-  Anchor,
-  Flame,
-  Award,
   Sparkles,
   ArrowRight,
-  CheckCircle2,
   Lock,
   Mail,
   User,
-  Zap
 } from "lucide-react"
 
 interface FMOnboardingProps {
   onComplete: (user: FMUser, club: FMClub) => void
 }
-
-const BADGE_ICONS = [
-  { id: "shield", label: "Щит", icon: Shield },
-  { id: "trophy", label: "Кубок", icon: Trophy },
-  { id: "crown", label: "Корона", icon: Crown },
-  { id: "star", label: "Зірка", icon: Star },
-  { id: "anchor", label: "Якір", icon: Anchor },
-  { id: "flame", label: "Полум'я", icon: Flame },
-  { id: "award", label: "Орден", icon: Award }
-]
 
 const COLOR_PRESETS = [
   { primary: "#0F5E10", secondary: "#F59E0B", label: "Смарагд & Золото" },
@@ -44,6 +27,9 @@ const COLOR_PRESETS = [
   { primary: "#0284C7", secondary: "#FFFFFF", label: "Морський Блакит" },
   { primary: "#16A34A", secondary: "#FBBF24", label: "Поліський Ліс" }
 ]
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
 
 export function FMOnboarding({ onComplete }: FMOnboardingProps) {
   const [mode, setMode] = useState<"login" | "register" | "create_club">("register")
@@ -59,7 +45,7 @@ export function FMOnboarding({ onComplete }: FMOnboardingProps) {
   // Club creation fields
   const [clubName, setClubName] = useState("")
   const [city, setCity] = useState("Київ")
-  const [selectedBadge, setSelectedBadge] = useState("shield")
+  const selectedBadge = "shield"
   const [selectedColors, setSelectedColors] = useState(COLOR_PRESETS[0])
 
   // Pack opening animation state
@@ -107,8 +93,8 @@ export function FMOnboarding({ onComplete }: FMOnboardingProps) {
           setMode("create_club")
         }
       }
-    } catch (err: any) {
-      setError(err.message || "Помилка запиту")
+    } catch (error) {
+      setError(getErrorMessage(error, "Помилка запиту"))
     } finally {
       setLoading(false)
     }
@@ -146,8 +132,8 @@ export function FMOnboarding({ onComplete }: FMOnboardingProps) {
       fmAudio.playLevelUp()
       setNewClubData(res.club)
       setPackRevealed(true)
-    } catch (err: any) {
-      setError(err.message || "Помилка створення клубу")
+    } catch (error) {
+      setError(getErrorMessage(error, "Помилка створення клубу"))
     } finally {
       setLoading(false)
     }

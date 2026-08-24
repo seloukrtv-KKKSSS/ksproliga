@@ -1,15 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import {
+import type {
   FMClub,
   FMPlayer,
   FMTactics,
   FMStadium,
-  FMMatch,
   FMMatchEvent
 } from "@/lib/fm-types"
-import { simulateFullMatch, calculateTeamPower, SimulationResult } from "@/lib/fm-engine"
+import { simulateFullMatch, calculateTeamPower, type SimulationResult } from "@/lib/fm-engine"
 import {
   fmGetOpponentClubs,
   fmSaveCompletedMatch,
@@ -19,17 +18,7 @@ import {
 import { fmAudio } from "@/lib/fm-audio"
 import {
   Play,
-  Zap,
-  SkipForward,
-  Pause,
-  Trophy,
-  Shield,
   Clock,
-  Award,
-  DollarSign,
-  Activity,
-  ArrowRight,
-  Flame
 } from "lucide-react"
 
 interface FMMatchCenterProps {

@@ -1,10 +1,6 @@
 import {
   PlayerPosition,
   FormationType,
-  TeamMentality,
-  PassingStyle,
-  PressingIntensity,
-  TacklingAggression,
   FMPlayer,
   FMTactics,
   FMStadium,
@@ -15,7 +11,6 @@ import {
   SpecialAbilityDef,
   FMTournamentBracket,
   FMTournamentMatch,
-  FMStaff,
   FMYouthProspect
 } from "./fm-types"
 
@@ -913,7 +908,6 @@ export function getCityBuildings(stadium: FMStadium | null): CityBuildingInfo[] 
   const s = stadium || ({} as FMStadium)
 
   const capacity = s.capacity || 5000
-  const pitchLvl = s.pitch_level || 1
   const baseLvl = s.base_level || 1
   const fitLvl = s.fitness_level || 1
   const medLvl = s.medical_level || 1

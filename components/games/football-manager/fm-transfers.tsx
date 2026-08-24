@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FMClub, FMPlayer, FMTransfer, PlayerPosition } from "@/lib/fm-types"
+import { useState, useEffect, useCallback } from "react"
+import type { FMClub, FMTransfer } from "@/lib/fm-types"
 import { getPositionCategory, SPECIAL_ABILITIES_MAP } from "@/lib/fm-engine"
 import {
   fmGetTransferMarket,
@@ -12,48 +12,39 @@ import { fmAudio } from "@/lib/fm-audio"
 import {
   ShoppingBag,
   Gavel,
-  Zap,
   Filter,
-  Star,
   Clock,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle
 } from "lucide-react"
 
 interface FMTransfersProps {
   club: FMClub
-  players: FMPlayer[]
   onPurchased: () => void
 }
 
 export function FMTransferMarket({
   club,
-  players,
   onPurchased
 }: FMTransfersProps) {
   const [transfers, setTransfers] = useState<FMTransfer[]>([])
   const [loading, setLoading] = useState(true)
   const [positionFilter, setPositionFilter] = useState<string>("ALL")
   const [notification, setNotification] = useState<string | null>(null)
-  const [bidAmountInput, setBidAmountInput] = useState<Record<number, string>>({})
 
-  useEffect(() => {
-    loadMarket()
-  }, [])
-
-  const loadMarket = async () => {
+  const loadMarket = useCallback(async () => {
     setLoading(true)
     const list = await fmGetTransferMarket()
     setTransfers(list)
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadMarket(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadMarket])
 
   const handlePlaceBid = async (t: FMTransfer) => {
     fmAudio.playClick()
-    const customBid = parseInt(bidAmountInput[t.id])
-    const minBid = (t.current_bid || t.price || 50000) + 5000
-    const bidValue = customBid && customBid >= minBid ? customBid : minBid
+    const bidValue = (t.current_bid || t.price || 50000) + 5000
 
     if (club.balance < bidValue) {
       alert("Недостатньо коштів у бюджеті для такої ставки!")

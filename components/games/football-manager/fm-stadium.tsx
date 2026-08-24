@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FMClub, FMStadium, FMStaff } from "@/lib/fm-types"
-import { getCityBuildings, CityBuildingInfo } from "@/lib/fm-engine"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import type { FMClub, FMStadium, FMStaff } from "@/lib/fm-types"
+import { getCityBuildings, type CityBuildingInfo } from "@/lib/fm-engine"
 import {
   fmUpgradeCityBuilding,
   fmSetTicketPrice,
@@ -14,13 +14,7 @@ import { fmAudio } from "@/lib/fm-audio"
 import {
   Building2,
   Users,
-  TrendingUp,
-  DollarSign,
-  CheckCircle2,
-  Sparkles,
   ArrowUpRight,
-  Shield,
-  UserCheck,
   UserX
 } from "lucide-react"
 
@@ -35,24 +29,24 @@ export function FMStadiumInfrastructure({
   stadium,
   onUpdated
 }: FMStadiumProps) {
-  const [buildings, setBuildings] = useState<CityBuildingInfo[]>([])
+  const buildings = useMemo(() => getCityBuildings(stadium), [stadium])
   const [ticketPrice, setTicketPrice] = useState<number>(stadium?.ticket_price || 20)
   const [staffList, setStaffList] = useState<FMStaff[]>([])
   const [loading, setLoading] = useState(false)
   const [notification, setNotification] = useState<string | null>(null)
 
-  useEffect(() => {
-    setBuildings(getCityBuildings(stadium))
-    if (stadium) {
-      setTicketPrice(stadium.ticket_price || 20)
-    }
-    loadStaff()
-  }, [stadium])
-
-  const loadStaff = async () => {
+  const loadStaff = useCallback(async () => {
     const staff = await fmGetStaff(club.id)
     setStaffList(staff)
-  }
+  }, [club.id])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => {
+      if (stadium) setTicketPrice(stadium.ticket_price || 20)
+      void loadStaff()
+    }, 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadStaff, stadium])
 
   const handleUpgradeBuilding = async (b: CityBuildingInfo) => {
     fmAudio.playClick()

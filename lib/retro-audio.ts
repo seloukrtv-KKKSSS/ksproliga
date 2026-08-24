@@ -1,5 +1,9 @@
 // Web Audio API 8-Bit Retro Sound Synthesizer (0 bytes external files)
 
+type AudioWindow = Window & typeof globalThis & {
+  webkitAudioContext?: typeof AudioContext
+}
+
 class RetroAudioEngine {
   private ctx: AudioContext | null = null
   private _isMuted = false
@@ -14,7 +18,7 @@ class RetroAudioEngine {
   private initCtx() {
     if (typeof window === "undefined") return null
     if (!this.ctx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      const AudioContextClass = window.AudioContext || (window as AudioWindow).webkitAudioContext
       if (AudioContextClass) {
         this.ctx = new AudioContextClass()
       }

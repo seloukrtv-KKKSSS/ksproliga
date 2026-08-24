@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   FMClub,
   FMPlayer,
   FMTactics,
   FMStadium,
   FMTournament,
-  FMTournamentBracket,
   FMTournamentMatch,
   FMMatch
 } from "@/lib/fm-types"
@@ -21,23 +20,14 @@ import {
 } from "@/lib/fm-database"
 import {
   simulateFullMatch,
-  calculateTeamPower,
   generateStarterSquad,
-  SPECIAL_ABILITIES_MAP
 } from "@/lib/fm-engine"
 import { fmAudio } from "@/lib/fm-audio"
 import {
   Trophy,
   Play,
-  Zap,
-  Shield,
-  Award,
-  Clock,
-  Sparkles,
-  ChevronRight,
   Flame,
   CheckCircle2,
-  AlertCircle
 } from "lucide-react"
 
 interface FMTournamentsViewProps {
@@ -55,11 +45,9 @@ export function FMTournamentsView({
   stadium,
   onClubUpdated
 }: FMTournamentsViewProps) {
-  const [tournaments, setTournaments] = useState<FMTournament[]>([])
   const [activeTournament, setActiveTournament] = useState<FMTournament | null>(null)
   const [loading, setLoading] = useState(true)
   const [simulatingMatch, setSimulatingMatch] = useState<FMMatch | null>(null)
-  const [simSpeed, setSimSpeed] = useState<number>(1)
   const [simMinute, setSimMinute] = useState<number>(0)
   const [postMatchReward, setPostMatchReward] = useState<{
     revenue: number
@@ -68,19 +56,19 @@ export function FMTournamentsView({
     isFinalWin?: boolean
   } | null>(null)
 
-  useEffect(() => {
-    loadTournaments()
-  }, [])
-
-  const loadTournaments = async () => {
+  const loadTournaments = useCallback(async () => {
     setLoading(true)
     const list = await fmGetActiveTournaments()
-    setTournaments(list)
     if (list.length > 0) {
       setActiveTournament(list[0])
     }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadTournaments(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadTournaments])
 
   const handleCreateTournament = async (name: string, entryFee: number, prizePool: number) => {
     fmAudio.playClick()

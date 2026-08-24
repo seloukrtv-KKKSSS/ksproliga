@@ -19,6 +19,16 @@ export type PlayerPosition =
   | "RW"
   | "ST"
 
+export type FMSection =
+  | "dashboard"
+  | "squad"
+  | "tournaments"
+  | "training"
+  | "city"
+  | "transfers"
+  | "youth"
+  | "league"
+
 export type SpecialAbilityId =
   | "pass"
   | "long_shot"

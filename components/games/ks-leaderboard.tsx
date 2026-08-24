@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Crown, Flame, RefreshCw, Sparkles, Trophy } from "lucide-react"
 import { getGameLeaderboard } from "@/lib/database"
 import type { GameScore } from "@/lib/supabase"
@@ -24,14 +24,11 @@ export function KsLeaderboard({
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    setActiveGame(initialGameType)
+    const updateId = window.setTimeout(() => setActiveGame(initialGameType), 0)
+    return () => window.clearTimeout(updateId)
   }, [initialGameType])
 
-  useEffect(() => {
-    loadLeaderboard(activeGame)
-  }, [activeGame, lastSubmittedScoreId])
-
-  const loadLeaderboard = async (gameType: ArcadeGame, isManual = false) => {
+  const loadLeaderboard = useCallback(async (gameType: ArcadeGame, isManual = false) => {
     if (isManual) setRefreshing(true)
     else setLoading(true)
 
@@ -43,7 +40,12 @@ export function KsLeaderboard({
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadLeaderboard(activeGame), 0)
+    return () => window.clearTimeout(loadId)
+  }, [activeGame, lastSubmittedScoreId, loadLeaderboard])
 
   const getMedalBadge = (rank: number) => {
     if (rank === 1) {

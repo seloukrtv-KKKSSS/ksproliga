@@ -83,12 +83,15 @@ export function SportsOverview({
 
   useEffect(() => {
     const storedTeam = Number.parseInt(localStorage.getItem(FAVORITE_KEY) || "", 10)
-    setFavoriteTeamId(Number.isNaN(storedTeam) ? null : storedTeam)
-    setAlertsEnabled(
-      localStorage.getItem(ALERTS_KEY) === "1" &&
-      "Notification" in window &&
-      Notification.permission === "granted",
-    )
+    const updateId = window.setTimeout(() => {
+      setFavoriteTeamId(Number.isNaN(storedTeam) ? null : storedTeam)
+      setAlertsEnabled(
+        localStorage.getItem(ALERTS_KEY) === "1" &&
+        "Notification" in window &&
+        Notification.permission === "granted",
+      )
+    }, 0)
+    return () => window.clearTimeout(updateId)
   }, [])
 
   const saveFavorite = (value: string) => {

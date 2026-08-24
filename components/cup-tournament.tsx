@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, AlertTriangle } from "lucide-react"
+import { SafeImage } from "@/components/safe-image"
 import { getCupMatches, getTeams, formatTime } from "@/lib/database"
 import type { Match, Team } from "@/lib/supabase"
 
@@ -18,11 +19,7 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadCupData()
-  }, [championshipId])
-
-  const loadCupData = async () => {
+  const loadCupData = useCallback(async () => {
     try {
       setLoading(true)
       const [teamsData, ...stageMatches] = await Promise.all([
@@ -43,7 +40,12 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [championshipId])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadCupData(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadCupData])
 
   const getTeamLogo = (teamName: string): string => {
     if (!teamName) return "/placeholder.svg?height=32&width=32"
@@ -95,12 +97,13 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                         {/* Home Team */}
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                            <img
+                            <SafeImage
                               src={getTeamLogo(match.home_team)}
                               alt="Home Team"
+                              width={28}
+                              height={28}
                               className="w-full h-full object-contain"
                               loading="lazy"
-                              decoding="async"
                             />
                           </div>
                           <span
@@ -113,12 +116,13 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                         {/* Away Team */}
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                            <img
+                            <SafeImage
                               src={getTeamLogo(match.away_team)}
                               alt="Away Team"
+                              width={28}
+                              height={28}
                               className="w-full h-full object-contain"
                               loading="lazy"
-                              decoding="async"
                             />
                           </div>
                           <span

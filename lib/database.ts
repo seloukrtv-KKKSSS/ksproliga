@@ -4,6 +4,17 @@ import { buildLeagueTable, sortChampionships } from "./league-utils"
 export { buildLeagueTable, formatTime, getMatchStatusInfo, sortChampionships } from "./league-utils"
 export type { LeagueStanding } from "./league-utils"
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null
+
+const isRosterColumnError = (error: unknown) => {
+  if (!isRecord(error)) return false
+  return (
+    (typeof error.message === "string" && error.message.includes("roster")) ||
+    error.code === "PGRST204"
+  )
+}
+
 
 // Mock data for demo purposes
 const mockChampionships: Championship[] = [
@@ -515,8 +526,8 @@ export async function addTeam(team: Omit<Team, "id" | "created_at">): Promise<Te
     const { data, error } = await supabase.from("teams").insert([team]).select().single()
     if (error) throw error
     return data
-  } catch (error: any) {
-    if (error?.message?.includes("roster") || error?.code === "PGRST204") {
+  } catch (error) {
+    if (isRosterColumnError(error)) {
       const { roster, ...cleanTeam } = team
       const { data, error: err2 } = await supabase.from("teams").insert([cleanTeam]).select().single()
       if (err2) throw err2
@@ -622,8 +633,8 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
       const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
       if (error) throw error
       updatedTeam = data
-    } catch (error: any) {
-      if (error?.message?.includes("roster") || error?.code === "PGRST204") {
+    } catch (error) {
+      if (isRosterColumnError(error)) {
         const { roster, ...cleanUpdates } = updates
         const { data, error: err2 } = await supabase.from("teams").update(cleanUpdates).eq("id", id).select().single()
         if (err2) throw err2
@@ -1442,7 +1453,8 @@ export async function recordUserAnalytics(sessionId: string, activeTab: string, 
   try {
     let userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""
     if (typeof window !== "undefined") {
-      const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true
+      const standaloneNavigator = navigator as Navigator & { standalone?: boolean }
+      const isStandalone = window.matchMedia("(display-mode: standalone)").matches || standaloneNavigator.standalone === true
       if (isStandalone) {
         userAgent = `${userAgent} (PWA Standalone App)`
       }
@@ -1505,6 +1517,12 @@ export interface AnalyticsSummary {
   tabBreakdown: { tab: string; views: number; totalTime: number }[]
 }
 
+interface AnalyticsRow {
+  session_id: string
+  active_tab: string
+  duration_seconds: number | null
+}
+
 export async function getAnalyticsSummary(period: "24h" | "7d" | "30d" = "24h"): Promise<AnalyticsSummary> {
   const empty: AnalyticsSummary = {
     totalPageViews: 0,
@@ -1548,21 +1566,21 @@ export async function getAnalyticsSummary(period: "24h" | "7d" | "30d" = "24h"):
       .limit(1000)
 
     if (rowsErr) throw rowsErr
-    const fetchedRows = rows || []
+    const fetchedRows = (rows || []) as AnalyticsRow[]
 
     // 3. Compute unique sessions from fetched sample
-    const sessionSet = new Set(fetchedRows.map((r: any) => r.session_id))
+    const sessionSet = new Set(fetchedRows.map((row) => row.session_id))
 
     // 4. Compute avg duration from fetched sample
-    const totalDuration = fetchedRows.reduce((acc: number, r: any) => acc + (r.duration_seconds || 0), 0)
+    const totalDuration = fetchedRows.reduce((acc, row) => acc + (row.duration_seconds || 0), 0)
     const avgDuration = fetchedRows.length > 0 ? Math.round(totalDuration / fetchedRows.length) : 0
 
     // 5. Compute tab breakdown from fetched sample, then scale to total
     const tabMap: { [key: string]: { views: number; totalTime: number } } = {}
-    fetchedRows.forEach((r: any) => {
-      if (!tabMap[r.active_tab]) tabMap[r.active_tab] = { views: 0, totalTime: 0 }
-      tabMap[r.active_tab].views += 1
-      tabMap[r.active_tab].totalTime += r.duration_seconds || 0
+    fetchedRows.forEach((row) => {
+      if (!tabMap[row.active_tab]) tabMap[row.active_tab] = { views: 0, totalTime: 0 }
+      tabMap[row.active_tab].views += 1
+      tabMap[row.active_tab].totalTime += row.duration_seconds || 0
     })
 
     // Scale up tab views proportionally if total > fetched
@@ -1626,7 +1644,7 @@ export async function logOrganizerAction(
   organizerName: string,
   actionType: string,
   description: string,
-  details?: any
+  details?: unknown
 ): Promise<void> {
   if (shouldUseMockData()) return
   try {

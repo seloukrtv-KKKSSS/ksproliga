@@ -1,5 +1,9 @@
 // Self-contained Web Audio API Sound Synthesizer for KSLIGA Football Manager
 
+type AudioWindow = Window & typeof globalThis & {
+  webkitAudioContext?: typeof AudioContext
+}
+
 class FMAudioEngine {
   private ctx: AudioContext | null = null
   private _isMuted = false
@@ -14,7 +18,7 @@ class FMAudioEngine {
   private initCtx() {
     if (typeof window === "undefined") return null
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      const AudioCtx = window.AudioContext || (window as AudioWindow).webkitAudioContext
       if (AudioCtx) {
         this.ctx = new AudioCtx()
       }

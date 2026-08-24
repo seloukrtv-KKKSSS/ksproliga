@@ -41,19 +41,19 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
   const [tempName, setTempName] = useState("")
   const [isMuted, setIsMuted] = useState(false)
   const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<number | undefined>(undefined)
-  const [nicknameReady, setNicknameReady] = useState(false)
   const [allLeagueTeams, setAllLeagueTeams] = useState<Team[]>(teams || [])
 
   useEffect(() => {
     const savedName = localStorage.getItem("ks_player_name")
-    if (savedName) {
-      setPlayerName(savedName)
-      setTempName(savedName)
-      setNicknameReady(true)
-    } else {
-      setIsEditingName(true)
-    }
-    setIsMuted(retroAudio.isMuted)
+    const initializeId = window.setTimeout(() => {
+      if (savedName) {
+        setPlayerName(savedName)
+        setTempName(savedName)
+      } else {
+        setIsEditingName(true)
+      }
+      setIsMuted(retroAudio.isMuted)
+    }, 0)
 
     // Load ALL teams across all leagues and championships in database
     getTeams().then((data) => {
@@ -61,6 +61,8 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
         setAllLeagueTeams(data)
       }
     }).catch(console.error)
+
+    return () => window.clearTimeout(initializeId)
   }, [])
 
   const handleSaveName = (e?: React.FormEvent) => {
@@ -70,7 +72,6 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       setPlayerName(clean)
       localStorage.setItem("ks_player_name", clean)
       setIsEditingName(false)
-      setNicknameReady(true)
     }
   }
 

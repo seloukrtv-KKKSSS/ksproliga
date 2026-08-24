@@ -43,11 +43,11 @@ export function KsDinoRunner({
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [scoreSubmitted, setScoreSubmitted] = useState(false)
   const [localPlayerName, setLocalPlayerName] = useState(playerName || "")
 
   // Game Engine Refs
   const reqIdRef = useRef<number | null>(null)
+  const submittingRef = useRef(false)
   const gameStateRef = useRef<"idle" | "playing" | "gameover">("idle")
   const scoreRef = useRef(0)
   const highScoreRef = useRef(0)
@@ -93,19 +93,21 @@ export function KsDinoRunner({
   }, [gameState])
 
   useEffect(() => {
-    setLocalPlayerName(playerName)
     localPlayerNameRef.current = playerName || ""
+    const updateId = window.setTimeout(() => setLocalPlayerName(playerName), 0)
+    return () => window.clearTimeout(updateId)
   }, [playerName])
 
   useEffect(() => {
-    setIsMuted(retroAudio.isMuted)
     const savedHi = localStorage.getItem("ks_dino_highscore")
-    if (savedHi) {
-      const parsed = parseInt(savedHi, 10) || 0
+    const parsed = savedHi ? parseInt(savedHi, 10) || 0 : 0
+    highScoreRef.current = parsed
+    lastSavedScoreRef.current = parsed
+    const initializeId = window.setTimeout(() => {
+      setIsMuted(retroAudio.isMuted)
       setHighScore(parsed)
-      highScoreRef.current = parsed
-      lastSavedScoreRef.current = parsed
-    }
+    }, 0)
+    return () => window.clearTimeout(initializeId)
   }, [])
 
   // Preload team logos for canvas rendering
@@ -133,7 +135,7 @@ export function KsDinoRunner({
         else if (type === "slide") navigator.vibrate(20)
         else if (type === "bonus") navigator.vibrate([30, 40, 30])
         else if (type === "gameover") navigator.vibrate([60, 40, 80])
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -162,6 +164,26 @@ export function KsDinoRunner({
     if (ducking && playerYRef.current > 0) {
       playerVYRef.current = -16 // Fast fall / dive
     }
+  }, [])
+
+  // Start / Restart Game
+  const startGame = useCallback(() => {
+    scoreRef.current = 0
+    startBaselineScoreRef.current = highScoreRef.current
+    speedRef.current = 4.2
+    playerYRef.current = 0
+    playerVYRef.current = 0
+    isJumpingRef.current = false
+    isDuckingRef.current = false
+    obstaclesRef.current = []
+    nextSpawnDistanceRef.current = 100
+    groundOffsetRef.current = 0
+    frameCountRef.current = 0
+
+    setScore(0)
+    setIsNewRecord(false)
+    setGameState("playing")
+    gameStateRef.current = "playing"
   }, [])
 
   // Keyboard Event Handlers
@@ -195,47 +217,27 @@ export function KsDinoRunner({
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
     }
-  }, [doJump, setDuck])
-
-  // Start / Restart Game
-  const startGame = () => {
-    scoreRef.current = 0
-    startBaselineScoreRef.current = highScoreRef.current // Baseline score for true new record detection
-    speedRef.current = 4.2
-    playerYRef.current = 0
-    playerVYRef.current = 0
-    isJumpingRef.current = false
-    isDuckingRef.current = false
-    obstaclesRef.current = []
-    nextSpawnDistanceRef.current = 100
-    groundOffsetRef.current = 0
-    frameCountRef.current = 0
-
-    setScore(0)
-    setIsNewRecord(false)
-    setScoreSubmitted(false)
-    setGameState("playing")
-    gameStateRef.current = "playing"
-  }
+  }, [doJump, setDuck, startGame])
 
   // Optimized Auto-save High Score
-  const autoSaveScore = async (name: string, finalScore: number) => {
-    if (finalScore <= 0 || submitting) return
+  const autoSaveScore = useCallback(async (name: string, finalScore: number) => {
+    if (finalScore <= 0 || submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     try {
       const saved = await saveGameScore(name, "dino", finalScore)
       if (saved) {
         lastSavedScoreRef.current = Math.max(lastSavedScoreRef.current, saved.score)
-        setScoreSubmitted(true)
         onScoreSubmitted?.(saved.id)
         localStorage.setItem("ks_player_name", name)
       }
     } catch (err) {
       console.error("Error submitting score:", err)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
-  }
+  }, [onScoreSubmitted])
 
   // Draw Pixel Footballer in Black Jersey with "KS TV" Flag
   const drawPlayer = (
@@ -836,7 +838,7 @@ export function KsDinoRunner({
       if (reqIdRef.current) cancelAnimationFrame(reqIdRef.current)
       window.removeEventListener("resize", resizeCanvas)
     }
-  }, [teams, isFullscreen])
+  }, [autoSaveScore, teams, isFullscreen])
 
   return (
     <div className="space-y-4 w-full max-w-3xl mx-auto flex flex-col items-center">
@@ -1055,7 +1057,7 @@ export function KsDinoRunner({
           type="button"
           onPointerDown={(e) => {
             e.preventDefault()
-            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
             doJump()
           }}
           onContextMenu={(e) => e.preventDefault()}
@@ -1070,7 +1072,7 @@ export function KsDinoRunner({
           type="button"
           onPointerDown={(e) => {
             e.preventDefault()
-            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch (_) {}
+            try { e.currentTarget.releasePointerCapture?.(e.pointerId) } catch {}
             setDuck(true)
           }}
           onPointerUp={(e) => {

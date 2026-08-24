@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FMClub, FMStadium, FMYouthProspect } from "@/lib/fm-types"
+import { useState, useEffect, useCallback } from "react"
+import type { FMClub, FMStadium, FMYouthProspect } from "@/lib/fm-types"
 import { SPECIAL_ABILITIES_MAP } from "@/lib/fm-engine"
 import {
   fmGetYouthProspects,
@@ -11,12 +11,8 @@ import {
 import { fmAudio } from "@/lib/fm-audio"
 import {
   GraduationCap,
-  Sparkles,
-  Star,
   UserPlus,
   Compass,
-  CheckCircle2,
-  AlertCircle
 } from "lucide-react"
 
 interface FMYouthProps {
@@ -33,16 +29,17 @@ export function FMYouthAcademy({ club, stadium, onSigned }: FMYouthProps) {
 
   const academyLevel = stadium?.youth_academy_level || 1
 
-  useEffect(() => {
-    loadProspects()
-  }, [])
-
-  const loadProspects = async () => {
+  const loadProspects = useCallback(async () => {
     setLoading(true)
     const list = await fmGetYouthProspects(club.id)
     setProspects(list)
     setLoading(false)
-  }
+  }, [club.id])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadProspects(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadProspects])
 
   const handleScoutNew = async () => {
     fmAudio.playClick()

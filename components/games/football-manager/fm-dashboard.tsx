@@ -1,19 +1,16 @@
 "use client"
 
-import { FMClub, FMPlayer, FMStadium } from "@/lib/fm-types"
+import type { FMClub, FMPlayer, FMSection, FMStadium } from "@/lib/fm-types"
 import { calculateTeamPower } from "@/lib/fm-engine"
 import {
   Trophy,
   Shield,
   Zap,
-  TrendingUp,
   Dumbbell,
   Building2,
   ShoppingBag,
   GraduationCap,
   Sparkles,
-  Play,
-  Award,
   Users
 } from "lucide-react"
 
@@ -21,7 +18,7 @@ interface FMDashboardProps {
   club: FMClub
   players: FMPlayer[]
   stadium: FMStadium | null
-  onNavigate: (tab: any) => void
+  onNavigate: (tab: FMSection) => void
 }
 
 export function FMDashboard({

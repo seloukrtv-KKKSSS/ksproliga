@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
+import { SafeImage } from "@/components/safe-image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +27,6 @@ import {
   ChevronUp,
   ChevronDown,
   UserCheck,
-  ShieldCheck,
   Check,
   ShoppingBag,
   BarChart3,
@@ -36,10 +36,8 @@ import {
   UserPlus,
   Hourglass,
   Search,
-  Filter,
   Tv,
   ExternalLink,
-  Copy,
   RotateCw,
 } from "lucide-react"
 import {
@@ -106,7 +104,7 @@ const getErrorMessage = (error: unknown): string => {
   if (!error) return "Невідома помилка"
   if (error instanceof Error) return error.message
   if (typeof error === "object" && error !== null) {
-    const errObj = error as Record<string, any>
+    const errObj = error as Record<string, unknown>
     if (typeof errObj.message === "string" && errObj.message.trim() !== "") {
       return errObj.message
     }
@@ -186,12 +184,7 @@ export function AdminPanel({
   )
 
   const [activeAdminTab, setActiveAdminTab] = useState<string>("championships")
-
-  useEffect(() => {
-    if (hasNoChampionships) {
-      setActiveAdminTab("shop")
-    }
-  }, [hasNoChampionships])
+  const visibleAdminTab = hasNoChampionships ? "shop" : activeAdminTab
   const [editingOrganizer, setEditingOrganizer] = useState<Organizer | null>(null)
   const [organizerNotice, setOrganizerNotice] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
@@ -310,14 +303,10 @@ export function AdminPanel({
   }, [])
 
   useEffect(() => {
-    loadData()
-  }, [currentChampionshipId, isMainAdmin, JSON.stringify(allowedChampionshipIds)])
-
-  useEffect(() => {
     getAnalyticsSummary(analyticsPeriod).then(setAnalyticsSummary)
   }, [analyticsPeriod])
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const championshipsData = await getChampionships()
       const filteredChampionships = isMainAdmin || allowedChampionshipIds === "all"
@@ -326,10 +315,9 @@ export function AdminPanel({
 
       setChampionships(filteredChampionships)
 
-      const [organizersData, productsData, summaryData, logsData] = await Promise.all([
+      const [organizersData, productsData, logsData] = await Promise.all([
         isMainAdmin ? getOrganizers() : Promise.resolve([]),
         getProducts(),
-        getAnalyticsSummary(analyticsPeriod),
         getOrganizerLogs(),
       ])
 
@@ -337,7 +325,6 @@ export function AdminPanel({
         setOrganizers(organizersData)
       }
       setProducts(productsData)
-      setAnalyticsSummary(summaryData)
       setOrganizerLogs(logsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
@@ -360,7 +347,12 @@ export function AdminPanel({
     } catch (error) {
       console.error("Error loading data:", error)
     }
-  }
+  }, [allowedChampionshipIds, currentChampionshipId, isMainAdmin])
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => void loadData(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [loadData])
 
   // Championship handlers
   const handleChampionshipSubmit = async (e: React.FormEvent) => {
@@ -1213,7 +1205,7 @@ export function AdminPanel({
         </div>
       </div>
 
-      <Tabs value={activeAdminTab} onValueChange={setActiveAdminTab} className="w-full">
+      <Tabs value={visibleAdminTab} onValueChange={setActiveAdminTab} className="w-full">
         {/* Scrollable Mobile Tabs List */}
         <div className="overflow-x-auto scrollbar-none -mx-1 px-1 mb-5">
           <TabsList className="ios-segmented-control flex items-center gap-1.5 p-1.5 w-max bg-slate-100/90 border border-slate-200/80 rounded-2xl shadow-xs">
@@ -1569,10 +1561,12 @@ export function AdminPanel({
                     >
                       <div className="flex items-center gap-4 flex-1">
                         <div className="w-10 h-10 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center p-1 shrink-0">
-                          <img
+                          <SafeImage
                             loading="lazy"
                             src={team.logo || "/placeholder.svg?height=32&width=32"}
                             alt={team.name}
+                            width={40}
+                            height={40}
                             className="w-full h-full object-contain"
                           />
                         </div>
@@ -3676,10 +3670,12 @@ export function AdminPanel({
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="w-16 h-16 rounded-lg bg-slate-100 border border-slate-200 shrink-0 overflow-hidden relative">
-                      <img
+                      <SafeImage
                         loading="lazy"
                         src={prod.images && prod.images.length > 0 ? prod.images[0] : "/placeholder.svg"}
                         alt={prod.title}
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover"
                       />
                     </div>
