@@ -35,6 +35,7 @@ import {
   Mail,
   KeyRound,
   Tv,
+  House,
 } from "lucide-react"
 import {
   buildLeagueTable,
@@ -97,7 +98,7 @@ export default function KSLigaSite() {
   const [matchGoals, setMatchGoals] = useState<{ [key: number]: MatchGoal[] }>({})
   const [matchCards, setMatchCards] = useState<{ [key: number]: MatchCard[] }>({})
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<string>("table")
+  const [activeTab, setActiveTab] = useState<string>("overview")
   const [loading, setLoading] = useState(true)
 
   const [currentChampionshipId, setCurrentChampionshipId] = useState<number | null>(null)
@@ -400,7 +401,7 @@ export default function KSLigaSite() {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
     const requestedSection = params.get("section")
-    const validSections = new Set(["table", "cup", "calendar", "results", "scorers", "lion", "shop", "games", "admin"])
+    const validSections = new Set(["overview", "table", "cup", "calendar", "results", "scorers", "lion", "shop", "games", "admin"])
     if (params.get("admin") === "1") setActiveTab("admin")
     else if (requestedSection && validSections.has(requestedSection)) setActiveTab(requestedSection)
   }, [])
@@ -408,7 +409,8 @@ export default function KSLigaSite() {
   useEffect(() => {
     if (typeof window === "undefined") return
     const url = new URL(window.location.href)
-    url.searchParams.set("section", activeTab)
+    if (activeTab === "overview") url.searchParams.delete("section")
+    else url.searchParams.set("section", activeTab)
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`)
   }, [activeTab])
 
@@ -746,6 +748,7 @@ export default function KSLigaSite() {
   }
 
   const mobileNavigation = [
+    { id: "overview", label: "Огляд", shortLabel: "Огляд", icon: House },
     currentChampionship?.tournament_type === "cup"
       ? { id: "cup", label: "Кубок", shortLabel: "Кубок", icon: Crown }
       : { id: "table", label: "Таблиця", shortLabel: "Таблиця", icon: Trophy },
@@ -894,7 +897,7 @@ export default function KSLigaSite() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:py-8 md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))] pb-24 md:pb-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:py-8 md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))] pb-36 md:pb-8 space-y-6">
         {/* No championships state */}
         {championships.length === 0 && (
           <div className="max-w-md mx-auto text-center py-12 px-4 space-y-6">
@@ -985,21 +988,6 @@ export default function KSLigaSite() {
               </div>
             ) : (
               <>
-              {currentChampionship && !["shop", "games", "admin"].includes(activeTab) && (
-                <SportsOverview
-                  championshipName={currentChampionship.name}
-                  teams={teams}
-                  standings={currentChampionship.tournament_type === "league" ? table : []}
-                  upcomingMatches={calendar}
-                  finishedMatches={results}
-                  activeVotingMatchId={votings.find((voting) => {
-                    const now = new Date()
-                    return voting.is_active
-                      && (!voting.start_time || now >= new Date(voting.start_time))
-                      && (!voting.end_time || now <= new Date(voting.end_time))
-                  })?.match_id}
-                />
-              )}
               <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
@@ -1008,6 +996,13 @@ export default function KSLigaSite() {
                 {/* iOS Liquid Glass Segmented Tab Bar for Desktop */}
                 <div className="desktop-glass-nav hidden md:flex overflow-x-auto pb-2.5 scrollbar-none justify-center">
                   <TabsList className="ios-segmented-control w-max">
+                    <TabsTrigger
+                      value="overview"
+                      className="ios-segment flex items-center justify-center"
+                    >
+                      <House className="h-4 w-4" />
+                      <span className="ml-1.5">Огляд</span>
+                    </TabsTrigger>
                     {currentChampionship?.tournament_type === "league" && (
                       <TabsTrigger
                         value="table"
@@ -1073,6 +1068,29 @@ export default function KSLigaSite() {
                     </TabsTrigger>
                   </TabsList>
                 </div>
+
+                {/* Overview Home Tab */}
+                {currentChampionship && (
+                  <TabsContent value="overview" className="liquid-module outline-none">
+                    <SportsOverview
+                      championshipName={currentChampionship.name}
+                      season={currentChampionship.season}
+                      tournamentType={currentChampionship.tournament_type}
+                      teams={teams}
+                      standings={currentChampionship.tournament_type === "league" ? table : []}
+                      scorers={scorers}
+                      upcomingMatches={calendar}
+                      finishedMatches={results}
+                      activeVotingMatchId={votings.find((voting) => {
+                        const now = new Date()
+                        return voting.is_active
+                          && (!voting.start_time || now >= new Date(voting.start_time))
+                          && (!voting.end_time || now <= new Date(voting.end_time))
+                      })?.match_id}
+                      onNavigate={setActiveTab}
+                    />
+                  </TabsContent>
+                )}
 
                 {/* League Table Tab */}
                 {currentChampionship?.tournament_type === "league" && (

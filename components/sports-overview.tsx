@@ -2,30 +2,55 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Bell, BellRing, CalendarPlus, ChevronRight, Heart, Shield, Sparkles, Trophy, Vote } from "lucide-react"
+import {
+  BarChart3,
+  Bell,
+  BellRing,
+  CalendarDays,
+  CalendarPlus,
+  ChevronRight,
+  Crown,
+  Heart,
+  Medal,
+  Shield,
+  Sparkles,
+  Target,
+  Trophy,
+  Tv,
+  Vote,
+} from "lucide-react"
+import { TeamDisplay } from "@/components/team-display"
 import type { LeagueStanding } from "@/lib/league-utils"
 import { createMatchCalendarEvent, formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
-import type { Match, Team } from "@/lib/supabase"
+import type { Match, Player, Team } from "@/lib/supabase"
 
 const FAVORITE_KEY = "ksliga_favorite_team"
 const ALERTS_KEY = "ksliga_match_alerts"
 
 interface SportsOverviewProps {
   championshipName: string
+  season: string
+  tournamentType: "league" | "cup"
   teams: Team[]
   standings: LeagueStanding[]
+  scorers: Player[]
   upcomingMatches: Match[]
   finishedMatches: Match[]
   activeVotingMatchId?: number
+  onNavigate: (section: string) => void
 }
 
 export function SportsOverview({
   championshipName,
+  season,
+  tournamentType,
   teams,
   standings,
+  scorers,
   upcomingMatches,
   finishedMatches,
   activeVotingMatchId,
+  onNavigate,
 }: SportsOverviewProps) {
   const [favoriteTeamId, setFavoriteTeamId] = useState<number | null>(null)
   const [alertsEnabled, setAlertsEnabled] = useState(false)
@@ -39,6 +64,10 @@ export function SportsOverview({
     () => [...finishedMatches].sort((a, b) => getMatchDateTime(b).getTime() - getMatchDateTime(a).getTime())[0],
     [finishedMatches],
   )
+  const topScorer = useMemo(
+    () => [...scorers].sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "uk"))[0],
+    [scorers],
+  )
   const favoriteTeam = teams.find((team) => team.id === favoriteTeamId) || null
   const favoriteMatch = useMemo(() => {
     if (!favoriteTeam) return null
@@ -46,6 +75,10 @@ export function SportsOverview({
       .filter((match) => match.home_team === favoriteTeam.name || match.away_team === favoriteTeam.name)
       .sort((a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime())[0] || null
   }, [favoriteTeam, upcomingMatches])
+
+  const nextHomeTeam = teams.find((team) => team.name === nextMatch?.home_team)
+  const nextAwayTeam = teams.find((team) => team.name === nextMatch?.away_team)
+  const leaderTeam = teams.find((team) => team.name === standings[0]?.name)
 
   useEffect(() => {
     const storedTeam = Number.parseInt(localStorage.getItem(FAVORITE_KEY) || "", 10)
@@ -123,50 +156,107 @@ export function SportsOverview({
     URL.revokeObjectURL(url)
   }
 
-  const leaderTeam = teams.find((team) => team.name === standings[0]?.name)
+  const navigateTo = (section: string) => {
+    onNavigate(section)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const primarySection = tournamentType === "cup" ? "cup" : "table"
+  const quickLinks = [
+    { id: primarySection, label: tournamentType === "cup" ? "Кубок" : "Таблиця", icon: tournamentType === "cup" ? Crown : Trophy },
+    { id: "calendar", label: "Календар", icon: CalendarDays },
+    { id: "results", label: "Результати", icon: BarChart3 },
+    { id: "scorers", label: "Бомбардири", icon: Target },
+  ]
 
   return (
     <section className="sports-overview" aria-labelledby="sports-overview-title">
+      <div className="sports-overview__hero">
+        <div className="sports-overview__intro">
+          <span className="sports-overview__kicker"><Sparkles aria-hidden="true" /> Головна KS LIGA</span>
+          <h2 id="sports-overview-title">{championshipName}</h2>
+          <p>Матчі, результати та головні герої сезону — коротко, зрозуміло й в одному місці.</p>
+          <div className="sports-overview__quick-nav" aria-label="Швидкі переходи">
+            {quickLinks.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" onClick={() => navigateTo(id)}>
+                <Icon aria-hidden="true" /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sports-overview__stamp" aria-label={`Сезон ${season}`}>
+          <Shield aria-hidden="true" />
+          <span>{tournamentType === "cup" ? "Кубковий турнір" : "Чемпіонат"}</span>
+          <strong>{season}</strong>
+          <small>Офіційні дані ліги</small>
+        </div>
+      </div>
+
       <div className="sports-overview__heading">
         <div>
-          <span className="ios-section-header">Огляд</span>
-          <h2 id="sports-overview-title">Головне у {championshipName}</h2>
+          <span className="ios-section-header">У центрі уваги</span>
+          <h3>Головне зараз</h3>
         </div>
-        <span className="glass-badge"><Sparkles aria-hidden="true" /> Оновлюється після внесення даних</span>
+        <span className="glass-badge"><Sparkles aria-hidden="true" /> Після оновлення організатором</span>
       </div>
 
       <div className="sports-overview__grid">
         {nextMatch ? (
-          <article className="sports-smart-card sports-smart-card--primary">
-            <div className="sports-smart-card__eyebrow"><CalendarPlus /> Наступний матч</div>
-            <strong>{nextMatch.home_team} — {nextMatch.away_team}</strong>
-            <span>{getMatchDateTime(nextMatch).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}</span>
+          <article className="sports-smart-card sports-smart-card--primary sports-smart-card--featured">
+            <div className="sports-smart-card__topline">
+              <div className="sports-smart-card__eyebrow"><CalendarPlus /> Наступний матч</div>
+              {nextMatch.youtube_url && <span className="sports-smart-card__broadcast"><Tv /> YouTube</span>}
+            </div>
+            <div className="sports-smart-card__matchup">
+              <div>
+                <TeamDisplay teamName={nextMatch.home_team} teamLogo={nextHomeTeam?.logo} size="lg" showName={false} />
+                <strong>{nextMatch.home_team}</strong>
+              </div>
+              <span>VS</span>
+              <div>
+                <TeamDisplay teamName={nextMatch.away_team} teamLogo={nextAwayTeam?.logo} size="lg" showName={false} />
+                <strong>{nextMatch.away_team}</strong>
+              </div>
+            </div>
+            <span className="sports-smart-card__date">
+              {getMatchDateTime(nextMatch).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}
+            </span>
             <div className="sports-smart-card__actions">
               <Link href={`/matches/${nextMatch.id}`}>Центр матчу <ChevronRight /></Link>
               <button type="button" onClick={() => downloadCalendar(nextMatch)} aria-label="Додати матч у календар">
-                <CalendarPlus />
+                <CalendarPlus /> <span>У календар</span>
               </button>
             </div>
           </article>
         ) : (
-          <article className="sports-smart-card sports-smart-card--muted">
-            <div className="sports-smart-card__eyebrow"><CalendarPlus /> Календар</div>
-            <strong>Нові матчі ще не додані</strong>
-            <span>Розклад з’явиться після публікації організатором.</span>
+          <article className="sports-smart-card sports-smart-card--muted sports-smart-card--featured">
+            <div className="sports-smart-card__eyebrow"><CalendarPlus /> Найближчі матчі</div>
+            <strong>Новий розклад готується</strong>
+            <span>Матчі з’являться тут одразу після публікації організатором.</span>
+            <button type="button" className="sports-smart-card__link" onClick={() => navigateTo("calendar")}>
+              Перейти до календаря <ChevronRight />
+            </button>
           </article>
         )}
 
-        {lastResult && (
+        {lastResult ? (
           <Link className="sports-smart-card" href={`/matches/${lastResult.id}`}>
             <div className="sports-smart-card__eyebrow"><Shield /> Останній результат</div>
             <strong>{lastResult.home_team} — {lastResult.away_team}</strong>
             <span className="sports-smart-card__score">{formatMatchScore(lastResult)}</span>
+            <span>{getMatchDateTime(lastResult).toLocaleDateString("uk-UA", { dateStyle: "medium" })}</span>
             <span className="sports-smart-card__link">Протокол матчу <ChevronRight /></span>
           </Link>
+        ) : (
+          <article className="sports-smart-card sports-smart-card--muted">
+            <div className="sports-smart-card__eyebrow"><Shield /> Результати</div>
+            <strong>Сезон тільки починається</strong>
+            <span>Перший результат з’явиться після завершення матчу.</span>
+          </article>
         )}
 
-        {standings[0] && (
-          <Link className="sports-smart-card" href={leaderTeam ? `/teams/${leaderTeam.id}` : "?section=table"}>
+        {standings[0] ? (
+          <Link className="sports-smart-card" href={leaderTeam ? `/teams/${leaderTeam.id}` : `/?section=${primarySection}`}>
             <div className="sports-smart-card__eyebrow"><Trophy /> Лідер турніру</div>
             <strong>{standings[0].name}</strong>
             <span>
@@ -175,19 +265,37 @@ export function SportsOverview({
             </span>
             <span className="sports-smart-card__link">Профіль команди <ChevronRight /></span>
           </Link>
+        ) : (
+          <button type="button" className="sports-smart-card" onClick={() => navigateTo(primarySection)}>
+            <div className="sports-smart-card__eyebrow"><Crown /> Кубковий шлях</div>
+            <strong>Сітка турніру</strong>
+            <span>Перегляньте пари, етапи та шлях команд до фіналу.</span>
+            <span className="sports-smart-card__link">Відкрити кубок <ChevronRight /></span>
+          </button>
         )}
 
-        {activeVotingMatchId && (
-          <Link className="sports-smart-card" href="/?section=lion">
-            <div className="sports-smart-card__eyebrow"><Vote /> Голосування</div>
-            <strong>Лев матчу</strong>
-            <span>Оберіть найкращого гравця серед опублікованих номінантів.</span>
-            <span className="sports-smart-card__link">Проголосувати <ChevronRight /></span>
+        {topScorer && (
+          <Link className="sports-smart-card" href={`/players/${topScorer.id}`}>
+            <div className="sports-smart-card__eyebrow"><Medal /> Найкращий бомбардир</div>
+            <strong>{topScorer.name}</strong>
+            <span>{topScorer.team}</span>
+            <span className="sports-smart-card__score">{topScorer.goals} голів</span>
+            <span className="sports-smart-card__link">Профіль гравця <ChevronRight /></span>
           </Link>
         )}
 
-        <article className="sports-smart-card sports-smart-card--fan">
+        {activeVotingMatchId && (
+          <button type="button" className="sports-smart-card sports-smart-card--vote" onClick={() => navigateTo("lion")}>
+            <div className="sports-smart-card__eyebrow"><Vote /> Голосування відкрите</div>
+            <strong>Лев матчу</strong>
+            <span>Оберіть найкращого гравця серед опублікованих номінантів.</span>
+            <span className="sports-smart-card__link">Проголосувати <ChevronRight /></span>
+          </button>
+        )}
+
+        <article className="sports-smart-card sports-smart-card--fan sports-smart-card--wide">
           <div className="sports-smart-card__eyebrow"><Heart /> Моя команда</div>
+          <strong>{favoriteTeam ? favoriteTeam.name : "Стежте за своєю командою"}</strong>
           <label className="sr-only" htmlFor="favorite-team">Улюблена команда</label>
           <select id="favorite-team" value={favoriteTeamId ?? ""} onChange={(event) => saveFavorite(event.target.value)}>
             <option value="">Оберіть команду</option>
@@ -195,7 +303,7 @@ export function SportsOverview({
           </select>
           {favoriteMatch ? (
             <Link href={`/matches/${favoriteMatch.id}`} className="sports-smart-card__favorite-match">
-              Наступний: {favoriteMatch.home_team} — {favoriteMatch.away_team}
+              Наступний матч: {favoriteMatch.home_team} — {favoriteMatch.away_team}
             </Link>
           ) : (
             <span>Вибір зберігається лише на вашому пристрої.</span>
