@@ -1,2 +1,10 @@
 allowBuilds:
   sharp: true
+  unrs-resolver: true
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - eslint-import-resolver-typescript
+  - semver
+trustPolicyIgnoreAfter: 180d

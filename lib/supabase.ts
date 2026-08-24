@@ -1,26 +1,39 @@
 import { createClient } from "@supabase/supabase-js"
 
-// For development/demo purposes, we'll use placeholder values if env vars aren't available
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.NEW_NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "https://placeholder.supabase.co" // Fallback for demo
+const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+const configuredKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
 
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEW_NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "placeholder-anon-key" // Fallback for demo
+function isHttpUrl(value?: string): value is string {
+  if (!value) return false
 
-// Create a mock client if we're using placeholder values
-const isUsingPlaceholder = supabaseUrl === "https://placeholder.supabase.co"
-
-if (isUsingPlaceholder) {
-  console.warn("Using placeholder Supabase configuration. Database operations will be mocked.")
+  try {
+    const url = new URL(value)
+    return (url.protocol === "https:" || url.protocol === "http:") && Boolean(url.hostname)
+  } catch {
+    return false
+  }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+function isUsablePublicKey(value?: string): value is string {
+  return Boolean(value && value.length >= 20 && !/^\*+$/.test(value) && !value.includes("placeholder"))
+}
+
+export const isSupabaseConfigured = isHttpUrl(configuredUrl) && isUsablePublicKey(configuredKey)
+
+const supabaseUrl = isSupabaseConfigured && configuredUrl ? configuredUrl : "https://placeholder.supabase.co"
+const supabaseAnonKey = isSupabaseConfigured && configuredKey ? configuredKey : "placeholder-anon-key"
+
+if (!isSupabaseConfigured && process.env.NODE_ENV === "development") {
+  console.warn("Supabase is not configured; the app will use local demo data.")
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    persistSession: false,
+  },
+})
 
 export interface Championship {
   id: number
@@ -149,7 +162,7 @@ export interface OrganizerLog {
   organizer_name: string
   action_type: string
   description: string
-  details?: any
+  details?: unknown
   created_at: string
 }
 

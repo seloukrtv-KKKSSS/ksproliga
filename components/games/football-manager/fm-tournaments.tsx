@@ -121,9 +121,9 @@ export function FMTournamentsView({
 
     const bracket = { ...activeTournament.bracket }
     let userMatch: FMTournamentMatch | undefined
-    let isQF = activeTournament.status === "quarter_finals"
-    let isSF = activeTournament.status === "semi_finals"
-    let isF = activeTournament.status === "final"
+    const isQF = activeTournament.status === "quarter_finals"
+    const isSF = activeTournament.status === "semi_finals"
+    const isF = activeTournament.status === "final"
 
     if (isQF) {
       userMatch = bracket.quarter_finals.find(

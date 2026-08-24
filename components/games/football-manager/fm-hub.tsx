@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import {
+import dynamic from "next/dynamic"
+import type {
   FMUser,
   FMClub,
   FMPlayer,
@@ -17,16 +18,6 @@ import {
   fmLogout
 } from "@/lib/fm-database"
 import { fmAudio } from "@/lib/fm-audio"
-import { FMOnboarding } from "./fm-onboarding"
-import { FMLockScreen } from "./fm-lock-screen"
-import { FMDashboard } from "./fm-dashboard"
-import { FMSquadTactics } from "./fm-squad-tactics"
-import { FMTournamentsView } from "./fm-tournaments"
-import { FMTraining } from "./fm-training"
-import { FMStadiumInfrastructure } from "./fm-stadium"
-import { FMTransferMarket } from "./fm-transfers"
-import { FMYouthAcademy } from "./fm-youth"
-import { FMLeagueStandingsView } from "./fm-league"
 import {
   Shield,
   LayoutDashboard,
@@ -46,6 +37,21 @@ import {
   Zap,
   Lock
 } from "lucide-react"
+
+const fmModuleOptions = {
+  loading: () => <div className="flex min-h-64 items-center justify-center text-sm font-bold text-slate-400">Завантаження…</div>,
+}
+
+const FMOnboarding = dynamic(() => import("./fm-onboarding").then((module) => module.FMOnboarding), fmModuleOptions)
+const FMLockScreen = dynamic(() => import("./fm-lock-screen").then((module) => module.FMLockScreen), fmModuleOptions)
+const FMDashboard = dynamic(() => import("./fm-dashboard").then((module) => module.FMDashboard), fmModuleOptions)
+const FMSquadTactics = dynamic(() => import("./fm-squad-tactics").then((module) => module.FMSquadTactics), fmModuleOptions)
+const FMTournamentsView = dynamic(() => import("./fm-tournaments").then((module) => module.FMTournamentsView), fmModuleOptions)
+const FMTraining = dynamic(() => import("./fm-training").then((module) => module.FMTraining), fmModuleOptions)
+const FMStadiumInfrastructure = dynamic(() => import("./fm-stadium").then((module) => module.FMStadiumInfrastructure), fmModuleOptions)
+const FMTransferMarket = dynamic(() => import("./fm-transfers").then((module) => module.FMTransferMarket), fmModuleOptions)
+const FMYouthAcademy = dynamic(() => import("./fm-youth").then((module) => module.FMYouthAcademy), fmModuleOptions)
+const FMLeagueStandingsView = dynamic(() => import("./fm-league").then((module) => module.FMLeagueStandingsView), fmModuleOptions)
 
 export function FMHub() {
   const [currentUser, setCurrentUser] = useState<FMUser | null>(null)

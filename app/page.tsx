@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import dynamic from "next/dynamic"
+import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,38 +38,48 @@ import {
   Filter,
   ShieldCheck,
   Truck,
-  Instagram,
   Gamepad2,
 } from "lucide-react"
 import {
-  getTeams,
-  getMatches,
-  getPlayers,
-  calculateLeagueTable,
-  getChampionships,
-  getActiveChampionship,
-  getChampionshipVotings,
-  getChampionshipCandidates,
-  incrementCandidateVotes,
-  getMatchesGoals,
-  getMatchesCards,
+  buildLeagueTable,
   formatTime,
   getMatchStatusInfo,
   sortChampionships,
-  authenticateUser,
-  getProducts,
-  recordUserAnalytics,
-  updateAnalyticsDuration,
-  logOrganizerAction,
-} from "@/lib/database"
-import { AdminPanel } from "@/components/admin-panel"
-import { CupTournament } from "@/components/cup-tournament"
+} from "@/lib/league-utils"
 import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Product } from "@/lib/supabase"
+import type { LeagueStanding } from "@/lib/league-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TeamDisplay } from "@/components/team-display"
-import { ShopProductCard } from "@/components/shop-product-card"
-import { ShopLightbox } from "@/components/shop-lightbox"
-import { KsGamesHub } from "@/components/games/ks-games-hub"
+
+const loadDatabase = () => import("@/lib/database")
+
+function ModuleLoading() {
+  return (
+    <div className="flex min-h-40 items-center justify-center" role="status" aria-live="polite">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+      <span className="sr-only">Завантаження модуля…</span>
+    </div>
+  )
+}
+
+const AdminPanel = dynamic(() => import("@/components/admin-panel").then((module) => module.AdminPanel), {
+  loading: ModuleLoading,
+  ssr: false,
+})
+const CupTournament = dynamic(() => import("@/components/cup-tournament").then((module) => module.CupTournament), {
+  loading: ModuleLoading,
+})
+const ShopProductCard = dynamic(
+  () => import("@/components/shop-product-card").then((module) => module.ShopProductCard),
+  { loading: ModuleLoading },
+)
+const ShopLightbox = dynamic(() => import("@/components/shop-lightbox").then((module) => module.ShopLightbox), {
+  ssr: false,
+})
+const KsGamesHub = dynamic(() => import("@/components/games/ks-games-hub").then((module) => module.KsGamesHub), {
+  loading: ModuleLoading,
+  ssr: false,
+})
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -78,7 +90,7 @@ export default function KSLigaSite() {
   const [loginError, setLoginError] = useState<string | null>(null)
 
   const [teams, setTeams] = useState<Team[]>([])
-  const [table, setTable] = useState<any[]>([])
+  const [table, setTable] = useState<LeagueStanding[]>([])
   const [calendar, setCalendar] = useState<Match[]>([])
   const [results, setResults] = useState<Match[]>([])
   const [scorers, setScorers] = useState<Player[]>([])
@@ -101,6 +113,7 @@ export default function KSLigaSite() {
 
   // KS Shop states
   const [products, setProducts] = useState<Product[]>([])
+  const [productsLoaded, setProductsLoaded] = useState(false)
   const [shopImageIndexes, setShopImageIndexes] = useState<Record<number, number>>({})
   const [shopSubTab, setShopSubTab] = useState<"official" | "announcements">("official")
   const [shopSearchQuery, setShopSearchQuery] = useState("")
@@ -117,6 +130,8 @@ export default function KSLigaSite() {
   // Round Spoiler states
   const [collapsedCalendarRounds, setCollapsedCalendarRounds] = useState<{ [round: number]: boolean }>({})
   const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
+  const [matchEventsLoadedFor, setMatchEventsLoadedFor] = useState<number | null>(null)
+  const championshipRequestRef = useRef(0)
 
   // Session tracking & User Analytics — ONE row per page view, duration updated via heartbeat
   useEffect(() => {
@@ -141,15 +156,20 @@ export default function KSLigaSite() {
     let analyticsRowId: number | null = null
 
     // Insert ONE analytics row for this page view (returns its DB id)
-    recordUserAnalytics(sessionId, currentTab, 1).then((id) => {
-      analyticsRowId = id
-    })
+    const databasePromise = loadDatabase()
+    void databasePromise.then(({ recordUserAnalytics }) =>
+      recordUserAnalytics(sessionId, currentTab, 1).then((id) => {
+        analyticsRowId = id
+      }),
+    )
 
     // Update the SAME row's duration via heartbeat (no new rows)
     const updateDuration = () => {
       const elapsedSec = Math.round((Date.now() - tabStartTime) / 1000)
       if (analyticsRowId && elapsedSec > 1) {
-        updateAnalyticsDuration(analyticsRowId, elapsedSec)
+        void databasePromise.then(({ updateAnalyticsDuration }) =>
+          updateAnalyticsDuration(analyticsRowId as number, elapsedSec),
+        )
       }
     }
 
@@ -266,28 +286,23 @@ export default function KSLigaSite() {
   }, [])
 
 
-  // Real-time background sync for Lion of the Match votes and window focus
+  // Poll live voting only while the voting tab is visible.
   useEffect(() => {
-    if (!currentChampionshipId) return
+    if (!currentChampionshipId || activeTab !== "lion") return
 
-    // Auto-poll voting data every 8 seconds silently so live votes update automatically
-    const pollInterval = setInterval(() => {
-      loadVotingData()
-    }, 8000)
-
-    // Silently refresh data when user returns to the browser tab/app
-    const handleWindowFocus = () => {
-      loadVotingData()
-      if (currentChampionshipId) {
-        loadDataForChampionship(currentChampionshipId)
+    const refreshVoting = () => {
+      if (document.visibilityState === "visible") {
+        void loadVotingData(currentChampionshipId)
       }
     }
 
-    window.addEventListener("focus", handleWindowFocus)
+    refreshVoting()
+    const pollInterval = window.setInterval(refreshVoting, 15000)
+    window.addEventListener("focus", refreshVoting)
 
     return () => {
-      clearInterval(pollInterval)
-      window.removeEventListener("focus", handleWindowFocus)
+      window.clearInterval(pollInterval)
+      window.removeEventListener("focus", refreshVoting)
     }
   }, [currentChampionshipId, activeTab])
 
@@ -362,7 +377,8 @@ export default function KSLigaSite() {
       if (currentChampionshipId) {
         await loadDataForChampionship(currentChampionshipId, true)
       }
-      await loadVotingData()
+      if (activeTab === "lion") await loadVotingData(currentChampionshipId)
+      if (activeTab === "shop") await loadProductsData()
 
       setRefreshSuccess(true)
       await new Promise((res) => setTimeout(res, 800))
@@ -390,17 +406,16 @@ export default function KSLigaSite() {
   const loadInitialData = async () => {
     try {
       setLoading(true)
-      const [championshipsData, activeChampionship, productsData] = await Promise.all([
-        getChampionships(),
-        getActiveChampionship(),
-        getProducts(),
-      ])
+      const { getChampionships } = await loadDatabase()
+      const championshipsData = await getChampionships()
 
       setChampionships(championshipsData)
-      setProducts(productsData)
 
-      // Set the current championship
-      const championshipId = activeChampionship?.id || championshipsData[0]?.id
+      const currentStillExists = championshipsData.some((championship) => championship.id === currentChampionshipId)
+      const championshipId = currentStillExists
+        ? currentChampionshipId
+        : championshipsData.find((championship) => championship.is_active)?.id ?? championshipsData[0]?.id
+
       if (championshipId) {
         setCurrentChampionshipId(championshipId)
       } else {
@@ -414,24 +429,28 @@ export default function KSLigaSite() {
   }
 
   const loadDataForChampionship = async (championshipId: number, silent = false) => {
+    const requestId = ++championshipRequestRef.current
+
     try {
       if (!silent) setLoading(true)
-      const [teamsData, matchesData, playersData, tableData, votingsData, candidatesData] = await Promise.all([
+      const { getMatches, getPlayers, getTeams } = await loadDatabase()
+      const [teamsData, matchesData, playersData] = await Promise.all([
         getTeams(championshipId),
         getMatches(championshipId),
         getPlayers(championshipId),
-        calculateLeagueTable(championshipId),
-        getChampionshipVotings(championshipId),
-        getChampionshipCandidates(championshipId),
       ])
 
+      if (requestId !== championshipRequestRef.current) return
+
+      const finishedMatches = matchesData.filter((match) => match.is_finished)
       setTeams(teamsData)
-      setTable(tableData)
-      setCalendar(matchesData.filter((m) => !m.is_finished))
-      setResults(matchesData.filter((m) => m.is_finished))
+      setTable(buildLeagueTable(matchesData, teamsData))
+      setCalendar(matchesData.filter((match) => !match.is_finished))
+      setResults(finishedMatches)
       setScorers(playersData)
-      setVotings(votingsData)
-      setCandidates(candidatesData)
+      setMatchGoals({})
+      setMatchCards({})
+      setMatchEventsLoadedFor(null)
 
       // Set current championship info
       const championship = championships.find((c) => c.id === championshipId)
@@ -442,59 +461,60 @@ export default function KSLigaSite() {
         setActiveTab("table")
       }
 
-      // Load match goals and cards for finished matches in batch queries
-      const finishedMatches = matchesData.filter((m) => m.is_finished)
-      const finishedMatchIds = finishedMatches.map((m) => m.id)
-      const goalsData: { [key: number]: MatchGoal[] } = {}
-      const cardsData: { [key: number]: MatchCard[] } = {}
-
-      // Initialize all finished matches with empty arrays
-      finishedMatches.forEach((m) => {
-        goalsData[m.id] = []
-        cardsData[m.id] = []
-      })
-
-      if (finishedMatchIds.length > 0) {
-        try {
-          const [allGoals, allCards] = await Promise.all([
-            getMatchesGoals(finishedMatchIds),
-            getMatchesCards(finishedMatchIds),
-          ])
-          allGoals.forEach((goal) => {
-            if (goalsData[goal.match_id]) {
-              goalsData[goal.match_id].push(goal)
-            }
-          })
-          allCards.forEach((card) => {
-            if (cardsData[card.match_id]) {
-              cardsData[card.match_id].push(card)
-            }
-          })
-        } catch (error) {
-          console.error("Error loading match events in batch:", error)
-        }
-      }
-
-      setMatchGoals(goalsData)
-      setMatchCards(cardsData)
+      if (activeTab === "results") await loadMatchEvents(finishedMatches, championshipId)
+      if (activeTab === "lion") await loadVotingData(championshipId)
     } catch (error) {
       console.error("Error loading championship data:", error)
     } finally {
-      if (!silent) setLoading(false)
+      if (!silent && requestId === championshipRequestRef.current) setLoading(false)
     }
   }
 
-  const loadVotingData = async () => {
-    if (!currentChampionshipId) return
-    try {
-      const [votingsData, candidatesData] = await Promise.all([
-        getChampionshipVotings(currentChampionshipId),
-        getChampionshipCandidates(currentChampionshipId),
+  const loadMatchEvents = async (finishedMatches: Match[], championshipId: number) => {
+    const finishedMatchIds = finishedMatches.map((match) => match.id)
+    const goalsData: Record<number, MatchGoal[]> = Object.fromEntries(
+      finishedMatchIds.map((matchId) => [matchId, []]),
+    )
+    const cardsData: Record<number, MatchCard[]> = Object.fromEntries(
+      finishedMatchIds.map((matchId) => [matchId, []]),
+    )
+
+    if (finishedMatchIds.length > 0) {
+      const { getMatchesCards, getMatchesGoals } = await loadDatabase()
+      const [allGoals, allCards] = await Promise.all([
+        getMatchesGoals(finishedMatchIds),
+        getMatchesCards(finishedMatchIds),
       ])
-      setVotings(votingsData)
-      setCandidates(candidatesData)
+
+      allGoals.forEach((goal) => goalsData[goal.match_id]?.push(goal))
+      allCards.forEach((card) => cardsData[card.match_id]?.push(card))
+    }
+
+    setMatchGoals(goalsData)
+    setMatchCards(cardsData)
+    setMatchEventsLoadedFor(championshipId)
+  }
+
+  const loadVotingData = async (championshipId = currentChampionshipId) => {
+    if (!championshipId) return
+    try {
+      const { getChampionshipVotingData } = await loadDatabase()
+      const votingData = await getChampionshipVotingData(championshipId)
+      setVotings(votingData.votings)
+      setCandidates(votingData.candidates)
     } catch (error) {
       console.error("Error loading voting data:", error)
+    }
+  }
+
+  const loadProductsData = async () => {
+    try {
+      const { getProducts } = await loadDatabase()
+      const productsData = await getProducts()
+      setProducts(productsData)
+      setProductsLoaded(true)
+    } catch (error) {
+      console.error("Error loading shop products:", error)
     }
   }
 
@@ -521,6 +541,7 @@ export default function KSLigaSite() {
 
     try {
       // 2. Perform DB write in background
+      const { incrementCandidateVotes } = await loadDatabase()
       await incrementCandidateVotes(candidateId)
       // 3. Silent background refresh of latest data from server
       await loadVotingData()
@@ -538,7 +559,6 @@ export default function KSLigaSite() {
   const handleGoalsUpdated = async () => {
     if (currentChampionshipId) {
       await loadDataForChampionship(currentChampionshipId)
-      await loadVotingData()
     }
   }
 
@@ -547,37 +567,41 @@ export default function KSLigaSite() {
     // Reload championship-specific data silently without triggering F5 or unmounting tabs
     if (currentChampionshipId) {
       await loadDataForChampionship(currentChampionshipId, true)
-      await loadVotingData()
     }
-    // Also refresh products and championships list silently
+
     try {
-      const [championshipsData, productsData] = await Promise.all([
-        getChampionships(),
-        getProducts(),
-      ])
+      const { getChampionships } = await loadDatabase()
+      const championshipsData = await getChampionships()
       setChampionships(championshipsData)
-      setProducts(productsData)
+      if (productsLoaded) await loadProductsData()
     } catch (error) {
       console.error("Error refreshing data after admin change:", error)
     }
-  }, [currentChampionshipId])
+  }, [currentChampionshipId, productsLoaded])
 
-  // Silently refresh championship data when switching to public tabs (e.g. table, calendar, results, scorers, cup)
+  // Heavy secondary data is fetched only when its tab is opened.
   useEffect(() => {
-    if (activeTab !== "admin" && currentChampionshipId) {
-      loadDataForChampionship(currentChampionshipId, true)
+    if (!currentChampionshipId) return
+
+    if (activeTab === "results" && matchEventsLoadedFor !== currentChampionshipId) {
+      void loadMatchEvents(results, currentChampionshipId)
+    } else if (activeTab === "lion") {
+      void loadVotingData(currentChampionshipId)
+    } else if (activeTab === "shop" && !productsLoaded) {
+      void loadProductsData()
     }
-  }, [activeTab])
+  }, [activeTab, currentChampionshipId, matchEventsLoadedFor, productsLoaded, results])
 
   const handleLogin = async () => {
     setLoginError(null)
     if (!adminPassword) return
 
+    const { authenticateUser, logOrganizerAction } = await loadDatabase()
     const authResult = await authenticateUser(adminPassword)
     if (authResult) {
       setIsAdmin(true)
       const name = authResult.type === "main" ? "Головний адміністратор" : authResult.organizer.name
-      logOrganizerAction(name, "login", "Успішний вхід в систему адміністрування")
+      void logOrganizerAction(name, "login", "Успішний вхід в систему адміністрування")
 
       if (authResult.type === "main") {
         setIsMainAdmin(true)
@@ -686,7 +710,15 @@ export default function KSLigaSite() {
           {/* Logo & Title */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <div className="w-9 h-9 sm:w-11 sm:h-11 liquid-glass-card !rounded-[12px] sm:!rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
-              <img src="/images/ks-logo.png" alt="KS Logo" className="w-full h-full object-cover" />
+              <Image
+                src="/images/ks-logo.png"
+                alt="Логотип KS LIGA"
+                width={44}
+                height={44}
+                sizes="(min-width: 640px) 44px, 36px"
+                preload
+                className="h-full w-full object-cover"
+              />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-tight">

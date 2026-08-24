@@ -450,7 +450,7 @@ export function AdminPanel({
       ? (productForm.author_name.trim() || (isOfficial ? "KS LIGA" : "Адміністратор"))
       : (organizerName || "Організатор")
 
-    let rawInstagram = productForm.instagram_url.trim()
+    const rawInstagram = productForm.instagram_url.trim()
     let formattedInstagram = rawInstagram
     if (formattedInstagram.startsWith("@")) {
       formattedInstagram = `https://www.instagram.com/${formattedInstagram.substring(1)}/`

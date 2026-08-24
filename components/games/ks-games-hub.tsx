@@ -1,13 +1,33 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Gamepad2, Trophy, User, Sparkles, Volume2, VolumeX, Edit3, Check, Flame } from "lucide-react"
-import { KsDinoRunner } from "./ks-dino-runner"
-import { KsSnakeGame } from "./ks-snake-game"
-import { KsLeaderboard } from "./ks-leaderboard"
 import { retroAudio } from "@/lib/retro-audio"
 import { getTeams } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
+
+function GameLoading() {
+  return (
+    <div className="flex min-h-72 w-full items-center justify-center" role="status">
+      <div className="h-9 w-9 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+      <span className="sr-only">Завантаження гри…</span>
+    </div>
+  )
+}
+
+const KsDinoRunner = dynamic(() => import("./ks-dino-runner").then((module) => module.KsDinoRunner), {
+  loading: GameLoading,
+  ssr: false,
+})
+const KsSnakeGame = dynamic(() => import("./ks-snake-game").then((module) => module.KsSnakeGame), {
+  loading: GameLoading,
+  ssr: false,
+})
+const KsLeaderboard = dynamic(() => import("./ks-leaderboard").then((module) => module.KsLeaderboard), {
+  loading: GameLoading,
+  ssr: false,
+})
 
 interface KsGamesHubProps {
   teams: Team[]

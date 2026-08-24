@@ -5,12 +5,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Instagram,
   ExternalLink,
   Heart,
   Camera,
   ShoppingBag,
 } from "lucide-react"
+import { InstagramIcon } from "@/components/icons/instagram-icon"
 import type { Product } from "@/lib/supabase"
 
 interface ShopLightboxProps {
@@ -24,9 +24,7 @@ export function ShopLightbox({
   initialIndex = 0,
   onClose,
 }: ShopLightboxProps) {
-  if (!product) return null
-
-  const images = product.images && product.images.length > 0 ? product.images : ["/placeholder.svg"]
+  const images = product?.images && product.images.length > 0 ? product.images : ["/placeholder.svg"]
   const totalImages = images.length
   const hasMultipleImages = totalImages > 1
 
@@ -186,6 +184,8 @@ export function ShopLightbox({
     }
   }
 
+  if (!product) return null
+
   return (
     <div
       className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-between animate-in fade-in duration-200 select-none overflow-hidden touch-none"
@@ -296,7 +296,7 @@ export function ShopLightbox({
               isAnimating ? "transition-transform duration-350 ease-[cubic-bezier(0.2,0.9,0.3,1)]" : ""
             }`}
             style={{
-              transform: `translateX(${-100 + (dragOffset / (containerRef.current?.offsetWidth || window.innerWidth)) * 100}%)`,
+              transform: `translateX(calc(-100% + ${dragOffset}px))`,
             }}
           >
             <img
@@ -315,7 +315,7 @@ export function ShopLightbox({
               isAnimating ? "transition-transform duration-350 ease-[cubic-bezier(0.2,0.9,0.3,1)]" : ""
             }`}
             style={{
-              transform: `translateX(${100 + (dragOffset / (containerRef.current?.offsetWidth || window.innerWidth)) * 100}%)`,
+              transform: `translateX(calc(100% + ${dragOffset}px))`,
             }}
           >
             <img
@@ -395,7 +395,7 @@ export function ShopLightbox({
           rel="noopener noreferrer"
           className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-black text-xs sm:text-sm shadow-xl shadow-pink-500/25 hover:shadow-2xl active:scale-[0.98] transition-all cursor-pointer"
         >
-          <Instagram className="w-4 h-4" />
+          <InstagramIcon className="w-4 h-4" />
           <span>Замовити в Instagram ({product.price} ₴)</span>
           <ExternalLink className="w-3.5 h-3.5 opacity-75" />
         </a>

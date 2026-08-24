@@ -1,31 +1,8 @@
-import { supabase } from "./supabase"
+import { isSupabaseConfigured, supabase } from "./supabase"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog, GameScore } from "./supabase"
-
-export function formatTime(timeStr?: string): string {
-  if (!timeStr) return ""
-  const parts = timeStr.trim().split(":")
-  if (parts.length >= 2) {
-    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`
-  }
-  return timeStr
-}
-
-export function sortChampionships(championships: Championship[]): Championship[] {
-  return [...championships].sort((a, b) => {
-    const orderA = a.sort_order !== undefined && a.sort_order !== null ? a.sort_order : 999999
-    const orderB = b.sort_order !== undefined && b.sort_order !== null ? b.sort_order : 999999
-    if (orderA !== orderB) {
-      return orderA - orderB
-    }
-    if (a.is_active !== b.is_active) {
-      return a.is_active ? -1 : 1
-    }
-    if (a.tournament_type !== b.tournament_type) {
-      return a.tournament_type === "league" ? -1 : 1
-    }
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-  })
-}
+import { buildLeagueTable, sortChampionships } from "./league-utils"
+export { buildLeagueTable, formatTime, getMatchStatusInfo, sortChampionships } from "./league-utils"
+export type { LeagueStanding } from "./league-utils"
 
 
 // Mock data for demo purposes
@@ -153,9 +130,7 @@ const mockOrganizers: Organizer[] = []
 
 
 // Helper function to check if we should use mock data
-const shouldUseMockData = () => {
-  return !process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEW_NEXT_PUBLIC_SUPABASE_URL && !process.env.SUPABASE_URL
-}
+const shouldUseMockData = () => !isSupabaseConfigured
 
 // Championships
 export async function getChampionships(): Promise<Championship[]> {
@@ -164,7 +139,11 @@ export async function getChampionships(): Promise<Championship[]> {
   }
 
   try {
-    const { data, error } = await supabase.from("championships").select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("championships")
+      .select("id,name,season,is_active,tournament_type,sort_order,created_at")
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false })
     if (error) throw error
     return sortChampionships(data || [])
   } catch (error) {
@@ -179,7 +158,12 @@ export async function getActiveChampionship(): Promise<Championship | null> {
   }
 
   try {
-    const { data, error } = await supabase.from("championships").select("*").eq("is_active", true).maybeSingle()
+    const { data, error } = await supabase
+      .from("championships")
+      .select("id,name,season,is_active,tournament_type,sort_order,created_at")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle()
     if (error) throw error
     return data
   } catch (error) {
@@ -410,7 +394,7 @@ export async function getProducts(): Promise<Product[]> {
 
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select("id,title,description,price,old_price,images,badge,instagram_url,is_available,sort_order,is_official,is_approved,author_name,created_at")
     .order("sort_order", { ascending: true })
 
   if (error) {
@@ -507,7 +491,10 @@ export async function getTeams(championshipId?: number): Promise<Team[]> {
   }
 
   try {
-    let query = supabase.from("teams").select("*").order("name")
+    let query = supabase
+      .from("teams")
+      .select("id,name,logo,city,roster,championship_id,created_at")
+      .order("name")
     if (championshipId) {
       query = query.eq("championship_id", championshipId)
     }
@@ -649,7 +636,7 @@ export async function getMatches(championshipId?: number): Promise<Match[]> {
   try {
     let query = supabase
       .from("matches")
-      .select("*")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
       .order("round", { ascending: true })
       .order("date", { ascending: true })
 
@@ -674,7 +661,7 @@ export async function getMatchById(id: number): Promise<Match | null> {
   try {
     const { data, error } = await supabase
       .from("matches")
-      .select("*")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
       .eq("id", id)
       .maybeSingle()
 
@@ -683,81 +670,6 @@ export async function getMatchById(id: number): Promise<Match | null> {
   } catch (error) {
     console.warn("Database error getting match by id:", error)
     return mockMatches.find((m) => m.id === id) || null
-  }
-}
-
-export function getMatchStatusInfo(match: {
-  date: string
-  match_time?: string | null
-  is_finished?: boolean
-  home_score?: number | null
-  away_score?: number | null
-  is_technical_defeat?: boolean
-  technical_winner?: string | null
-  penalty_home?: number | null
-  penalty_away?: number | null
-  home_team?: string
-  away_team?: string
-}) {
-  if (match.is_finished) {
-    if (match.is_technical_defeat) {
-      const isHomeWinner = match.technical_winner === match.home_team
-      return {
-        status: "finished",
-        badgeText: `Технічна поразка (${isHomeWinner ? "+:-" : "-:+"})`,
-        scoreText: isHomeWinner ? "+ : -" : "- : +",
-        badgeClass: "bg-red-50 text-red-700 border-red-200",
-        isLive: false,
-      }
-    }
-    const penText = match.penalty_home !== null && match.penalty_home !== undefined && match.penalty_away !== null && match.penalty_away !== undefined
-      ? ` (${match.penalty_home}-${match.penalty_away} пен.)`
-      : ""
-    return {
-      status: "finished",
-      badgeText: "Завершено",
-      scoreText: `${match.home_score ?? 0} : ${match.away_score ?? 0}${penText}`,
-      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      isLive: false,
-    }
-  }
-
-  if (match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined) {
-    return {
-      status: "finished",
-      badgeText: "Завершено",
-      scoreText: `${match.home_score} : ${match.away_score}`,
-      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      isLive: false,
-    }
-  }
-
-  let matchDateTime: Date | null = null
-  if (match.date) {
-    const dateStr = match.date.split("T")[0]
-    const timeStr = match.match_time || "00:00"
-    matchDateTime = new Date(`${dateStr}T${timeStr.length === 5 ? timeStr + ":00" : timeStr}`)
-  }
-
-  const now = new Date()
-  if (matchDateTime && !isNaN(matchDateTime.getTime())) {
-    if (now >= matchDateTime) {
-      return {
-        status: "ongoing",
-        badgeText: "🔴 Матч триває",
-        scoreText: "Матч триває",
-        badgeClass: "bg-red-50 text-red-700 border-red-200 animate-pulse font-extrabold",
-        isLive: true,
-      }
-    }
-  }
-
-  return {
-    status: "upcoming",
-    badgeText: "Очікується",
-    scoreText: "VS",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-    isLive: false,
   }
 }
 
@@ -814,7 +726,7 @@ export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
   try {
     const { data, error } = await supabase
       .from("match_goals")
-      .select("*")
+      .select("id,match_id,player_name,team_name,minute,goal_type,created_at")
       .eq("match_id", matchId)
       .order("minute", { ascending: true })
 
@@ -834,7 +746,7 @@ export async function getMatchesGoals(matchIds: number[]): Promise<MatchGoal[]> 
   try {
     const { data, error } = await supabase
       .from("match_goals")
-      .select("*")
+      .select("id,match_id,player_name,team_name,minute,goal_type,created_at")
       .in("match_id", matchIds)
       .order("minute", { ascending: true })
 
@@ -893,7 +805,7 @@ export async function getMatchCards(matchId: number): Promise<MatchCard[]> {
   try {
     const { data, error } = await supabase
       .from("match_cards")
-      .select("*")
+      .select("id,match_id,player_name,team_name,minute,card_type,created_at")
       .eq("match_id", matchId)
       .order("minute", { ascending: true })
 
@@ -913,7 +825,7 @@ export async function getMatchesCards(matchIds: number[]): Promise<MatchCard[]> 
   try {
     const { data, error } = await supabase
       .from("match_cards")
-      .select("*")
+      .select("id,match_id,player_name,team_name,minute,card_type,created_at")
       .in("match_id", matchIds)
       .order("minute", { ascending: true })
 
@@ -972,7 +884,10 @@ export async function getPlayers(championshipId?: number): Promise<Player[]> {
   }
 
   try {
-    let query = supabase.from("players").select("*").order("goals", { ascending: false })
+    let query = supabase
+      .from("players")
+      .select("id,name,team,goals,championship_id,created_at")
+      .order("goals", { ascending: false })
     if (championshipId) {
       query = query.eq("championship_id", championshipId)
     }
@@ -1029,78 +944,9 @@ export async function deletePlayer(id: number): Promise<void> {
   if (error) throw error
 }
 
-// Calculate league table from matches
-export async function calculateLeagueTable(championshipId?: number) {
-  const matches = await getMatches(championshipId)
-  const teams = await getTeams(championshipId)
-
-  const table = teams.map((team) => ({
-    name: team.name,
-    city: team.city,
-    logo: team.logo,
-    games: 0,
-    wins: 0,
-    draws: 0,
-    losses: 0,
-    gf: 0,
-    ga: 0,
-    pts: 0,
-  }))
-
-  const findTeamInTable = (teamName: string | undefined | null) => {
-    if (!teamName) return undefined
-    const clean = teamName.trim()
-    const lower = clean.toLowerCase()
-    return table.find((t) => t.name === clean) || table.find((t) => t.name.trim().toLowerCase() === lower)
-  }
-
-  matches
-    .filter((match) => match.is_finished)
-    .forEach((match) => {
-      const homeTeam = findTeamInTable(match.home_team)
-      const awayTeam = findTeamInTable(match.away_team)
-
-      if (homeTeam && awayTeam) {
-        if (match.is_technical_defeat) {
-          homeTeam.games++
-          awayTeam.games++
-          const techWinner = match.technical_winner?.trim().toLowerCase()
-          if (techWinner && techWinner === match.home_team?.trim().toLowerCase()) {
-            homeTeam.wins++
-            homeTeam.pts += 3
-            awayTeam.losses++
-          } else if (techWinner && techWinner === match.away_team?.trim().toLowerCase()) {
-            awayTeam.wins++
-            awayTeam.pts += 3
-            homeTeam.losses++
-          }
-        } else if (match.home_score !== null && match.away_score !== null) {
-          homeTeam.games++
-          awayTeam.games++
-          homeTeam.gf += match.home_score
-          homeTeam.ga += match.away_score
-          awayTeam.gf += match.away_score
-          awayTeam.ga += match.home_score
-
-          if (match.home_score > match.away_score) {
-            homeTeam.wins++
-            homeTeam.pts += 3
-            awayTeam.losses++
-          } else if (match.home_score < match.away_score) {
-            awayTeam.wins++
-            awayTeam.pts += 3
-            homeTeam.losses++
-          } else {
-            homeTeam.draws++
-            awayTeam.draws++
-            homeTeam.pts += 1
-            awayTeam.pts += 1
-          }
-        }
-      }
-    })
-
-  return table.sort((a, b) => b.pts - a.pts || b.gf - b.ga - (a.gf - a.ga))
+export async function calculateLeagueTable(championshipId?: number): Promise<import("./league-utils").LeagueStanding[]> {
+  const [matches, teams] = await Promise.all([getMatches(championshipId), getTeams(championshipId)])
+  return buildLeagueTable(matches, teams)
 }
 
 // Get cup matches by stage
@@ -1112,7 +958,7 @@ export async function getCupMatches(championshipId: number, stage: string): Prom
   try {
     const { data, error } = await supabase
       .from("matches")
-      .select("*")
+      .select("id,round,date,home_team,away_team,home_score,away_score,is_finished,championship_id,match_time,cup_stage,is_technical_defeat,technical_winner,penalty_home,penalty_away,penalty_winner,created_at")
       .eq("championship_id", championshipId)
       .eq("cup_stage", stage)
       .order("date", { ascending: true })
@@ -1134,7 +980,7 @@ export async function getMatchVoting(matchId: number): Promise<MatchVoting | nul
   try {
     const { data, error } = await supabase
       .from("match_votings")
-      .select("*")
+      .select("match_id,is_active,start_time,end_time,created_at")
       .eq("match_id", matchId)
       .maybeSingle()
 
@@ -1154,7 +1000,7 @@ export async function getVotingCandidates(matchId: number): Promise<VotingCandid
   try {
     const { data, error } = await supabase
       .from("voting_candidates")
-      .select("*")
+      .select("id,match_id,player_name,team_name,votes,is_hidden,created_at")
       .eq("match_id", matchId)
       .order("votes", { ascending: false })
 
@@ -1399,6 +1245,54 @@ export async function getChampionshipCandidates(championshipId: number): Promise
   } catch (error) {
     console.warn("Database error getting championship candidates:", error)
     return []
+  }
+}
+
+export async function getChampionshipVotingData(championshipId: number): Promise<{
+  votings: MatchVoting[]
+  candidates: VotingCandidate[]
+}> {
+  if (shouldUseMockData()) {
+    const matchIds = mockMatches.filter((match) => match.championship_id === championshipId).map((match) => match.id)
+    return {
+      votings: mockMatchVotings.filter((voting) => matchIds.includes(voting.match_id)),
+      candidates: mockVotingCandidates.filter((candidate) => matchIds.includes(candidate.match_id)),
+    }
+  }
+
+  try {
+    const { data: matches, error: matchesError } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("championship_id", championshipId)
+
+    if (matchesError) throw matchesError
+
+    const matchIds = matches?.map((match) => match.id) ?? []
+    if (matchIds.length === 0) return { votings: [], candidates: [] }
+
+    const [votingsResult, candidatesResult] = await Promise.all([
+      supabase
+        .from("match_votings")
+        .select("match_id,is_active,start_time,end_time,created_at")
+        .in("match_id", matchIds),
+      supabase
+        .from("voting_candidates")
+        .select("id,match_id,player_name,team_name,votes,is_hidden,created_at")
+        .in("match_id", matchIds)
+        .order("votes", { ascending: false }),
+    ])
+
+    if (votingsResult.error) throw votingsResult.error
+    if (candidatesResult.error) throw candidatesResult.error
+
+    return {
+      votings: votingsResult.data ?? [],
+      candidates: candidatesResult.data ?? [],
+    }
+  } catch (error) {
+    console.warn("Database error getting championship voting data:", error)
+    return { votings: [], candidates: [] }
   }
 }
 

@@ -6,12 +6,12 @@ import {
   ChevronRight,
   ShoppingBag,
   ExternalLink,
-  Instagram,
   Heart,
   Camera,
   Maximize2,
   Sparkles,
 } from "lucide-react"
+import { InstagramIcon } from "@/components/icons/instagram-icon"
 import type { Product } from "@/lib/supabase"
 
 interface ShopProductCardProps {
@@ -267,7 +267,7 @@ export function ShopProductCard({
               isAnimating ? "transition-transform duration-350 ease-[cubic-bezier(0.2,0.9,0.3,1)]" : ""
             }`}
             style={{
-              transform: `translateX(${-100 + (dragOffset / (containerRef.current?.offsetWidth || 300)) * 100}%)`,
+              transform: `translateX(calc(-100% + ${dragOffset}px))`,
             }}
           >
             <img
@@ -286,7 +286,7 @@ export function ShopProductCard({
               isAnimating ? "transition-transform duration-350 ease-[cubic-bezier(0.2,0.9,0.3,1)]" : ""
             }`}
             style={{
-              transform: `translateX(${100 + (dragOffset / (containerRef.current?.offsetWidth || 300)) * 100}%)`,
+              transform: `translateX(calc(100% + ${dragOffset}px))`,
             }}
           >
             <img
@@ -523,7 +523,7 @@ export function ShopProductCard({
           rel="noopener noreferrer"
           className="mt-auto w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white font-extrabold text-xs shadow-md shadow-pink-500/15 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
         >
-          <Instagram className="h-3.5 w-3.5" />
+          <InstagramIcon className="h-3.5 w-3.5" />
           <span>Замовити в Instagram</span>
           <ExternalLink className="h-3 w-3 opacity-70" />
         </a>

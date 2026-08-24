@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../tailwind.config.ts";
+@import "tailwindcss";
 
 @layer utilities {
   .text-balance {
@@ -86,6 +85,8 @@
 
   html {
     scroll-behavior: smooth;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -104,6 +105,35 @@
     color: #1c1c1e;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
     min-height: 100vh;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --glass-blur: 20px;
+    --glass-saturate: 160%;
+  }
+
+  body {
+    background-attachment: scroll;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -531,5 +561,22 @@ body {
   -ms-user-select: none !important;
   user-select: none !important;
   -webkit-tap-highlight-color: transparent !important;
+}
+
+@media (max-width: 767px) {
+  .liquid-glass-header {
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass-card,
+  .liquid-glass-header,
+  .ios-segmented-control,
+  .glass-input,
+  .glass-badge {
+    background-color: rgba(255, 255, 255, 0.92);
+  }
 }
 

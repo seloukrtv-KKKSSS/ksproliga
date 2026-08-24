@@ -547,8 +547,8 @@ export function simulateFullMatch(
   let awayCorners = 0
   let homeYellows = 0
   let awayYellows = 0
-  let homeReds = 0
-  let awayReds = 0
+  const homeReds = 0
+  const awayReds = 0
   let homeXg = 0
   let awayXg = 0
 
