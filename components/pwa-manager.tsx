@@ -7,6 +7,8 @@ export function PwaManager() {
   const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
+    if (window.location.pathname.startsWith("/obs/")) return
+
     const syncConnection = () => setIsOffline(!navigator.onLine)
     syncConnection()
 

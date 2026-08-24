@@ -114,6 +114,16 @@
     text-rendering: optimizeLegibility;
   }
 
+  html.obs-overlay-page,
+  body.obs-overlay-page {
+    min-width: 0;
+    overflow: hidden;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    scroll-behavior: auto;
+  }
+
   ::selection {
     background: rgba(10, 132, 255, 0.2);
     color: var(--ks-ink);
