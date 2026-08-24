@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Gamepad2, Trophy, User, Sparkles, Volume2, VolumeX, Edit3, Check, Flame, Shield } from "lucide-react"
+import { Gamepad2, Trophy, User, Sparkles, Volume2, VolumeX, Edit3, Check, Flame } from "lucide-react"
 import { KsDinoRunner } from "./ks-dino-runner"
 import { KsSnakeGame } from "./ks-snake-game"
 import { KsLeaderboard } from "./ks-leaderboard"
-import { ProHub } from "./pro-career/pro-hub"
 import { retroAudio } from "@/lib/retro-audio"
 import { getTeams } from "@/lib/database"
 import type { Team } from "@/lib/supabase"
@@ -15,8 +14,8 @@ interface KsGamesHubProps {
 }
 
 export function KsGamesHub({ teams }: KsGamesHubProps) {
-  const [activeTab, setActiveTab] = useState<"manager" | "dino" | "snake" | "leaderboard">("manager")
-  const [leaderboardGameType, setLeaderboardGameType] = useState<"pro" | "dino" | "snake">("pro")
+  const [activeTab, setActiveTab] = useState<"dino" | "snake" | "leaderboard">("dino")
+  const [leaderboardGameType, setLeaderboardGameType] = useState<"dino" | "snake">("dino")
   const [playerName, setPlayerName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
   const [tempName, setTempName] = useState("")
@@ -84,12 +83,9 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">KS Games Arena</h2>
-                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-xs">
-                    Від Села до УПЛ
-                  </span>
                 </div>
                 <p className="text-xs text-slate-300 font-medium">
-                  Пройди шлях одного футболіста від сільського стадіону до вершини українського футболу!
+                  Аркадні футбольні пригоди, рекорди та змагання для спільноти KS LIGA.
                 </p>
               </div>
             </div>
@@ -164,24 +160,10 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
       >
         <button
           type="button"
-          onClick={() => setActiveTab("manager")}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 min-w-[170px] flex items-center justify-center gap-2 py-3 px-3.5 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
-            activeTab === "manager"
-              ? "bg-gradient-to-r from-emerald-700 to-emerald-600 text-white shadow-lg shadow-emerald-900/30 scale-102"
-              : "text-slate-700 hover:text-slate-900 hover:bg-white/50"
-          }`}
-        >
-          <Shield className="h-4 w-4 text-emerald-300 pointer-events-none" />
-          <span className="pointer-events-none">Від Села до УПЛ</span>
-          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 ml-0.5 flex items-center gap-0.5">
-            🔒 PIN
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("dino")}
+          onClick={() => {
+            setLeaderboardGameType("dino")
+            setActiveTab("dino")
+          }}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "dino"
@@ -195,7 +177,10 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
         <button
           type="button"
-          onClick={() => setActiveTab("snake")}
+          onClick={() => {
+            setLeaderboardGameType("snake")
+            setActiveTab("snake")
+          }}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "snake"
@@ -209,10 +194,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
         <button
           type="button"
-          onClick={() => {
-            setLeaderboardGameType("pro")
-            setActiveTab("leaderboard")
-          }}
+          onClick={() => setActiveTab("leaderboard")}
           onContextMenu={(e) => e.preventDefault()}
           className={`flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
             activeTab === "leaderboard"
@@ -227,10 +209,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
 
       {/* ─── Active Tab Content Area ─── */}
       <div className="w-full">
-        {/* 1. Від Села до УПЛ Pro Career Flagship */}
-        {activeTab === "manager" && <ProHub playerName={playerName} />}
-
-        {/* 2. Retro Dino Runner */}
+        {/* 1. Retro Dino Runner */}
         {activeTab === "dino" && (
           <div className="space-y-6 w-full max-w-3xl mx-auto">
             <KsDinoRunner
@@ -259,7 +238,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           </div>
         )}
 
-        {/* 3. Retro Snake Game */}
+        {/* 2. Retro Snake Game */}
         {activeTab === "snake" && (
           <div className="space-y-6 w-full max-w-md mx-auto">
             <KsSnakeGame
@@ -288,7 +267,7 @@ export function KsGamesHub({ teams }: KsGamesHubProps) {
           </div>
         )}
 
-        {/* 4. Hall of Fame Leaderboard */}
+        {/* 3. Hall of Fame Leaderboard */}
         {activeTab === "leaderboard" && (
           <div className="space-y-6 w-full max-w-2xl mx-auto">
             <KsLeaderboard

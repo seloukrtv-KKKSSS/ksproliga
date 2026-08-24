@@ -42,7 +42,7 @@ async function cleanupFmDb() {
   `);
 
   if (checkRes.rows.length === 0) {
-    console.log('🎉 ALL legacy FM tables successfully purged! Ready for "Від Села до УПЛ" (pro_*).');
+    console.log('🎉 ALL legacy FM tables successfully purged!');
   } else {
     console.log('Remaining fm_ tables:', checkRes.rows.map(r => r.table_name));
   }
