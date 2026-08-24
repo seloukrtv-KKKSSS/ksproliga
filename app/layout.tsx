@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     title: 'KS LIGA — Karpiuk Sport League',
     description: 'Турнірна таблиця, календар, результати та статистика',
     type: 'website',
-    images: [{ url: '/og.png', width: 1733, height: 910, alt: 'KS LIGA — Football, Community, Passion' }],
+    images: [{ url: '/og.png', width: 1733, height: 910, alt: 'KS LIGA — СПОРТИВНІ ПОДІЇ ОНЛАЙН!' }],
   },
   twitter: {
     card: 'summary_large_image',

@@ -834,7 +834,7 @@ export default function KSLigaSite() {
       <header className="app-header liquid-glass-header fixed top-0 left-0 right-0 z-50 w-full pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
         <div className="app-header__inner max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Title */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex min-w-0 shrink-0 items-center gap-2.5 sm:gap-3">
             <div className="brand-mark w-9 h-9 sm:w-11 sm:h-11 rounded-[12px] sm:rounded-[14px] flex items-center justify-center overflow-hidden shrink-0">
               <Image
                 src="/images/ks-logo.png"
@@ -846,27 +846,30 @@ export default function KSLigaSite() {
                 className="h-full w-full object-cover"
               />
             </div>
-            <div>
-              <h1 className="text-base sm:text-lg font-black tracking-[-0.035em] text-slate-900 leading-tight">
+            <div className="min-w-0">
+              <h1 className="whitespace-nowrap text-base sm:text-lg font-black tracking-[-0.035em] text-slate-900 leading-tight">
                 KS LIGA
               </h1>
-              <p className="text-[8px] sm:text-[9px] text-slate-500 font-semibold uppercase tracking-[0.15em] hidden min-[360px]:block">
-                Football · Community · Passion
+              <p className="hidden whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.11em] text-slate-500 sm:block">
+                СПОРТИВНІ ПОДІЇ ОНЛАЙН!
               </p>
             </div>
           </div>
 
           {/* Championship Selector */}
           {championships.length > 0 && currentChampionshipId && (
-            <div className="shrink-0 max-w-[58%] sm:max-w-xs">
+            <div className="min-w-0 flex-1 sm:w-[min(42vw,20rem)] sm:flex-none">
               <Select value={currentChampionshipId.toString()} onValueChange={handleChampionshipChange}>
-                <SelectTrigger className="w-full h-10 text-xs font-semibold px-2.5 sm:px-3 shadow-none">
-                  <SelectValue placeholder="Оберіть чемпіонат">
+                <SelectTrigger
+                  aria-label="Вибір турніру"
+                  className="h-10 min-w-0 w-full px-2.5 text-xs font-semibold shadow-none sm:px-3"
+                >
+                  <SelectValue className="min-w-0 flex-1" placeholder="Оберіть чемпіонат">
                     {(() => {
                       const active = championships.find((c) => c.id === currentChampionshipId)
                       if (!active) return "Оберіть чемпіонат"
                       return (
-                        <span className="flex items-center gap-1.5 truncate">
+                        <span className="flex min-w-0 max-w-full items-center gap-1.5">
                           <span className="shrink-0">
                             {active.tournament_type === "league" ? (
                               <Trophy className="h-3.5 w-3.5 text-[#007AFF]" />
@@ -874,14 +877,14 @@ export default function KSLigaSite() {
                               <Crown className="h-3.5 w-3.5 text-[#007AFF]" />
                             )}
                           </span>
-                          <span className="truncate max-w-[110px] min-[400px]:max-w-[160px] sm:max-w-[200px] font-bold text-slate-900">{active.name}</span>
+                          <span className="min-w-0 flex-1 truncate font-bold text-slate-900">{active.name}</span>
                           <span className="text-slate-500 text-[10px] hidden sm:inline shrink-0">({active.season})</span>
                         </span>
                       )
                     })()}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="max-w-[calc(100vw-2rem)] min-w-[220px]">
+                <SelectContent className="max-w-[calc(100vw-1.5rem)] min-w-[220px]">
                   {sortedChampionshipsList.map((championship: Championship) => (
                     <SelectItem
                       key={championship.id}
