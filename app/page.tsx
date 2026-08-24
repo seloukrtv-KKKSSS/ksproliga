@@ -1850,23 +1850,39 @@ export default function KSLigaSite() {
 
                                     {/* Rest of candidates */}
                                     {matchCandidates.length > 3 && (
-                                      <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white/60 backdrop-blur-md shadow-2xs">
-                                        {matchCandidates.slice(3).map((candidate, index) => {
-                                          const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
-                                          return (
-                                            <div key={candidate.id} className="p-3 flex items-center justify-between hover:bg-white/80 transition-colors">
-                                              <div className="flex items-center gap-3 min-w-0">
-                                                <span className="text-xs text-slate-400 font-extrabold w-5 text-center shrink-0">{index + 4}</span>
-                                                <div className="min-w-0">
-                                                  <div className="text-xs font-bold text-slate-800 truncate">{candidate.player_name}</div>
-                                                  <div className="text-[10px] text-slate-400 truncate">{candidate.team_name}</div>
+                                      <details className="group border border-slate-200/80 rounded-2xl overflow-hidden bg-white/60 backdrop-blur-md shadow-2xs">
+                                        <summary className="min-h-12 px-4 py-3 flex items-center justify-between gap-3 cursor-pointer list-none select-none text-xs font-bold text-slate-700 hover:bg-white/80 transition-colors [&::-webkit-details-marker]:hidden">
+                                          <span className="flex items-center gap-2">
+                                            <Users className="h-4 w-4 text-[#007AFF]" />
+                                            <span className="group-open:hidden">Показати всіх кандидатів</span>
+                                            <span className="hidden group-open:inline">Сховати список кандидатів</span>
+                                          </span>
+                                          <span className="flex items-center gap-2 shrink-0">
+                                            <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] text-slate-500">
+                                              Ще {matchCandidates.length - 3}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4 text-slate-500 transition-transform duration-200 group-open:rotate-180" />
+                                          </span>
+                                        </summary>
+
+                                        <div className="divide-y divide-slate-100 border-t border-slate-200/80">
+                                          {matchCandidates.slice(3).map((candidate, index) => {
+                                            const percentage = totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : "0"
+                                            return (
+                                              <div key={candidate.id} className="p-3 flex items-center justify-between hover:bg-white/80 transition-colors">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                  <span className="text-xs text-slate-400 font-extrabold w-5 text-center shrink-0">{index + 4}</span>
+                                                  <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-slate-800 truncate">{candidate.player_name}</div>
+                                                    <div className="text-[10px] text-slate-400 truncate">{candidate.team_name}</div>
+                                                  </div>
                                                 </div>
+                                                <div className="text-xs text-slate-600 font-bold shrink-0">{percentage}% <span className="text-[10px] font-normal text-slate-400">({candidate.votes})</span></div>
                                               </div>
-                                              <div className="text-xs text-slate-600 font-bold shrink-0">{percentage}% <span className="text-[10px] font-normal text-slate-400">({candidate.votes})</span></div>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </details>
                                     )}
 
                                     {totalVotes > 0 && (
