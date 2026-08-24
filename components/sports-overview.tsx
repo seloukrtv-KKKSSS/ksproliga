@@ -79,6 +79,7 @@ export function SportsOverview({
   const nextHomeTeam = teams.find((team) => team.name === nextMatch?.home_team)
   const nextAwayTeam = teams.find((team) => team.name === nextMatch?.away_team)
   const leaderTeam = teams.find((team) => team.name === standings[0]?.name)
+  const votingMatch = [...upcomingMatches, ...finishedMatches].find((match) => match.id === activeVotingMatchId)
 
   useEffect(() => {
     const storedTeam = Number.parseInt(localStorage.getItem(FAVORITE_KEY) || "", 10)
@@ -192,6 +193,21 @@ export function SportsOverview({
         </div>
       </div>
 
+      {activeVotingMatchId && (
+        <button type="button" className="sports-overview__vote-banner" onClick={() => navigateTo("lion")}>
+          <span className="sports-overview__vote-icon"><Vote aria-hidden="true" /></span>
+          <span className="sports-overview__vote-copy">
+            <small>Голосування відкрите</small>
+            <strong>
+              {votingMatch
+                ? `Оберіть Лева матчу ${votingMatch.home_team} — ${votingMatch.away_team}`
+                : "Оберіть Лева матчу"}
+            </strong>
+          </span>
+          <span className="sports-overview__vote-action">Проголосувати <ChevronRight aria-hidden="true" /></span>
+        </button>
+      )}
+
       <div className="sports-overview__heading">
         <div>
           <span className="ios-section-header">У центрі уваги</span>
@@ -282,15 +298,6 @@ export function SportsOverview({
             <span className="sports-smart-card__score">{topScorer.goals} голів</span>
             <span className="sports-smart-card__link">Профіль гравця <ChevronRight /></span>
           </Link>
-        )}
-
-        {activeVotingMatchId && (
-          <button type="button" className="sports-smart-card sports-smart-card--vote" onClick={() => navigateTo("lion")}>
-            <div className="sports-smart-card__eyebrow"><Vote /> Голосування відкрите</div>
-            <strong>Лев матчу</strong>
-            <span>Оберіть найкращого гравця серед опублікованих номінантів.</span>
-            <span className="sports-smart-card__link">Проголосувати <ChevronRight /></span>
-          </button>
         )}
 
         <article className="sports-smart-card sports-smart-card--fan sports-smart-card--wide">

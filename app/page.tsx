@@ -27,6 +27,7 @@ import {
   AlertCircle,
   ShoppingBag,
   X,
+  Menu,
   Sparkles,
   Award,
   Search,
@@ -99,6 +100,7 @@ export default function KSLigaSite() {
   const [matchCards, setMatchCards] = useState<{ [key: number]: MatchCard[] }>({})
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string>("overview")
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [currentChampionshipId, setCurrentChampionshipId] = useState<number | null>(null)
@@ -287,9 +289,9 @@ export default function KSLigaSite() {
   }, [])
 
 
-  // Poll live voting only while the voting tab is visible.
+  // Keep the homepage voting shortcut current while Overview or voting is visible.
   useEffect(() => {
-    if (!currentChampionshipId || activeTab !== "lion") return
+    if (!currentChampionshipId || !["overview", "lion"].includes(activeTab)) return
 
     const refreshVoting = () => {
       if (document.visibilityState === "visible") {
@@ -413,6 +415,15 @@ export default function KSLigaSite() {
     else url.searchParams.set("section", activeTab)
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`)
   }, [activeTab])
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false)
+    }
+    document.addEventListener("keydown", closeOnEscape)
+    return () => document.removeEventListener("keydown", closeOnEscape)
+  }, [isMobileMenuOpen])
 
   // Load championship-specific data when championship changes
   useEffect(() => {
@@ -760,6 +771,14 @@ export default function KSLigaSite() {
     { id: "games", label: "KS Games", shortLabel: "Ігри", icon: Gamepad2 },
     { id: "admin", label: "Панель адміністратора", shortLabel: "Адмін", icon: Settings },
   ]
+  const mobilePrimaryNavigation = mobileNavigation.filter(({ id }) => ["overview", "calendar", "results"].includes(id))
+  const isSecondaryMobileSection = !mobilePrimaryNavigation.some(({ id }) => id === activeTab)
+
+  const handleMobileNavigation = (id: string) => {
+    setActiveTab(id)
+    setIsMobileMenuOpen(false)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   // Loading state
   if (loading && championships.length === 0) {
@@ -897,7 +916,7 @@ export default function KSLigaSite() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:py-8 md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))] pb-36 md:pb-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(5.5rem+env(safe-area-inset-top,0px))] md:py-8 md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))] pb-24 md:pb-8 space-y-6">
         {/* No championships state */}
         {championships.length === 0 && (
           <div className="max-w-md mx-auto text-center py-12 px-4 space-y-6">
@@ -2439,28 +2458,75 @@ export default function KSLigaSite() {
         </div>
       </footer>
 
-      {/* Mobile navigation: all destinations remain visible without an overflow menu. */}
+      {/* Compact mobile navigation with a full Liquid Glass menu. */}
       {championships.length > 0 && (
-        <nav className="mobile-glass-nav md:hidden" aria-label="Основна навігація">
-          <div className="mobile-nav-grid mx-auto max-w-md">
-            {mobileNavigation.map(({ id, label, shortLabel, icon: Icon }) => (
+        <>
+          {isMobileMenuOpen && (
+            <div className="mobile-menu-layer md:hidden">
               <button
-                key={id}
                 type="button"
-                onClick={() => {
-                  setActiveTab(id)
-                  window.scrollTo({ top: 0, behavior: "smooth" })
-                }}
-                className={`mobile-nav-button ${activeTab === id ? "is-active" : ""}`}
-                aria-label={label}
-                aria-current={activeTab === id ? "page" : undefined}
+                className="mobile-menu-backdrop"
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Закрити меню"
+              />
+              <section id="mobile-full-menu" className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="Усі розділи сайту">
+                <div className="mobile-menu-sheet__header">
+                  <div>
+                    <span>Навігація</span>
+                    <strong>Усі розділи KS LIGA</strong>
+                  </div>
+                  <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="Закрити меню">
+                    <X />
+                  </button>
+                </div>
+                <div className="mobile-menu-sheet__grid">
+                  {mobileNavigation.map(({ id, label, shortLabel, icon: Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => handleMobileNavigation(id)}
+                      className={activeTab === id ? "is-active" : ""}
+                      aria-label={label}
+                      aria-current={activeTab === id ? "page" : undefined}
+                    >
+                      <span><Icon /></span>
+                      <strong>{shortLabel}</strong>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          <nav className="mobile-glass-nav md:hidden" aria-label="Основна навігація">
+            <div className="mobile-nav-grid mobile-nav-grid--compact mx-auto max-w-md">
+              {mobilePrimaryNavigation.map(({ id, label, shortLabel, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleMobileNavigation(id)}
+                  className={`mobile-nav-button ${activeTab === id ? "is-active" : ""}`}
+                  aria-label={label}
+                  aria-current={activeTab === id ? "page" : undefined}
+                >
+                  <Icon />
+                  <span>{shortLabel}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen((open) => !open)}
+                className={`mobile-nav-button ${isMobileMenuOpen || isSecondaryMobileSection ? "is-active" : ""}`}
+                aria-label={isMobileMenuOpen ? "Закрити меню" : "Відкрити всі розділи"}
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-full-menu"
               >
-                <Icon />
-                <span>{shortLabel}</span>
+                {isMobileMenuOpen ? <X /> : <Menu />}
+                <span>Меню</span>
               </button>
-            ))}
-          </div>
-        </nav>
+            </div>
+          </nav>
+        </>
       )}
     </div>
   )
