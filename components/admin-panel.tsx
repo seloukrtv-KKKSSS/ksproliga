@@ -90,7 +90,7 @@ import {
   clearOrganizerLogs,
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
-import type { AnalyticsSummary } from "@/lib/database"
+import type { AnalyticsPeriod, AnalyticsSummary } from "@/lib/database"
 import { normalizeYouTubeUrl } from "@/lib/match-utils"
 
 const OrganizersModule = dynamic(
@@ -99,6 +99,29 @@ const OrganizersModule = dynamic(
 )
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
+
+const ANALYTICS_SECTION_NAMES: Record<string, string> = {
+  overview: "Огляд",
+  table: "Турнірна таблиця",
+  calendar: "Календар матчів",
+  results: "Результати матчів",
+  scorers: "Бомбардири",
+  lion: "Голосування (Лев матчу)",
+  shop: "Магазин KS Shop",
+  games: "KS Games",
+  cup: "Кубок",
+}
+
+const formatAnalyticsDuration = (seconds: number): string => {
+  if (seconds <= 0) return "0с"
+  if (seconds < 60) return `${seconds}с`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  if (minutes < 60) return `${minutes}хв ${remainingSeconds}с`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}год ${remainingMinutes}хв`
+}
 
 const getErrorMessage = (error: unknown): string => {
   if (!error) return "Невідома помилка"
@@ -274,9 +297,18 @@ export function AdminPanel({
 
   // Analytics & Logs states
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary>({
-    totalPageViews: 0, totalPageViewsDisplay: "0", uniqueSessions: 0, avgDurationSeconds: 0, tabBreakdown: [],
+    totalPageViews: 0,
+    totalPageViewsDisplay: "0",
+    uniqueSessions: 0,
+    avgDurationSeconds: 0,
+    totalActiveSeconds: 0,
+    viewsPerSession: 0,
+    tabBreakdown: [],
   })
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<"24h" | "7d" | "30d">("24h")
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>("24h")
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [analyticsUpdatedAt, setAnalyticsUpdatedAt] = useState<Date | null>(null)
   const [organizerLogs, setOrganizerLogs] = useState<OrganizerLog[]>([])
   const [logsSearchTerm, setLogsSearchTerm] = useState("")
   const [logsFilterOrganizer, setLogsFilterOrganizer] = useState("all")
@@ -302,9 +334,26 @@ export function AdminPanel({
     })
   }, [])
 
-  useEffect(() => {
-    getAnalyticsSummary(analyticsPeriod).then(setAnalyticsSummary)
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true)
+    setAnalyticsError(null)
+    try {
+      const summary = await getAnalyticsSummary(analyticsPeriod)
+      setAnalyticsSummary(summary)
+      setAnalyticsUpdatedAt(new Date())
+    } catch (error) {
+      console.error("Error loading analytics:", error)
+      setAnalyticsError("Не вдалося завантажити аналітику. Перевірте з’єднання та повторіть спробу.")
+    } finally {
+      setAnalyticsLoading(false)
+    }
   }, [analyticsPeriod])
+
+  useEffect(() => {
+    if (!isMainAdmin || visibleAdminTab !== "analytics") return
+    const loadId = window.setTimeout(() => void loadAnalytics(), 0)
+    return () => window.clearTimeout(loadId)
+  }, [isMainAdmin, loadAnalytics, visibleAdminTab])
 
   const loadData = useCallback(async () => {
     try {
@@ -3790,12 +3839,19 @@ export function AdminPanel({
                 Статистика відвідувань сайту
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Відстеження унікальних сесій, переглядів сторінок та часу на сайті
+                Точні сесії, переходи між розділами та активний час користувачів
               </p>
-              <p className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
-                <Hourglass className="w-3 h-3" />
-                Статистика автоматично обнуляється кожних 7 днів
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold">
+                <span className="text-emerald-700 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Фоновий режим та адмін-панель не враховуються
+                </span>
+                {analyticsUpdatedAt && (
+                  <span className="text-slate-400">
+                    Оновлено о {analyticsUpdatedAt.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -3831,17 +3887,22 @@ export function AdminPanel({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={async () => {
-                  const data = await getAnalyticsSummary(analyticsPeriod)
-                  setAnalyticsSummary(data)
-                }}
+                onClick={() => void loadAnalytics()}
+                disabled={analyticsLoading}
                 className="h-8 text-xs font-semibold px-3 rounded-lg border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 cursor-pointer"
               >
-                <RotateCw className="w-3.5 h-3.5 mr-1" />
-                Оновити
+                <RotateCw className={`w-3.5 h-3.5 mr-1 ${analyticsLoading ? "animate-spin" : ""}`} />
+                {analyticsLoading ? "Рахуємо…" : "Оновити"}
               </Button>
             </div>
           </div>
+
+          {analyticsError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{analyticsError}</span>
+            </div>
+          )}
 
           {/* Metric Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -3860,7 +3921,7 @@ export function AdminPanel({
                   {analyticsSummary.uniqueSessions}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
-                  користувачів за {analyticsPeriod === "24h" ? "24г" : analyticsPeriod === "7d" ? "тиждень" : "місяць"}
+                  нова сесія після 30 хв бездіяльності
                 </span>
               </div>
             </div>
@@ -3869,7 +3930,7 @@ export function AdminPanel({
             <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Переглядів сторінок
+                  Перегляди розділів
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <Eye className="w-5 h-5" />
@@ -3880,7 +3941,7 @@ export function AdminPanel({
                   {analyticsSummary.totalPageViewsDisplay}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
-                  переходів між розділами
+                  точна кількість без вибірки
                 </span>
               </div>
             </div>
@@ -3889,7 +3950,7 @@ export function AdminPanel({
             <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Сер. час на розділі
+                  Сер. активний час
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                   <Hourglass className="w-5 h-5" />
@@ -3897,51 +3958,30 @@ export function AdminPanel({
               </div>
               <div className="mt-3">
                 <span className="text-3xl font-black text-slate-900">
-                  {(() => {
-                    const avgSec = analyticsSummary.avgDurationSeconds
-                    if (avgSec === 0) return "0с"
-                    if (avgSec < 60) return `${avgSec}с`
-                    const min = Math.floor(avgSec / 60)
-                    const sec = avgSec % 60
-                    return `${min}хв ${sec}с`
-                  })()}
+                  {formatAnalyticsDuration(analyticsSummary.avgDurationSeconds)}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
-                  на кожну вкладку
+                  на одне відкриття розділу
                 </span>
               </div>
             </div>
 
-            {/* Card 4: Top Section */}
+            {/* Card 4: Views per Session */}
             <div className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Найпопулярніший розділ
+                  Розділів за сесію
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Trophy className="w-5 h-5" />
+                  <BarChart3 className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-3">
-                <span className="text-xl font-bold text-slate-900 truncate block">
-                  {(() => {
-                    const top = analyticsSummary.tabBreakdown[0]
-                    if (!top) return "—"
-                    const names: { [key: string]: string } = {
-                      table: "Турнірна таблиця",
-                      calendar: "Календар матчів",
-                      results: "Результати",
-                      scorers: "Бомбардири",
-                      lion: "Лев матчу",
-                      admin: "Адмінка",
-                      shop: "KS Shop",
-                      games: "KS Games",
-                    }
-                    return names[top.tab] || top.tab
-                  })()}
+                <span className="text-3xl font-black text-slate-900">
+                  {analyticsSummary.viewsPerSession.toLocaleString("uk-UA", { maximumFractionDigits: 1 })}
                 </span>
                 <span className="text-xs text-slate-400 block mt-0.5">
-                  найбільше переглядів
+                  у середньому на одну сесію
                 </span>
               </div>
             </div>
@@ -3949,41 +3989,46 @@ export function AdminPanel({
 
           {/* Detailed Breakdown Table */}
           <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-4">
-            <h4 className="font-bold text-slate-900 text-base">Розподіл за розділами сайту</h4>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="font-bold text-slate-900 text-base">Розподіл за розділами сайту</h4>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Загальний активний час: {formatAnalyticsDuration(analyticsSummary.totalActiveSeconds)}
+                </p>
+              </div>
+              {analyticsSummary.tabBreakdown[0] && (
+                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                  <Trophy className="h-3 w-3" />
+                  Лідер: {ANALYTICS_SECTION_NAMES[analyticsSummary.tabBreakdown[0].tab] || analyticsSummary.tabBreakdown[0].tab}
+                </span>
+              )}
+            </div>
             <div className="space-y-3">
               {(() => {
-                const sectionNames: { [key: string]: string } = {
-                  table: "Турнірна таблиця",
-                  calendar: "Календар матчів",
-                  results: "Результати матчів",
-                  scorers: "Бомбардири",
-                  lion: "Голосування (Лев матчу)",
-                  admin: "Адмін-панель",
-                  shop: "Магазин KS Shop",
-                  games: "KS Games",
-                  cup: "Кубок",
-                }
-
                 const breakdown = analyticsSummary.tabBreakdown
                 if (breakdown.length === 0) {
-                  return <div className="text-sm text-slate-500 py-4 text-center">Немає даних відвідувань за вибраний період</div>
+                  return (
+                    <div className="text-sm text-slate-500 py-8 text-center">
+                      {analyticsLoading ? "Завантажуємо точну статистику…" : "Немає даних відвідувань за вибраний період"}
+                    </div>
+                  )
                 }
 
                 const totalViews = analyticsSummary.totalPageViews || 1
 
                 return breakdown.map((entry) => {
-                  const percent = Math.round((entry.views / totalViews) * 100)
-                  const avgSec = Math.round(entry.totalTime / (entry.views || 1))
-                  const timeFormatted = avgSec < 60 ? `${avgSec}с` : `${Math.floor(avgSec / 60)}хв ${avgSec % 60}с`
+                  const percent = Math.min(100, Math.max(0, Math.round((entry.views / totalViews) * 100)))
 
                   return (
                     <div key={entry.tab} className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-slate-900">{sectionNames[entry.tab] || entry.tab}</span>
-                        <div className="flex items-center gap-3 text-slate-500">
-                          <span>{entry.views} переглядів ({percent}%)</span>
-                          <span>•</span>
-                          <span>Сер. час: {timeFormatted}</span>
+                      <div className="flex flex-col gap-1 text-xs font-semibold sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-slate-900">{ANALYTICS_SECTION_NAMES[entry.tab] || entry.tab}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-500">
+                          <span>{entry.views.toLocaleString("uk-UA")} переглядів ({percent}%)</span>
+                          <span aria-hidden="true">•</span>
+                          <span>{entry.uniqueSessions.toLocaleString("uk-UA")} сесій</span>
+                          <span aria-hidden="true">•</span>
+                          <span>Сер. час: {formatAnalyticsDuration(entry.avgDurationSeconds)}</span>
                         </div>
                       </div>
                       <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">

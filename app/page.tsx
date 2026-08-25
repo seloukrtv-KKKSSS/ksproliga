@@ -50,6 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TeamDisplay } from "@/components/team-display"
 import { SportsOverview } from "@/components/sports-overview"
 import { SafeImage } from "@/components/safe-image"
+import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -136,78 +137,6 @@ export default function KSLigaSite() {
   const [collapsedResultsRounds, setCollapsedResultsRounds] = useState<{ [round: number]: boolean }>({})
   const [matchEventsLoadedFor, setMatchEventsLoadedFor] = useState<number | null>(null)
   const championshipRequestRef = useRef(0)
-
-  // Session tracking & User Analytics — ONE row per page view, duration updated via heartbeat
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // Persistent session ID with 30-min idle timeout (works across PWA restarts)
-    const SESSION_KEY = "ks_pwa_session_id"
-    const LAST_ACTIVE_KEY = "ks_pwa_last_active"
-    const now = Date.now()
-
-    let sessionId = localStorage.getItem(SESSION_KEY)
-    const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
-
-    if (!sessionId || !lastActive || now - Number.parseInt(lastActive, 10) > 30 * 60 * 1000) {
-      sessionId = "sess_" + Math.random().toString(36).substring(2, 10) + "_" + now.toString(36)
-      localStorage.setItem(SESSION_KEY, sessionId)
-    }
-    localStorage.setItem(LAST_ACTIVE_KEY, now.toString())
-
-    const tabStartTime = Date.now()
-    const currentTab = activeTab
-    let analyticsRowId: number | null = null
-
-    // Insert ONE analytics row for this page view (returns its DB id)
-    const databasePromise = loadDatabase()
-    void databasePromise.then(({ recordUserAnalytics }) =>
-      recordUserAnalytics(sessionId, currentTab, 1).then((id) => {
-        analyticsRowId = id
-      }),
-    )
-
-    // Update the SAME row's duration via heartbeat (no new rows)
-    const updateDuration = () => {
-      const elapsedSec = Math.round((Date.now() - tabStartTime) / 1000)
-      if (analyticsRowId && elapsedSec > 1) {
-        void databasePromise.then(({ updateAnalyticsDuration }) =>
-          updateAnalyticsDuration(analyticsRowId as number, elapsedSec, sessionId),
-        )
-      }
-    }
-
-    // Periodic heartbeat every 30s to update duration on existing row
-    const heartbeatInterval = setInterval(() => {
-      localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
-      updateDuration()
-    }, 30000)
-
-    // Handle Mobile PWA Background / App Switch / Lock Screen events
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        updateDuration()
-      } else if (document.visibilityState === "visible") {
-        localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString())
-      }
-    }
-
-    const handleUnload = () => {
-      updateDuration()
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    window.addEventListener("beforeunload", handleUnload)
-    window.addEventListener("pagehide", handleUnload)
-
-    return () => {
-      updateDuration()
-      clearInterval(heartbeatInterval)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      window.removeEventListener("beforeunload", handleUnload)
-      window.removeEventListener("pagehide", handleUnload)
-    }
-  }, [activeTab])
 
   // ===== MEMOIZED COMPUTATIONS =====
   // O(1) resilient team logo lookup with trimmed and case-insensitive fallback
@@ -786,6 +715,7 @@ export default function KSLigaSite() {
 
   return (
     <div className="app-shell min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
+      <SiteAnalyticsTracker activeSection={activeTab} />
       {/* ── Mobile Pull to Refresh Animated Floating Indicator ── */}
       {(isPulling || isPullRefreshing || refreshSuccess || pullDistance > 0) && (
         <div

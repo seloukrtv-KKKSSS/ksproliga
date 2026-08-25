@@ -1,8 +1,16 @@
 import { isSupabaseConfigured, supabase } from "./supabase"
-import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, UserAnalytics, OrganizerLog, GameScore } from "./supabase"
+import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog, GameScore } from "./supabase"
+import {
+  createEmptyAnalyticsSummary,
+  getAnalyticsCutoff,
+  normalizeAnalyticsRpcRow,
+  summarizeAnalyticsRows,
+} from "./analytics"
+import type { AnalyticsEventRow, AnalyticsPeriod, AnalyticsRpcRow, AnalyticsSummary } from "./analytics"
 import { buildLeagueTable, sortChampionships } from "./league-utils"
 export { buildLeagueTable, formatTime, getMatchStatusInfo, sortChampionships } from "./league-utils"
 export type { LeagueStanding } from "./league-utils"
+export type { AnalyticsPeriod, AnalyticsSummary } from "./analytics"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
@@ -1489,155 +1497,70 @@ export async function updateAnalyticsDuration(rowId: number, durationSeconds: nu
   }
 }
 
-export async function cleanupOldAnalytics(): Promise<number> {
-  if (shouldUseMockData()) return 0
-  try {
-    // Aggressive cleanup: delete entries older than 7 days to keep the table lean
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const { data, error } = await supabase
-      .from("user_analytics")
-      .delete()
-      .lt("created_at", cutoff.toISOString())
-      .select("id")
+const ANALYTICS_PAGE_SIZE = 1000
+let analyticsSummaryRpcAvailable: boolean | null = null
 
+const isMissingAnalyticsSummaryRpc = (error: unknown): boolean => {
+  if (!isRecord(error)) return false
+  const code = typeof error.code === "string" ? error.code : ""
+  const message = typeof error.message === "string" ? error.message : ""
+  return code === "PGRST202" || message.includes("get_user_analytics_summary")
+}
+
+async function getExactAnalyticsRows(cutoffISO: string): Promise<AnalyticsEventRow[]> {
+  const rows: AnalyticsEventRow[] = []
+  let cursorId: number | null = null
+
+  while (true) {
+    let query = supabase
+      .from("user_analytics")
+      .select("id, session_id, active_tab, duration_seconds")
+      .gte("created_at", cutoffISO)
+      .neq("active_tab", "admin")
+      .order("id", { ascending: false })
+      .limit(ANALYTICS_PAGE_SIZE)
+
+    if (cursorId !== null) query = query.lt("id", cursorId)
+
+    const { data, error } = await query
     if (error) throw error
-    return data?.length ?? 0
-  } catch (error) {
-    console.error("Error cleaning up old analytics:", error)
-    return 0
+
+    const page = (data ?? []) as AnalyticsEventRow[]
+    rows.push(...page)
+
+    if (page.length < ANALYTICS_PAGE_SIZE) break
+    const nextCursor = page.at(-1)?.id
+    if (!nextCursor || nextCursor === cursorId) break
+    cursorId = nextCursor
   }
+
+  return rows
 }
 
-// Summary type for pre-aggregated analytics (avoids Supabase 1000-row limit)
-export interface AnalyticsSummary {
-  totalPageViews: number
-  totalPageViewsDisplay: string // "1523" or "1000+"
-  uniqueSessions: number
-  avgDurationSeconds: number
-  tabBreakdown: { tab: string; views: number; totalTime: number }[]
-}
+export async function getAnalyticsSummary(period: AnalyticsPeriod = "24h"): Promise<AnalyticsSummary> {
+  if (shouldUseMockData()) return createEmptyAnalyticsSummary()
 
-interface AnalyticsRow {
-  session_id: string
-  active_tab: string
-  duration_seconds: number | null
-}
-
-export async function getAnalyticsSummary(period: "24h" | "7d" | "30d" = "24h"): Promise<AnalyticsSummary> {
-  const empty: AnalyticsSummary = {
-    totalPageViews: 0,
-    totalPageViewsDisplay: "0",
-    uniqueSessions: 0,
-    avgDurationSeconds: 0,
-    tabBreakdown: [],
-  }
-  if (shouldUseMockData()) return empty
-
-  try {
-    // Auto-cleanup old data first
-    await cleanupOldAnalytics()
-
-    const now = new Date()
-    let cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    if (period === "7d") {
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    } else if (period === "30d") {
-      cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    }
-
-    const cutoffISO = cutoff.toISOString()
-
-    // 1. Get exact total count using Supabase head:true + count (no row data fetched)
-    const { count: totalCount, error: countErr } = await supabase
-      .from("user_analytics")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", cutoffISO)
-
-    if (countErr) throw countErr
-    const total = totalCount ?? 0
-
-    // 2. Fetch only session_id + active_tab + duration (lightweight columns), max 1000 rows
-    //    For periods with >1000 rows, we still get a representative sample
-    const { data: rows, error: rowsErr } = await supabase
-      .from("user_analytics")
-      .select("session_id, active_tab, duration_seconds")
-      .gte("created_at", cutoffISO)
-      .order("created_at", { ascending: false })
-      .limit(1000)
-
-    if (rowsErr) throw rowsErr
-    const fetchedRows = (rows || []) as AnalyticsRow[]
-
-    // 3. Compute unique sessions from fetched sample
-    const sessionSet = new Set(fetchedRows.map((row) => row.session_id))
-
-    // 4. Compute avg duration from fetched sample
-    const totalDuration = fetchedRows.reduce((acc, row) => acc + (row.duration_seconds || 0), 0)
-    const avgDuration = fetchedRows.length > 0 ? Math.round(totalDuration / fetchedRows.length) : 0
-
-    // 5. Compute tab breakdown from fetched sample, then scale to total
-    const tabMap: { [key: string]: { views: number; totalTime: number } } = {}
-    fetchedRows.forEach((row) => {
-      if (!tabMap[row.active_tab]) tabMap[row.active_tab] = { views: 0, totalTime: 0 }
-      tabMap[row.active_tab].views += 1
-      tabMap[row.active_tab].totalTime += row.duration_seconds || 0
+  const cutoffISO = getAnalyticsCutoff(period).toISOString()
+  if (analyticsSummaryRpcAvailable !== false) {
+    const { data, error } = await supabase.rpc("get_user_analytics_summary", {
+      analytics_since: cutoffISO,
     })
 
-    // Scale up tab views proportionally if total > fetched
-    const scaleFactor = fetchedRows.length > 0 ? total / fetchedRows.length : 1
-    const tabBreakdown = Object.entries(tabMap)
-      .map(([tab, stats]) => ({
-        tab,
-        views: Math.round(stats.views * scaleFactor),
-        totalTime: Math.round(stats.totalTime * scaleFactor),
-      }))
-      .sort((a, b) => b.views - a.views)
-
-    // 6. Display string
-    const display = total > 1000 && fetchedRows.length >= 1000
-      ? `${total}`
-      : `${total}`
-
-    return {
-      totalPageViews: total,
-      totalPageViewsDisplay: display,
-      uniqueSessions: sessionSet.size,
-      avgDurationSeconds: avgDuration,
-      tabBreakdown,
+    if (!error) {
+      analyticsSummaryRpcAvailable = true
+      const rpcRow = (Array.isArray(data) ? data[0] : data) as AnalyticsRpcRow | null
+      if (rpcRow) return normalizeAnalyticsRpcRow(rpcRow)
+    } else if (isMissingAnalyticsSummaryRpc(error)) {
+      analyticsSummaryRpcAvailable = false
+    } else {
+      throw error
     }
-  } catch (error) {
-    console.warn("Error fetching analytics summary:", error)
-    return empty
   }
-}
 
-// Keep getUserAnalytics for backward compatibility, but with hard limit
-export async function getUserAnalytics(period: "24h" | "7d" | "30d" = "24h"): Promise<UserAnalytics[]> {
-  if (shouldUseMockData()) return []
-  try {
-    await cleanupOldAnalytics()
-
-    const now = new Date()
-    let cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    if (period === "7d") {
-      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    } else if (period === "30d") {
-      cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    }
-
-    const { data, error } = await supabase
-      .from("user_analytics")
-      .select("*")
-      .gte("created_at", cutoff.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1000)
-
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.warn("Error fetching user analytics:", error)
-    return []
-  }
+  // Backward-compatible exact path while a new migration is rolling out.
+  // Keyset pagination avoids both PostgREST's 1,000-row cap and deep OFFSETs.
+  const rows = await getExactAnalyticsRows(cutoffISO)
+  return summarizeAnalyticsRows(rows)
 }
 
 export async function logOrganizerAction(

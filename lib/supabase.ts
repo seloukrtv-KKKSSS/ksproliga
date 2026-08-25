@@ -153,15 +153,6 @@ export interface Product {
   created_at: string
 }
 
-export interface UserAnalytics {
-  id: number
-  session_id: string
-  active_tab: string
-  duration_seconds: number
-  user_agent?: string
-  created_at: string
-}
-
 export interface OrganizerLog {
   id: number
   organizer_name: string

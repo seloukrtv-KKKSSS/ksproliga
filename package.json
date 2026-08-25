@@ -8,8 +8,9 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
+    "test:analytics": "node --experimental-strip-types scripts/test-analytics.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"
