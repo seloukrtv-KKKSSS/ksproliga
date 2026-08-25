@@ -51,6 +51,7 @@ import { TeamDisplay } from "@/components/team-display"
 import { SportsOverview } from "@/components/sports-overview"
 import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
+import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
 import { withReturnTo } from "@/lib/detail-navigation"
 
 const loadDatabase = () => import("@/lib/database")
@@ -710,15 +711,7 @@ export default function KSLigaSite() {
 
   // Loading state
   if (loading && championships.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="liquid-glass-card p-8 text-center glass-animate-in">
-          <div className="w-10 h-10 border-2 border-[var(--lg-blue)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-xl font-bold text-slate-900">KS LIGA</div>
-          <div className="text-xs text-slate-500 mt-1">Завантаження матчів...</div>
-        </div>
-      </div>
-    )
+    return <LiquidGlassLoader message="Завантажуємо матчі…" fullscreen />
   }
 
   return (
