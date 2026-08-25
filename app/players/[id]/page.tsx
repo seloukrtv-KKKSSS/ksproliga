@@ -4,8 +4,12 @@ import { notFound } from "next/navigation"
 import { ArrowLeft, Award, Goal, ShieldAlert, Target, UserRound } from "lucide-react"
 import { getMatches, getPlayerById, getPlayerCards, getPlayerGoals, getTeams } from "@/lib/database"
 import { getMatchDateTime } from "@/lib/match-utils"
+import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
-type PlayerPageProps = { params: Promise<{ id: string }> }
+type PlayerPageProps = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: ReturnToParam }>
+}
 
 export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
   const { id } = await params
@@ -15,8 +19,9 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
   return { title: `${player.name} | KS LIGA`, description, openGraph: { title: `${player.name} | KS LIGA`, description, images: [] }, twitter: { title: `${player.name} | KS LIGA`, description, images: [] } }
 }
 
-export default async function PlayerPage({ params }: PlayerPageProps) {
+export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
   const { id } = await params
+  const { returnTo } = await searchParams
   const playerId = Number.parseInt(id, 10)
   if (!Number.isFinite(playerId)) notFound()
   const player = await getPlayerById(playerId)
@@ -30,17 +35,19 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   ])
   const team = teams.find((item) => item.name === player.team)
   const matchById = new Map(matches.map((match) => [match.id, match]))
+  const backHref = getSafeReturnTo(returnTo, "/?section=scorers")
+  const currentHref = withReturnTo(`/players/${player.id}`, backHref)
 
   return (
     <main className="detail-page">
       <div className="detail-page__container">
-        <Link href="/?section=scorers" className="detail-back"><ArrowLeft /> До бомбардирів</Link>
+        <Link href={backHref} className="detail-back"><ArrowLeft /> Назад</Link>
         <section className="profile-hero liquid-glass-card">
           <div className="profile-hero__avatar"><UserRound /></div>
           <div>
             <span className="glass-badge"><Award /> Профіль гравця</span>
             <h1>{player.name}</h1>
-            <p>{team ? <Link href={`/teams/${team.id}`}>{team.name}</Link> : player.team}</p>
+            <p>{team ? <Link href={withReturnTo(`/teams/${team.id}`, currentHref)}>{team.name}</Link> : player.team}</p>
           </div>
         </section>
 
@@ -57,7 +64,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
               const match = matchById.get(goal.match_id)
               if (!match) return null
               return (
-                <Link href={`/matches/${match.id}`} key={goal.id}>
+                <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={goal.id}>
                   <span>{getMatchDateTime(match).toLocaleDateString("uk-UA")}</span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>{goal.minute ? `${goal.minute}′` : "Гол"}</b>

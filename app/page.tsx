@@ -51,6 +51,7 @@ import { TeamDisplay } from "@/components/team-display"
 import { SportsOverview } from "@/components/sports-overview"
 import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
+import { withReturnTo } from "@/lib/detail-navigation"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -102,6 +103,7 @@ export default function KSLigaSite() {
   const [matchCards, setMatchCards] = useState<{ [key: number]: MatchCard[] }>({})
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string>("overview")
+  const hasInitializedSectionRef = useRef(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -229,13 +231,19 @@ export default function KSLigaSite() {
       : requestedSection && validSections.has(requestedSection)
         ? requestedSection
         : null
-    if (!requestedTab) return
-    const updateId = window.setTimeout(() => setActiveTab(requestedTab), 0)
+    if (!requestedTab) {
+      hasInitializedSectionRef.current = true
+      return
+    }
+    const updateId = window.setTimeout(() => {
+      setActiveTab(requestedTab)
+      hasInitializedSectionRef.current = true
+    }, 0)
     return () => window.clearTimeout(updateId)
   }, [])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
+    if (typeof window === "undefined" || !hasInitializedSectionRef.current) return
     const url = new URL(window.location.href)
     if (activeTab === "overview") url.searchParams.delete("section")
     else url.searchParams.set("section", activeTab)
@@ -1113,7 +1121,7 @@ export default function KSLigaSite() {
                                 <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
                                   {teamRecord ? (
                                     <Link
-                                      href={`/teams/${teamRecord.id}`}
+                                      href={withReturnTo(`/teams/${teamRecord.id}`, "/?section=table")}
                                       className="font-bold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight hover:text-blue-600"
                                       title={`Профіль ${team.name}`}
                                     >
@@ -1292,7 +1300,7 @@ export default function KSLigaSite() {
                                           </span>
                                         )}
                                         <Link
-                                          href={`/matches/${match.id}`}
+                                          href={withReturnTo(`/matches/${match.id}`, "/?section=calendar")}
                                           className="text-[9px] font-extrabold text-blue-600 hover:text-blue-800"
                                         >
                                           Центр матчу →
@@ -1475,7 +1483,7 @@ export default function KSLigaSite() {
                                             <Tv className="h-3 w-3" /> Запис
                                           </a>
                                         )}
-                                        <Link href={`/matches/${match.id}`} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
+                                        <Link href={withReturnTo(`/matches/${match.id}`, "/?section=results")} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
                                           Протокол
                                         </Link>
                                         <button
@@ -1641,7 +1649,7 @@ export default function KSLigaSite() {
                                     {position}
                                   </div>
                                   <div className="min-w-0">
-                                    <Link href={`/players/${scorer.id}`} className="block text-sm font-bold text-slate-900 truncate hover:text-blue-600">
+                                    <Link href={withReturnTo(`/players/${scorer.id}`, "/?section=scorers")} className="block text-sm font-bold text-slate-900 truncate hover:text-blue-600">
                                       {scorer.name}
                                     </Link>
                                     <div className="text-xs text-slate-500 mt-1">

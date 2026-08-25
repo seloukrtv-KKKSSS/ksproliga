@@ -16,6 +16,7 @@ import {
   Vote,
 } from "lucide-react"
 import { TeamDisplay } from "@/components/team-display"
+import { withReturnTo } from "@/lib/detail-navigation"
 import type { LeagueStanding } from "@/lib/league-utils"
 import { createMatchCalendarEvent, formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
 import type { Match, Player, Team } from "@/lib/supabase"
@@ -203,7 +204,7 @@ export function SportsOverview({
               {getMatchDateTime(nextMatch).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}
             </span>
             <div className="sports-smart-card__actions">
-              <Link href={`/matches/${nextMatch.id}`}>Центр матчу <ChevronRight /></Link>
+              <Link href={withReturnTo(`/matches/${nextMatch.id}`, "/")}>Центр матчу <ChevronRight /></Link>
               <button type="button" onClick={() => downloadCalendar(nextMatch)} aria-label="Додати матч у календар">
                 <CalendarPlus /> <span>У календар</span>
               </button>
@@ -221,7 +222,7 @@ export function SportsOverview({
         )}
 
         {lastResult ? (
-          <Link className="sports-smart-card" href={`/matches/${lastResult.id}`}>
+          <Link className="sports-smart-card" href={withReturnTo(`/matches/${lastResult.id}`, "/")}>
             <div className="sports-smart-card__eyebrow"><Shield /> Останній результат</div>
             <strong>{lastResult.home_team} — {lastResult.away_team}</strong>
             <span className="sports-smart-card__score">{formatMatchScore(lastResult)}</span>
@@ -237,7 +238,7 @@ export function SportsOverview({
         )}
 
         {standings[0] ? (
-          <Link className="sports-smart-card" href={leaderTeam ? `/teams/${leaderTeam.id}` : `/?section=${primarySection}`}>
+          <Link className="sports-smart-card" href={leaderTeam ? withReturnTo(`/teams/${leaderTeam.id}`, "/") : `/?section=${primarySection}`}>
             <div className="sports-smart-card__eyebrow"><Trophy /> Лідер турніру</div>
             <strong>{standings[0].name}</strong>
             <span>
@@ -256,7 +257,7 @@ export function SportsOverview({
         )}
 
         {topScorer && (
-          <Link className="sports-smart-card" href={`/players/${topScorer.id}`}>
+          <Link className="sports-smart-card" href={withReturnTo(`/players/${topScorer.id}`, "/")}>
             <div className="sports-smart-card__eyebrow"><Medal /> Найкращий бомбардир</div>
             <strong>{topScorer.name}</strong>
             <span>{topScorer.team}</span>
@@ -274,7 +275,7 @@ export function SportsOverview({
             {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
           </select>
           {favoriteMatch ? (
-            <Link href={`/matches/${favoriteMatch.id}`} className="sports-smart-card__favorite-match">
+            <Link href={withReturnTo(`/matches/${favoriteMatch.id}`, "/")} className="sports-smart-card__favorite-match">
               Наступний матч: {favoriteMatch.home_team} — {favoriteMatch.away_team}
             </Link>
           ) : (

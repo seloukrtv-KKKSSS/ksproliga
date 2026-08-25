@@ -16,8 +16,12 @@ import {
 } from "@/lib/database"
 import { formatTime } from "@/lib/league-utils"
 import { formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
+import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
-type MatchPageProps = { params: Promise<{ id: string }> }
+type MatchPageProps = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: ReturnToParam }>
+}
 
 export async function generateMetadata({ params }: MatchPageProps): Promise<Metadata> {
   const { id } = await params
@@ -37,8 +41,9 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   }
 }
 
-export default async function MatchPage({ params }: MatchPageProps) {
+export default async function MatchPage({ params, searchParams }: MatchPageProps) {
   const { id } = await params
+  const { returnTo } = await searchParams
   const matchId = Number.parseInt(id, 10)
   if (!Number.isFinite(matchId)) notFound()
 
@@ -61,11 +66,13 @@ export default async function MatchPage({ params }: MatchPageProps) {
   const homeCards = cards.filter((card) => card.team_name === match.home_team)
   const awayCards = cards.filter((card) => card.team_name === match.away_team)
   const votingWinner = [...candidates].sort((a, b) => b.votes - a.votes)[0]
+  const backHref = getSafeReturnTo(returnTo, "/?section=results")
+  const currentHref = withReturnTo(`/matches/${match.id}`, backHref)
 
   return (
     <main className="detail-page">
       <div className="detail-page__container">
-        <Link href="/?section=results" className="detail-back"><ArrowLeft /> На головну</Link>
+        <Link href={backHref} className="detail-back"><ArrowLeft /> Назад</Link>
 
         <section className="match-hero glass-hero">
           <div className="match-hero__meta">
@@ -73,7 +80,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
             <span>{match.cup_stage || `Тур ${match.round}`}</span>
           </div>
           <div className="match-hero__teams">
-            <Link href={home ? `/teams/${home.id}` : "#"} className="match-hero__team">
+            <Link href={home ? withReturnTo(`/teams/${home.id}`, currentHref) : "#"} className="match-hero__team">
               <TeamDisplay teamName={match.home_team} teamLogo={home?.logo} size="lg" showName={false} />
               <strong>{match.home_team}</strong>
               <span>Господарі</span>
@@ -82,7 +89,7 @@ export default async function MatchPage({ params }: MatchPageProps) {
               <span>{formatMatchScore(match)}</span>
               <small>{match.is_finished ? "Матч завершено" : "Заплановано"}</small>
             </div>
-            <Link href={away ? `/teams/${away.id}` : "#"} className="match-hero__team">
+            <Link href={away ? withReturnTo(`/teams/${away.id}`, currentHref) : "#"} className="match-hero__team">
               <TeamDisplay teamName={match.away_team} teamLogo={away?.logo} size="lg" showName={false} />
               <strong>{match.away_team}</strong>
               <span>Гості</span>

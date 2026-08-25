@@ -6,8 +6,12 @@ import { getChampionships, getMatchesForTeam, getPlayers, getTeamById, getTeams 
 import { buildLeagueTable } from "@/lib/league-utils"
 import { formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
 import { SafeImage } from "@/components/safe-image"
+import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
-type TeamPageProps = { params: Promise<{ id: string }> }
+type TeamPageProps = {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: ReturnToParam }>
+}
 
 export async function generateMetadata({ params }: TeamPageProps): Promise<Metadata> {
   const { id } = await params
@@ -22,8 +26,9 @@ export async function generateMetadata({ params }: TeamPageProps): Promise<Metad
   }
 }
 
-export default async function TeamPage({ params }: TeamPageProps) {
+export default async function TeamPage({ params, searchParams }: TeamPageProps) {
   const { id } = await params
+  const { returnTo } = await searchParams
   const teamId = Number.parseInt(id, 10)
   if (!Number.isFinite(teamId)) notFound()
   const team = await getTeamById(teamId)
@@ -41,11 +46,13 @@ export default async function TeamPage({ params }: TeamPageProps) {
   const finished = matches.filter((match) => match.is_finished)
   const upcoming = matches.filter((match) => !match.is_finished).sort((a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime())
   const recent = [...finished].sort((a, b) => getMatchDateTime(b).getTime() - getMatchDateTime(a).getTime()).slice(0, 5)
+  const backHref = getSafeReturnTo(returnTo, "/?section=table")
+  const currentHref = withReturnTo(`/teams/${team.id}`, backHref)
 
   return (
     <main className="detail-page">
       <div className="detail-page__container">
-        <Link href="/?section=table" className="detail-back"><ArrowLeft /> До таблиці</Link>
+        <Link href={backHref} className="detail-back"><ArrowLeft /> Назад</Link>
         <section className="profile-hero liquid-glass-card">
           <div className="profile-hero__logo">
             <SafeImage src={team.logo || "/placeholder-logo.png"} alt={`Логотип ${team.name}`} width={160} height={160} />
@@ -69,7 +76,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             <div className="detail-card__title"><CalendarDays /> Наступні матчі</div>
             <div className="profile-match-list">
               {upcoming.length ? upcoming.slice(0, 4).map((match) => (
-                <Link href={`/matches/${match.id}`} key={match.id}>
+                <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={match.id}>
                   <span>{getMatchDateTime(match).toLocaleDateString("uk-UA", { day: "2-digit", month: "short" })}</span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>VS</b>
@@ -82,7 +89,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
             <div className="detail-card__title"><Trophy /> Остання форма</div>
             <div className="profile-match-list">
               {recent.length ? recent.map((match) => (
-                <Link href={`/matches/${match.id}`} key={match.id}>
+                <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={match.id}>
                   <span>{getMatchDateTime(match).toLocaleDateString("uk-UA", { day: "2-digit", month: "short" })}</span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>{formatMatchScore(match)}</b>
@@ -97,7 +104,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
               {(team.roster?.length ? team.roster : teamPlayers.map((player) => player.name)).map((name, index) => {
                 const player = teamPlayers.find((item) => item.name === name)
                 return player
-                  ? <Link href={`/players/${player.id}`} key={player.id}><span>{index + 1}</span>{name}</Link>
+                  ? <Link href={withReturnTo(`/players/${player.id}`, currentHref)} key={player.id}><span>{index + 1}</span>{name}</Link>
                   : <div key={`${name}-${index}`}><span>{index + 1}</span>{name}</div>
               })}
               {!team.roster?.length && !teamPlayers.length && <p className="detail-empty">Склад ще не опубліковано.</p>}
