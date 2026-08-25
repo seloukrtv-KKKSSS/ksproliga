@@ -1016,8 +1016,6 @@ export default function KSLigaSite() {
                 {currentChampionship && (
                   <TabsContent value="overview" className="liquid-module outline-none">
                     <SportsOverview
-                      championshipName={currentChampionship.name}
-                      season={currentChampionship.season}
                       tournamentType={currentChampionship.tournament_type}
                       teams={teams}
                       standings={currentChampionship.tournament_type === "league" ? table : []}

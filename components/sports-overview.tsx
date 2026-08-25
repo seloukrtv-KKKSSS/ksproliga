@@ -3,18 +3,14 @@
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  BarChart3,
   Bell,
   BellRing,
-  CalendarDays,
   CalendarPlus,
   ChevronRight,
   Crown,
   Heart,
   Medal,
   Shield,
-  Sparkles,
-  Target,
   Trophy,
   Tv,
   Vote,
@@ -28,8 +24,6 @@ const FAVORITE_KEY = "ksliga_favorite_team"
 const ALERTS_KEY = "ksliga_match_alerts"
 
 interface SportsOverviewProps {
-  championshipName: string
-  season: string
   tournamentType: "league" | "cup"
   teams: Team[]
   standings: LeagueStanding[]
@@ -41,8 +35,6 @@ interface SportsOverviewProps {
 }
 
 export function SportsOverview({
-  championshipName,
-  season,
   tournamentType,
   teams,
   standings,
@@ -166,34 +158,12 @@ export function SportsOverview({
   }
 
   const primarySection = tournamentType === "cup" ? "cup" : "table"
-  const quickLinks = [
-    { id: primarySection, label: tournamentType === "cup" ? "Кубок" : "Таблиця", icon: tournamentType === "cup" ? Crown : Trophy },
-    { id: "calendar", label: "Календар", icon: CalendarDays },
-    { id: "results", label: "Результати", icon: BarChart3 },
-    { id: "scorers", label: "Бомбардири", icon: Target },
-  ]
 
   return (
     <section className="sports-overview" aria-labelledby="sports-overview-title">
-      <div className="sports-overview__hero">
-        <div className="sports-overview__intro">
-          <span className="sports-overview__kicker"><Sparkles aria-hidden="true" /> Головна KS LIGA</span>
-          <h2 id="sports-overview-title">{championshipName}</h2>
-          <p>Матчі, результати та головні герої сезону — коротко, зрозуміло й в одному місці.</p>
-          <div className="sports-overview__quick-nav" aria-label="Швидкі переходи">
-            {quickLinks.map(({ id, label, icon: Icon }) => (
-              <button key={id} type="button" onClick={() => navigateTo(id)}>
-                <Icon aria-hidden="true" /> {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="sports-overview__stamp" aria-label={`Сезон ${season}`}>
-          <Shield aria-hidden="true" />
-          <span>{tournamentType === "cup" ? "Кубковий турнір" : "Чемпіонат"}</span>
-          <strong>{season}</strong>
-          <small>Офіційні дані ліги</small>
-        </div>
+      <div className="sports-overview__heading">
+        <h2 id="sports-overview-title">Головне зараз</h2>
+        <p>Найближчий матч, свіжий результат і лідери сезону.</p>
       </div>
 
       {activeVotingMatchId && (
@@ -211,17 +181,9 @@ export function SportsOverview({
         </button>
       )}
 
-      <div className="sports-overview__heading">
-        <div>
-          <span className="ios-section-header">У центрі уваги</span>
-          <h3>Головне зараз</h3>
-        </div>
-        <span className="glass-badge"><Sparkles aria-hidden="true" /> Після оновлення організатором</span>
-      </div>
-
       <div className="sports-overview__grid">
         {nextMatch ? (
-          <article className="sports-smart-card sports-smart-card--primary sports-smart-card--featured">
+          <article className="sports-smart-card sports-smart-card--featured">
             <div className="sports-smart-card__topline">
               <div className="sports-smart-card__eyebrow"><CalendarPlus /> Наступний матч</div>
               {nextMatch.youtube_url && <span className="sports-smart-card__broadcast"><Tv /> YouTube</span>}
