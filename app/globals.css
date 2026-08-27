@@ -1109,6 +1109,12 @@
     color: white;
   }
 
+  .sports-smart-card__actions .sports-smart-card__youtube-action {
+    background: linear-gradient(135deg, #ff0033, #d9002b);
+    box-shadow: 0 8px 20px rgba(217, 0, 43, 0.22);
+    color: white;
+  }
+
   .sports-smart-card__actions button {
     border: 1px solid rgba(10, 132, 255, 0.16);
     background: rgba(10, 132, 255, 0.08);

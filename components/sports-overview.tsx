@@ -18,7 +18,7 @@ import { TeamDisplay } from "@/components/team-display"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import type { LeagueStanding } from "@/lib/league-utils"
-import { createMatchCalendarEvent, formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
+import { createMatchCalendarEvent, formatMatchScore, getMatchBroadcastState, getMatchDateTime } from "@/lib/match-utils"
 import type { Match, Player, Team } from "@/lib/supabase"
 
 const FAVORITE_KEY = "ksliga_favorite_team"
@@ -48,6 +48,7 @@ export function SportsOverview({
   const [favoriteTeamId, setFavoriteTeamId] = useState<number | null>(null)
   const [alertsEnabled, setAlertsEnabled] = useState(false)
   const [message, setMessage] = useState("")
+  const [currentTime, setCurrentTime] = useState(0)
 
   const nextMatch = useMemo(
     () => [...upcomingMatches].sort((a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime())[0],
@@ -73,18 +74,26 @@ export function SportsOverview({
   const nextAwayTeam = teams.find((team) => team.name === nextMatch?.away_team)
   const leaderTeam = teams.find((team) => team.name === standings[0]?.name)
   const votingMatch = [...upcomingMatches, ...finishedMatches].find((match) => match.id === activeVotingMatchId)
+  const nextMatchBroadcastState = nextMatch?.youtube_url && currentTime
+    ? getMatchBroadcastState(nextMatch, new Date(currentTime))
+    : null
 
   useEffect(() => {
     const storedTeam = Number.parseInt(localStorage.getItem(FAVORITE_KEY) || "", 10)
     const updateId = window.setTimeout(() => {
       setFavoriteTeamId(Number.isNaN(storedTeam) ? null : storedTeam)
+      setCurrentTime(Date.now())
       setAlertsEnabled(
         localStorage.getItem(ALERTS_KEY) === "1" &&
         "Notification" in window &&
         Notification.permission === "granted",
       )
     }, 0)
-    return () => window.clearTimeout(updateId)
+    const clockId = window.setInterval(() => setCurrentTime(Date.now()), 30_000)
+    return () => {
+      window.clearTimeout(updateId)
+      window.clearInterval(clockId)
+    }
   }, [])
 
   const saveFavorite = (value: string) => {
@@ -210,6 +219,15 @@ export function SportsOverview({
               {getMatchDateTime(nextMatch).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}
             </span>
             <div className="sports-smart-card__actions">
+              {nextMatchBroadcastState === "broadcast" && (
+                <YouTubeExternalLink
+                  url={nextMatch.youtube_url}
+                  label="Дивитися трансляцію"
+                  ariaLabel={`Дивитися трансляцію матчу ${nextMatch.home_team} — ${nextMatch.away_team} на YouTube`}
+                  className="sports-smart-card__youtube-action"
+                  showExternalIcon={false}
+                />
+              )}
               <Link href={withReturnTo(`/matches/${nextMatch.id}`, "/")}>Центр матчу <ChevronRight /></Link>
               <button type="button" onClick={() => downloadCalendar(nextMatch)} aria-label="Додати матч у календар">
                 <CalendarPlus /> <span>У календар</span>
