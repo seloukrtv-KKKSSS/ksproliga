@@ -1,4 +1,5 @@
-import { ExternalLink, Tv } from "lucide-react"
+import { Tv } from "lucide-react"
+import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import type { Match } from "@/lib/supabase"
 import {
   getMatchBroadcastLabel,
@@ -36,9 +37,12 @@ export function YouTubeBroadcast({ match }: YouTubeBroadcastProps) {
                 : "Трансляція доступна у вбудованому плеєрі або безпосередньо на YouTube."}
           </p>
         </div>
-        <a className="ios-btn-secondary broadcast-card__link" href={watchUrl} target="_blank" rel="noreferrer">
-          Відкрити YouTube <ExternalLink aria-hidden="true" />
-        </a>
+        <YouTubeExternalLink
+          url={watchUrl}
+          label="Відкрити YouTube"
+          ariaLabel={`${label}: відкрити ${match.home_team} — ${match.away_team} на YouTube`}
+          className="ios-btn-secondary broadcast-card__link"
+        />
       </div>
       <div className="broadcast-player">
         <iframe

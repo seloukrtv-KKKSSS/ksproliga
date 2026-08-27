@@ -972,6 +972,12 @@
     color: #dc2626;
     font-size: 0.61rem;
     font-weight: 850;
+    text-decoration: none;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+  }
+
+  .sports-smart-card__broadcast:active {
+    transform: scale(0.96);
   }
 
   .sports-smart-card__broadcast svg {

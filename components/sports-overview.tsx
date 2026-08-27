@@ -12,10 +12,10 @@ import {
   Medal,
   Shield,
   Trophy,
-  Tv,
   Vote,
 } from "lucide-react"
 import { TeamDisplay } from "@/components/team-display"
+import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import type { LeagueStanding } from "@/lib/league-utils"
 import { createMatchCalendarEvent, formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
@@ -187,7 +187,13 @@ export function SportsOverview({
           <article className="sports-smart-card sports-smart-card--featured">
             <div className="sports-smart-card__topline">
               <div className="sports-smart-card__eyebrow"><CalendarPlus /> Наступний матч</div>
-              {nextMatch.youtube_url && <span className="sports-smart-card__broadcast"><Tv /> YouTube</span>}
+              <YouTubeExternalLink
+                url={nextMatch.youtube_url}
+                label="YouTube"
+                ariaLabel={`Відкрити трансляцію матчу ${nextMatch.home_team} — ${nextMatch.away_team} на YouTube`}
+                className="sports-smart-card__broadcast"
+                showExternalIcon={false}
+              />
             </div>
             <div className="sports-smart-card__matchup">
               <div>

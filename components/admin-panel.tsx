@@ -92,6 +92,7 @@ import {
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
 import type { AnalyticsPeriod, AnalyticsSummary } from "@/lib/database"
 import { normalizeYouTubeUrl } from "@/lib/match-utils"
+import { YouTubeExternalLink } from "@/components/youtube-external-link"
 
 const OrganizersModule = dynamic(
   () => import("@/components/admin/organizers-module").then((module) => module.OrganizersModule),
@@ -2099,18 +2100,12 @@ export function AdminPanel({
                             </span>
                           )
                         })()}
-                        {match.youtube_url && (
-                          <a
-                            href={match.youtube_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 text-red-600 hover:text-red-700 font-bold"
-                          >
-                            <Tv className="h-3.5 w-3.5" />
-                            YouTube
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
+                        <YouTubeExternalLink
+                          url={match.youtube_url}
+                          label="YouTube"
+                          ariaLabel={`Відкрити трансляцію матчу ${match.home_team} — ${match.away_team} на YouTube`}
+                          className="flex items-center gap-1 text-red-600 hover:text-red-700 font-bold [&_svg]:h-3.5 [&_svg]:w-3.5"
+                        />
                         {match.is_technical_defeat && (
                           <span className="flex items-center gap-1 text-red-700 font-medium">
                             <AlertTriangle className="h-3 w-3 text-red-500" />

@@ -35,7 +35,6 @@ import {
   Gamepad2,
   Mail,
   KeyRound,
-  Tv,
   House,
 } from "lucide-react"
 import {
@@ -52,6 +51,7 @@ import { SportsOverview } from "@/components/sports-overview"
 import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
+import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 
 const loadDatabase = () => import("@/lib/database")
@@ -1287,11 +1287,12 @@ export default function KSLigaSite() {
                                         <div className="text-[9px] sm:text-[10px] font-medium text-slate-500">
                                           {new Date(match.date).toLocaleDateString("uk-UA")}
                                         </div>
-                                        {match.youtube_url && (
-                                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-extrabold text-red-600 ring-1 ring-red-100">
-                                            <Tv className="h-3 w-3" /> Трансляція
-                                          </span>
-                                        )}
+                                        <YouTubeExternalLink
+                                          url={match.youtube_url}
+                                          label="Трансляція"
+                                          ariaLabel={`Відкрити трансляцію матчу ${match.home_team} — ${match.away_team} на YouTube`}
+                                          className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-extrabold text-red-600 ring-1 ring-red-100 transition-colors hover:bg-red-100 hover:text-red-700 [&_svg]:h-3 [&_svg]:w-3"
+                                        />
                                         <Link
                                           href={withReturnTo(`/matches/${match.id}`, "/?section=calendar")}
                                           className="text-[9px] font-extrabold text-blue-600 hover:text-blue-800"
@@ -1464,18 +1465,13 @@ export default function KSLigaSite() {
                                         {new Date(match.date).toLocaleDateString("uk-UA")}
                                       </span>
                                       <div className="flex items-center gap-2">
-                                        {match.youtube_url && (
-                                          <a
-                                            href={match.youtube_url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            onClick={(event) => event.stopPropagation()}
-                                            aria-label={`Відкрити запис матчу ${match.home_team} — ${match.away_team} на YouTube`}
-                                            className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[10px] font-extrabold text-red-600 ring-1 ring-red-100 transition-colors hover:bg-red-100 hover:text-red-700"
-                                          >
-                                            <Tv className="h-3 w-3" /> Запис
-                                          </a>
-                                        )}
+                                        <YouTubeExternalLink
+                                          url={match.youtube_url}
+                                          label="Запис"
+                                          ariaLabel={`Відкрити запис матчу ${match.home_team} — ${match.away_team} на YouTube`}
+                                          onClick={(event) => event.stopPropagation()}
+                                          className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[10px] font-extrabold text-red-600 ring-1 ring-red-100 transition-colors hover:bg-red-100 hover:text-red-700 [&_svg]:h-3 [&_svg]:w-3"
+                                        />
                                         <Link href={withReturnTo(`/matches/${match.id}`, "/?section=results")} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
                                           Протокол
                                         </Link>
