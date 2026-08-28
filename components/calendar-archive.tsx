@@ -80,10 +80,9 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
       return { round, roundMatches, finishedRoundMatches, isComplete, roundTitle }
     })
 
-  const completedRoundCount = archivedRounds.filter((round) => round.isComplete).length
   const roundNoun = tournamentType === "cup"
-    ? pluralize(completedRoundCount, "етап", "етапи", "етапів")
-    : pluralize(completedRoundCount, "тур", "тури", "турів")
+    ? pluralize(archivedRounds.length, "етап", "етапи", "етапів")
+    : pluralize(archivedRounds.length, "тур", "тури", "турів")
   const matchNoun = pluralize(finishedMatches.length, "матч", "матчі", "матчів")
 
   return (
@@ -97,7 +96,7 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
           <small>Історія завершених турів і матчів</small>
         </span>
         <span className="calendar-archive__count">
-          {completedRoundCount} {roundNoun} · {finishedMatches.length} {matchNoun}
+          {archivedRounds.length} {roundNoun} · {finishedMatches.length} {matchNoun}
         </span>
         <ChevronDown className="calendar-archive__chevron" aria-hidden="true" />
       </summary>
