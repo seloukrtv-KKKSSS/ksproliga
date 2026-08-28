@@ -52,6 +52,7 @@ import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
+import { CalendarArchive } from "@/components/calendar-archive"
 import { withReturnTo } from "@/lib/detail-navigation"
 
 const loadDatabase = () => import("@/lib/database")
@@ -1310,6 +1311,12 @@ export default function KSLigaSite() {
                       )
                     })
                   )}
+
+                  <CalendarArchive
+                    matches={[...calendar, ...results]}
+                    teams={teams}
+                    tournamentType={currentChampionship?.tournament_type || "league"}
+                  />
                 </TabsContent>
 
                 {/* Results Tab */}

@@ -73,7 +73,7 @@ export function formatMatchScore(match: Match): string {
   }
 
   const score = `${match.home_score ?? 0} : ${match.away_score ?? 0}`
-  if (match.penalty_home === null || match.penalty_away === null) return score
+  if (match.penalty_home == null || match.penalty_away == null) return score
   return `${score} (${match.penalty_home}:${match.penalty_away} пен.)`
 }
 
