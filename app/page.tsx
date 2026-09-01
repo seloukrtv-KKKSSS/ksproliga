@@ -189,7 +189,7 @@ export default function KSLigaSite() {
   const filteredVotings = useMemo(() => {
     const now = new Date()
 
-    return votings.filter((voting) => {
+    const visibleVotings = votings.filter((voting) => {
       const startTime = voting.start_time ? new Date(voting.start_time) : null
       const endTime = voting.end_time ? new Date(voting.end_time) : null
       const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
@@ -205,6 +205,17 @@ export default function KSLigaSite() {
       }
 
       return voting.is_active && isWithinTime
+    })
+
+    if (!showArchive) return visibleVotings
+
+    return visibleVotings.sort((a, b) => {
+      const completedAt = (voting: MatchVoting) => {
+        const timestamp = Date.parse(voting.end_time ?? voting.created_at)
+        return Number.isNaN(timestamp) ? 0 : timestamp
+      }
+
+      return completedAt(b) - completedAt(a)
     })
   }, [votings, candidates, showArchive])
 
