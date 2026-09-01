@@ -6,6 +6,15 @@ export function getMatchDateTime(match: Pick<Match, "date" | "match_time">): Dat
   return Number.isNaN(value.getTime()) ? new Date(match.date) : value
 }
 
+export function getNextMatchGroup(matches: Match[]): Match[] {
+  const sortedMatches = [...matches].sort(
+    (a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime() || a.id - b.id,
+  )
+  const firstMatchTime = sortedMatches[0] ? getMatchDateTime(sortedMatches[0]).getTime() : null
+  if (firstMatchTime === null) return []
+  return sortedMatches.filter((match) => getMatchDateTime(match).getTime() === firstMatchTime)
+}
+
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
 
 export function getYouTubeVideoId(value?: string | null): string | null {

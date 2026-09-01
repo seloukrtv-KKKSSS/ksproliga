@@ -961,6 +961,14 @@
     gap: 0.75rem;
   }
 
+  .sports-smart-card__topline-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.42rem;
+    min-width: 0;
+  }
+
   .sports-smart-card__broadcast {
     display: inline-flex;
     align-items: center;
@@ -978,6 +986,62 @@
 
   .sports-smart-card__broadcast:active {
     transform: scale(0.96);
+  }
+
+  .sports-smart-card__slider-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.18rem;
+    border: 1px solid rgba(116, 151, 193, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .sports-smart-card__slider-nav button {
+    display: grid;
+    width: 1.55rem;
+    height: 1.55rem;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(10, 132, 255, 0.08);
+    color: var(--ks-blue-deep);
+    cursor: pointer;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+  }
+
+  .sports-smart-card__slider-nav button:hover {
+    background: rgba(10, 132, 255, 0.16);
+    color: var(--ks-blue);
+  }
+
+  .sports-smart-card__slider-nav button:active {
+    transform: scale(0.9);
+  }
+
+  .sports-smart-card__slider-nav button:focus-visible {
+    outline: 3px solid rgba(10, 132, 255, 0.2);
+    outline-offset: 1px;
+  }
+
+  .sports-smart-card__slider-nav button svg {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  .sports-smart-card__slider-nav span {
+    min-width: 2.6rem;
+    color: var(--ks-muted);
+    font-size: 0.58rem;
+    font-weight: 850;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .sports-smart-card--featured {
+    animation: overview-match-slide 220ms ease-out both;
   }
 
   .sports-smart-card__broadcast svg {
@@ -1124,6 +1188,17 @@
   .sports-smart-card__actions button span {
     font-size: 0.65rem;
     font-weight: 800;
+  }
+
+  @keyframes overview-match-slide {
+    from {
+      opacity: 0.35;
+      transform: translateX(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   .sports-smart-card--fan select {

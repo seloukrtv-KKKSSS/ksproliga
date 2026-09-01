@@ -6,6 +6,7 @@ import {
   Bell,
   BellRing,
   CalendarPlus,
+  ChevronLeft,
   ChevronRight,
   Crown,
   Heart,
@@ -18,7 +19,7 @@ import { TeamDisplay } from "@/components/team-display"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import type { LeagueStanding } from "@/lib/league-utils"
-import { createMatchCalendarEvent, formatMatchScore, getMatchBroadcastState, getMatchDateTime } from "@/lib/match-utils"
+import { createMatchCalendarEvent, formatMatchScore, getMatchBroadcastState, getMatchDateTime, getNextMatchGroup } from "@/lib/match-utils"
 import type { Match, Player, Team } from "@/lib/supabase"
 
 const FAVORITE_KEY = "ksliga_favorite_team"
@@ -49,11 +50,25 @@ export function SportsOverview({
   const [alertsEnabled, setAlertsEnabled] = useState(false)
   const [message, setMessage] = useState("")
   const [currentTime, setCurrentTime] = useState(0)
+  const [nextMatchId, setNextMatchId] = useState<number | null>(null)
 
-  const nextMatch = useMemo(
-    () => [...upcomingMatches].sort((a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime())[0],
-    [upcomingMatches],
-  )
+  const nextMatches = useMemo(() => getNextMatchGroup(upcomingMatches), [upcomingMatches])
+  const selectedNextMatchIndex = nextMatches.findIndex((match) => match.id === nextMatchId)
+  const visibleNextMatchIndex = selectedNextMatchIndex >= 0 ? selectedNextMatchIndex : 0
+  const nextMatch = nextMatches[visibleNextMatchIndex]
+
+  const showPreviousNextMatch = () => {
+    if (nextMatches.length < 2) return
+    const previousMatch = nextMatches[visibleNextMatchIndex === 0 ? nextMatches.length - 1 : visibleNextMatchIndex - 1]
+    setNextMatchId(previousMatch.id)
+  }
+
+  const showNextNextMatch = () => {
+    if (nextMatches.length < 2) return
+    const nextSlideMatch = nextMatches[(visibleNextMatchIndex + 1) % nextMatches.length]
+    setNextMatchId(nextSlideMatch.id)
+  }
+
   const lastResult = useMemo(
     () => [...finishedMatches].sort((a, b) => getMatchDateTime(b).getTime() - getMatchDateTime(a).getTime())[0],
     [finishedMatches],
@@ -193,18 +208,31 @@ export function SportsOverview({
 
       <div className="sports-overview__grid">
         {nextMatch ? (
-          <article className="sports-smart-card sports-smart-card--featured">
+          <article key={nextMatch.id} className="sports-smart-card sports-smart-card--featured">
             <div className="sports-smart-card__topline">
               <div className="sports-smart-card__eyebrow"><CalendarPlus /> Наступний матч</div>
-              <YouTubeExternalLink
-                url={nextMatch.youtube_url}
-                label="YouTube"
-                ariaLabel={`Відкрити трансляцію матчу ${nextMatch.home_team} — ${nextMatch.away_team} на YouTube`}
-                className="sports-smart-card__broadcast"
-                showExternalIcon={false}
-              />
+              <div className="sports-smart-card__topline-actions">
+                <YouTubeExternalLink
+                  url={nextMatch.youtube_url}
+                  label="YouTube"
+                  ariaLabel={`Відкрити трансляцію матчу ${nextMatch.home_team} — ${nextMatch.away_team} на YouTube`}
+                  className="sports-smart-card__broadcast"
+                  showExternalIcon={false}
+                />
+                {nextMatches.length > 1 && (
+                  <div className="sports-smart-card__slider-nav" role="group" aria-label="Перемикання матчів з однаковим часом">
+                    <button type="button" onClick={showPreviousNextMatch} aria-label="Попередній матч">
+                      <ChevronLeft aria-hidden="true" />
+                    </button>
+                    <span aria-live="polite">{visibleNextMatchIndex + 1} / {nextMatches.length}</span>
+                    <button type="button" onClick={showNextNextMatch} aria-label="Наступний матч">
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="sports-smart-card__matchup">
+            <div className="sports-smart-card__matchup" aria-live="polite">
               <div>
                 <TeamDisplay teamName={nextMatch.home_team} teamLogo={nextHomeTeam?.logo} size="lg" showName={false} />
                 <strong>{nextMatch.home_team}</strong>
