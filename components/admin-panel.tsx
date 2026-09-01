@@ -280,6 +280,7 @@ export function AdminPanel({
   const [votingCandidates, setVotingCandidates] = useState<VotingCandidate[]>([])
   const [championshipVotings, setChampionshipVotings] = useState<MatchVoting[]>([])
   const [hideCompletedVotings, setHideCompletedVotings] = useState(false)
+  const [showOnlyVotingsWithBroadcast, setShowOnlyVotingsWithBroadcast] = useState(false)
   const [candidateForm, setCandidateForm] = useState({
     player_name: "",
     team_name: "",
@@ -2963,21 +2964,33 @@ export function AdminPanel({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Matches List */}
                 <div className="lg:col-span-1 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm h-[500px] flex flex-col">
-                  <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                  <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Матчі чемпіонату</span>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-semibold text-slate-600">
-                      <input
-                        type="checkbox"
-                        checked={hideCompletedVotings}
-                        onChange={(e) => setHideCompletedVotings(e.target.checked)}
-                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
-                      />
-                      <span>Приховати завершені</span>
-                    </label>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={hideCompletedVotings}
+                          onChange={(e) => setHideCompletedVotings(e.target.checked)}
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
+                        />
+                        <span>Приховати завершені</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyVotingsWithBroadcast}
+                          onChange={(e) => setShowOnlyVotingsWithBroadcast(e.target.checked)}
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 h-3.5 w-3.5"
+                        />
+                        <span>Тільки з трансляцією</span>
+                      </label>
+                    </div>
                   </div>
                   <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
                     {matches
                       .filter((match) => {
+                        if (showOnlyVotingsWithBroadcast && !normalizeYouTubeUrl(match.youtube_url)) return false
                         if (!hideCompletedVotings) return true
                         const voting = championshipVotings.find((v) => v.match_id === match.id)
                         if (!voting) return true
