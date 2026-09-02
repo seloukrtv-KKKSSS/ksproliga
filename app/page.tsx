@@ -52,7 +52,6 @@ import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
-import { CalendarArchive } from "@/components/calendar-archive"
 import { withReturnTo } from "@/lib/detail-navigation"
 
 const loadDatabase = () => import("@/lib/database")
@@ -84,6 +83,10 @@ const KsGamesHub = dynamic(() => import("@/components/games/ks-games-hub").then(
   loading: ModuleLoading,
   ssr: false,
 })
+const CalendarArchive = dynamic(
+  () => import("@/components/calendar-archive").then((module) => module.CalendarArchive),
+  { loading: () => <div className="py-6 text-center text-sm text-slate-500">Завантаження архіву…</div> },
+)
 
 export default function KSLigaSite() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -1324,7 +1327,7 @@ export default function KSLigaSite() {
                   )}
 
                   <CalendarArchive
-                    matches={[...calendar, ...results]}
+                    matches={allMatches}
                     teams={teams}
                     tournamentType={currentChampionship?.tournament_type || "league"}
                   />

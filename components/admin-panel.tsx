@@ -324,6 +324,24 @@ export function AdminPanel({
     () => [...new Set(sortedMatches.map((m) => m.round))].sort((a, b) => b - a),
     [sortedMatches]
   )
+  const votingByMatchId = useMemo(
+    () => new Map(championshipVotings.map((voting) => [voting.match_id, voting])),
+    [championshipVotings]
+  )
+  const filteredVotingMatches = useMemo(() => {
+    const now = new Date()
+
+    return matches.filter((match) => {
+      if (showOnlyVotingsWithBroadcast && !normalizeYouTubeUrl(match.youtube_url)) return false
+      if (!hideCompletedVotings) return true
+
+      const voting = votingByMatchId.get(match.id)
+      if (!voting || voting.is_active) return true
+
+      const endTime = voting.end_time ? Date.parse(voting.end_time) : Number.NaN
+      return endTime > now.getTime()
+    })
+  }, [hideCompletedVotings, matches, showOnlyVotingsWithBroadcast, votingByMatchId])
 
   const revealEditForm = useCallback((form: HTMLFormElement | null) => {
     if (!form) return
@@ -2988,19 +3006,7 @@ export function AdminPanel({
                     </div>
                   </div>
                   <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
-                    {matches
-                      .filter((match) => {
-                        if (showOnlyVotingsWithBroadcast && !normalizeYouTubeUrl(match.youtube_url)) return false
-                        if (!hideCompletedVotings) return true
-                        const voting = championshipVotings.find((v) => v.match_id === match.id)
-                        if (!voting) return true
-                        if (voting.is_active) return true
-                        const now = new Date()
-                        const endTime = voting.end_time ? new Date(voting.end_time) : null
-                        if (endTime && endTime > now) return true
-                        return false
-                      })
-                      .map((match) => (
+                    {filteredVotingMatches.map((match) => (
                         <button
                           key={match.id}
                           type="button"
