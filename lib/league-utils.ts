@@ -1,4 +1,5 @@
 import type { Championship, Match, Team } from "./supabase"
+import { getMatchDateTime } from "./match-utils"
 
 export function formatTime(timeStr?: string): string {
   if (!timeStr) return ""
@@ -62,9 +63,7 @@ export function getMatchStatusInfo(match: Match): MatchStatusInfo {
     }
   }
 
-  const date = match.date?.split("T")[0]
-  const time = match.match_time || "00:00"
-  const matchDateTime = date ? new Date(`${date}T${time.length === 5 ? `${time}:00` : time}`) : null
+  const matchDateTime = match.date ? getMatchDateTime(match) : null
 
   if (matchDateTime && !Number.isNaN(matchDateTime.getTime()) && Date.now() >= matchDateTime.getTime()) {
     return {

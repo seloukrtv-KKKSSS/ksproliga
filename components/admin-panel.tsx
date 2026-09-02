@@ -91,7 +91,13 @@ import {
 } from "@/lib/database"
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
 import type { AnalyticsPeriod, AnalyticsSummary } from "@/lib/database"
-import { normalizeYouTubeUrl } from "@/lib/match-utils"
+import {
+  formatDateTimeForTimeZoneInput,
+  normalizeYouTubeUrl,
+  parseDateTimeInTimeZone,
+  parseStoredUtcDateTime,
+  TOURNAMENT_TIME_ZONE,
+} from "@/lib/match-utils"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 
 const OrganizersModule = dynamic(
@@ -338,8 +344,8 @@ export function AdminPanel({
       const voting = votingByMatchId.get(match.id)
       if (!voting || voting.is_active) return true
 
-      const endTime = voting.end_time ? Date.parse(voting.end_time) : Number.NaN
-      return endTime > now.getTime()
+      const endTime = parseStoredUtcDateTime(voting.end_time)
+      return Boolean(endTime && endTime > now)
     })
   }, [hideCompletedVotings, matches, showOnlyVotingsWithBroadcast, votingByMatchId])
 
@@ -945,26 +951,37 @@ export function AdminPanel({
 
     let startDate = new Date()
     if (preset.startsWith("match")) {
-      const matchDateStr = targetMatch.date // e.g. "2026-07-16"
-      const matchTimeStr = targetMatch.match_time || "12:00"
-      startDate = new Date(`${matchDateStr}T${matchTimeStr}`)
-      if (isNaN(startDate.getTime())) {
-        startDate = new Date()
-      }
+      const matchTime = targetMatch.match_time?.slice(0, 5) || "12:00"
+      const matchStart = parseDateTimeInTimeZone(`${targetMatch.date}T${matchTime}`)
+      const parsedMatchStart = parseStoredUtcDateTime(matchStart)
+      if (parsedMatchStart) startDate = parsedMatchStart
     }
 
     const hours = preset.endsWith("24") ? 24 : 48
     const endDate = new Date(startDate.getTime() + hours * 60 * 60 * 1000)
 
-    const toLocalISO = (d: Date) => {
-      const pad = (n: number) => n.toString().padStart(2, "0")
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    setVotingTimeForm({
+      start_time: formatDateTimeForTimeZoneInput(startDate.toISOString()),
+      end_time: formatDateTimeForTimeZoneInput(endDate.toISOString()),
+    })
+  }
+
+  const parseVotingSchedule = () => {
+    const startTime = votingTimeForm.start_time
+      ? parseDateTimeInTimeZone(votingTimeForm.start_time)
+      : null
+    const endTime = votingTimeForm.end_time
+      ? parseDateTimeInTimeZone(votingTimeForm.end_time)
+      : null
+
+    if ((votingTimeForm.start_time && !startTime) || (votingTimeForm.end_time && !endTime)) {
+      throw new Error("Вкажіть коректні дату й час за київським часовим поясом.")
+    }
+    if (startTime && endTime && Date.parse(startTime) >= Date.parse(endTime)) {
+      throw new Error("Час завершення має бути пізніше за час початку.")
     }
 
-    setVotingTimeForm({
-      start_time: toLocalISO(startDate),
-      end_time: toLocalISO(endDate),
-    })
+    return { startTime, endTime }
   }
 
   // Lion of the Match handlers
@@ -978,16 +995,9 @@ export function AdminPanel({
       setVotingCandidates(candidatesData)
 
       if (votingData) {
-        const formatForInput = (isoString: string | null) => {
-          if (!isoString) return ""
-          const date = new Date(isoString)
-          const pad = (num: number) => num.toString().padStart(2, "0")
-          return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-        }
-
         setVotingTimeForm({
-          start_time: formatForInput(votingData.start_time),
-          end_time: formatForInput(votingData.end_time),
+          start_time: formatDateTimeForTimeZoneInput(votingData.start_time),
+          end_time: formatDateTimeForTimeZoneInput(votingData.end_time),
         })
       } else {
         setVotingTimeForm({
@@ -1006,17 +1016,24 @@ export function AdminPanel({
     e.preventDefault()
     setLoading(true)
     try {
-      const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
-      const endTime = votingTimeForm.end_time ? new Date(votingTimeForm.end_time).toISOString() : null
-
-      const updated = await createOrUpdateVoting(
+      const { startTime, endTime } = parseVotingSchedule()
+      let updated = await createOrUpdateVoting(
         selectedMatchForVoting.id,
         startTime,
         endTime
       )
+
+      if ((startTime || endTime) && !updated.is_active) {
+        updated = await setVotingActiveState(selectedMatchForVoting.id, true)
+      }
+
       setMatchVoting(updated)
       updateChampionshipVotingsList(updated)
-      alert("Параметри голосування успішно збережено!")
+      alert(
+        startTime || endTime
+          ? "Розклад збережено й голосування увімкнено. Воно автоматично відкриється та завершиться за вказаним часом."
+          : "Параметри голосування успішно збережено!"
+      )
     } catch (error) {
       console.error("Error saving voting configuration:", error)
       alert("Помилка збереження голосування: " + getErrorMessage(error))
@@ -1031,8 +1048,7 @@ export function AdminPanel({
     try {
       const nextState = !matchVoting?.is_active
       if (!matchVoting) {
-        const startTime = votingTimeForm.start_time ? new Date(votingTimeForm.start_time).toISOString() : null
-        const endTime = votingTimeForm.end_time ? new Date(votingTimeForm.end_time).toISOString() : null
+        const { startTime, endTime } = parseVotingSchedule()
         const created = await createOrUpdateVoting(selectedMatchForVoting.id, startTime, endTime)
         updateChampionshipVotingsList(created)
       }
@@ -2224,7 +2240,7 @@ export function AdminPanel({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-4 border-b border-slate-200">
                         {/* Time Config */}
                         <form onSubmit={handleVotingTimeSubmit} className="space-y-3">
-                          <h5 className="font-semibold text-xs text-slate-700">Час проведення</h5>
+                          <h5 className="font-semibold text-xs text-slate-700">Час проведення (за Києвом)</h5>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <Label htmlFor="vote-start-time" className="text-slate-600 text-xs">Початок</Label>
@@ -2247,6 +2263,9 @@ export function AdminPanel({
                               />
                             </div>
                           </div>
+                          <p className="text-[10px] text-slate-500" title={TOURNAMENT_TIME_ZONE}>
+                            Зберігається в UTC; глядачі бачитимуть час у своєму поясі.
+                          </p>
                           <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
                             <button
                               type="button"
@@ -2303,7 +2322,7 @@ export function AdminPanel({
                             <p className="text-xs text-slate-500 mt-1">
                               Голосування наразі:{" "}
                               <span className={`font-bold ${matchVoting?.is_active ? "text-emerald-600" : "text-red-500"}`}>
-                                {matchVoting?.is_active ? "ВІДКРИТЕ" : "ЗАКРИТЕ"}
+                                {matchVoting?.is_active ? "УВІМКНЕНО" : "ВИМКНЕНО"}
                               </span>
                             </p>
                           </div>
@@ -2319,7 +2338,7 @@ export function AdminPanel({
                                   : "bg-emerald-600 hover:bg-emerald-700"
                               }`}
                             >
-                              {matchVoting?.is_active ? "Закрити голосування" : "Відкрити голосування"}
+                              {matchVoting?.is_active ? "Вимкнути голосування" : "Увімкнути голосування"}
                             </Button>
                           </div>
                         </div>
@@ -3059,7 +3078,7 @@ export function AdminPanel({
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             matchVoting?.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-red-100 text-red-800 border-red-200"
                           }`}>
-                            {matchVoting?.is_active ? "ВІДКРИТЕ" : "ЗАКРИТЕ"}
+                            {matchVoting?.is_active ? "УВІМКНЕНО" : "ВИМКНЕНО"}
                           </span>
 
                           {/* OBS / vMix Copy Link Button */}
@@ -3095,7 +3114,7 @@ export function AdminPanel({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-slate-200">
                         {/* Time Settings */}
                         <form onSubmit={handleVotingTimeSubmit} className="space-y-3">
-                          <h5 className="font-bold text-xs text-slate-800">Час проведення голосування</h5>
+                          <h5 className="font-bold text-xs text-slate-800">Час проведення (за Києвом)</h5>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <Label htmlFor="voting-tab-start-time" className="text-slate-600 text-[11px] font-semibold">Початок</Label>
@@ -3118,6 +3137,9 @@ export function AdminPanel({
                               />
                             </div>
                           </div>
+                          <p className="text-[10px] text-slate-500" title={TOURNAMENT_TIME_ZONE}>
+                            Зберігається в UTC; глядачі бачитимуть час у своєму поясі.
+                          </p>
                           <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
                             <button
                               type="button"
@@ -3181,7 +3203,7 @@ export function AdminPanel({
                               matchVoting?.is_active ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
                             }`}
                           >
-                            {matchVoting?.is_active ? "Закрити голосування" : "Відкрити голосування"}
+                            {matchVoting?.is_active ? "Вимкнути голосування" : "Увімкнути голосування"}
                           </Button>
                         </div>
                       </div>

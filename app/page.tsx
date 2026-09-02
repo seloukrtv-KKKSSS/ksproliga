@@ -53,6 +53,7 @@ import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
+import { formatDateTimeForViewer, parseStoredUtcDateTime } from "@/lib/match-utils"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -122,6 +123,7 @@ export default function KSLigaSite() {
   const [votedMatches, setVotedMatches] = useState<number[]>([])
   const [selectedCandidate, setSelectedCandidate] = useState<{ [matchId: number]: number }>({})
   const [showArchive, setShowArchive] = useState(false)
+  const [votingClock, setVotingClock] = useState(0)
 
   // KS Shop states
   const [products, setProducts] = useState<Product[]>([])
@@ -187,14 +189,15 @@ export default function KSLigaSite() {
     () => [...new Set(results.map((m) => m.round))].sort((a, b) => b - a),
     [results]
   )
+  const votingNow = useMemo(() => new Date(votingClock), [votingClock])
 
   // Filtered votings — computed once, used in both empty-check and render
   const filteredVotings = useMemo(() => {
-    const now = new Date()
+    const now = votingNow
 
     const visibleVotings = votings.filter((voting) => {
-      const startTime = voting.start_time ? new Date(voting.start_time) : null
-      const endTime = voting.end_time ? new Date(voting.end_time) : null
+      const startTime = parseStoredUtcDateTime(voting.start_time)
+      const endTime = parseStoredUtcDateTime(voting.end_time)
       const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
 
       if (showArchive) {
@@ -214,16 +217,45 @@ export default function KSLigaSite() {
 
     return visibleVotings.sort((a, b) => {
       const completedAt = (voting: MatchVoting) => {
-        const timestamp = Date.parse(voting.end_time ?? voting.created_at)
-        return Number.isNaN(timestamp) ? 0 : timestamp
+        return parseStoredUtcDateTime(voting.end_time ?? voting.created_at)?.getTime() ?? 0
       }
 
       return completedAt(b) - completedAt(a)
     })
-  }, [votings, candidates, showArchive])
+  }, [votings, candidates, showArchive, votingNow])
 
   // All matches merged for voting match lookup
   const allMatches = useMemo(() => [...calendar, ...results], [calendar, results])
+  const activeVotingMatchId = useMemo(
+    () => votings.find((voting) => {
+      const startTime = parseStoredUtcDateTime(voting.start_time)
+      const endTime = parseStoredUtcDateTime(voting.end_time)
+      return voting.is_active
+        && (!startTime || votingNow >= startTime)
+        && (!endTime || votingNow <= endTime)
+    })?.match_id,
+    [votings, votingNow]
+  )
+
+  useEffect(() => {
+    const now = new Date()
+    const refreshClock = window.setTimeout(() => setVotingClock(new Date().getTime()), 0)
+
+    const upcomingBoundaries = votings
+      .flatMap((voting) => [voting.start_time, voting.end_time])
+      .map((value) => parseStoredUtcDateTime(value))
+      .filter((value): value is Date => Boolean(value && value > now))
+    const nextBoundary = Math.min(...upcomingBoundaries.map((value) => value.getTime()))
+    if (!Number.isFinite(nextBoundary)) {
+      return () => window.clearTimeout(refreshClock)
+    }
+
+    const timer = window.setTimeout(() => setVotingClock(new Date().getTime()), nextBoundary - now.getTime() + 50)
+    return () => {
+      window.clearTimeout(refreshClock)
+      window.clearTimeout(timer)
+    }
+  }, [votings])
 
   useEffect(() => {
     const votedIds = Object.keys(localStorage)
@@ -1038,12 +1070,7 @@ export default function KSLigaSite() {
                       scorers={scorers}
                       upcomingMatches={calendar}
                       finishedMatches={results}
-                      activeVotingMatchId={votings.find((voting) => {
-                        const now = new Date()
-                        return voting.is_active
-                          && (!voting.start_time || now >= new Date(voting.start_time))
-                          && (!voting.end_time || now <= new Date(voting.end_time))
-                      })?.match_id}
+                      activeVotingMatchId={activeVotingMatchId}
                       onNavigate={setActiveTab}
                     />
                   </TabsContent>
@@ -1754,9 +1781,9 @@ export default function KSLigaSite() {
                       const isActive = voting.is_active
 
                       // Check time constraints
-                      const now = new Date()
-                      const startTime = voting.start_time ? new Date(voting.start_time) : null
-                      const endTime = voting.end_time ? new Date(voting.end_time) : null
+                      const now = votingNow
+                      const startTime = parseStoredUtcDateTime(voting.start_time)
+                      const endTime = parseStoredUtcDateTime(voting.end_time)
                       const isWithinTime = (!startTime || now >= startTime) && (!endTime || now <= endTime)
                       const canVote = isActive && isWithinTime && !hasVoted
 
@@ -1806,10 +1833,11 @@ export default function KSLigaSite() {
 
                             {/* Time info */}
                             {(startTime || endTime) && (
-                              <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-500">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500" title="Час показано у вашому часовому поясі">
                                 <Clock className="h-3 w-3 text-slate-400 shrink-0" />
-                                {startTime && <span>Початок: {startTime.toLocaleString("uk-UA")}</span>}
-                                {endTime && <span>Закриття: {endTime.toLocaleString("uk-UA")}</span>}
+                                {startTime && <span>Початок: {formatDateTimeForViewer(voting.start_time)}</span>}
+                                {endTime && <span>Закриття: {formatDateTimeForViewer(voting.end_time)}</span>}
+                                <span className="text-slate-400">Ваш часовий пояс</span>
                               </div>
                             )}
                           </div>

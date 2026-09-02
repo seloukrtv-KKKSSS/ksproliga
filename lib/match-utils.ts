@@ -1,9 +1,114 @@
 import type { Match } from "@/lib/supabase"
 
+export const TOURNAMENT_TIME_ZONE = "Europe/Kyiv"
+
+type ZonedDateTimeParts = {
+  year: string
+  month: string
+  day: string
+  hour: string
+  minute: string
+}
+
+function getZonedDateTimeParts(value: Date, timeZone: string): ZonedDateTimeParts {
+  const values = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(value)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  ) as Record<keyof ZonedDateTimeParts, string>
+
+  return {
+    year: values.year,
+    month: values.month,
+    day: values.day,
+    hour: values.hour === "24" ? "00" : values.hour,
+    minute: values.minute,
+  }
+}
+
+function getTimeZoneOffsetMs(value: Date, timeZone: string): number {
+  const parts = getZonedDateTimeParts(value, timeZone)
+  return Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+  ) - value.getTime()
+}
+
+export function parseStoredUtcDateTime(value?: string | null): Date | null {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed)
+  const date = new Date(hasTimeZone ? trimmed : `${trimmed}Z`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function formatDateTimeForTimeZoneInput(
+  value?: string | null,
+  timeZone = TOURNAMENT_TIME_ZONE,
+): string {
+  const date = parseStoredUtcDateTime(value)
+  if (!date) return ""
+
+  const parts = getZonedDateTimeParts(date, timeZone)
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+}
+
+export function parseDateTimeInTimeZone(
+  value: string,
+  timeZone = TOURNAMENT_TIME_ZONE,
+): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+
+  const [, year, month, day, hour, minute] = match
+  const intendedUtcTime = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute))
+  let candidate = new Date(intendedUtcTime - getTimeZoneOffsetMs(new Date(intendedUtcTime), timeZone))
+  candidate = new Date(intendedUtcTime - getTimeZoneOffsetMs(candidate, timeZone))
+
+  return formatDateTimeForTimeZoneInput(candidate.toISOString(), timeZone) === value
+    ? candidate.toISOString()
+    : null
+}
+
+export function formatDateTimeForViewer(
+  value?: string | null,
+  locale = "uk-UA",
+  timeZone?: string,
+): string {
+  const date = parseStoredUtcDateTime(value)
+  if (!date) return ""
+
+  return new Intl.DateTimeFormat(locale, {
+    timeZone,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date)
+}
+
 export function getMatchDateTime(match: Pick<Match, "date" | "match_time">): Date {
   const time = match.match_time?.slice(0, 5) || "12:00"
-  const value = new Date(`${match.date}T${time}:00`)
-  return Number.isNaN(value.getTime()) ? new Date(match.date) : value
+  const value = parseDateTimeInTimeZone(`${match.date}T${time}`)
+  if (value) return new Date(value)
+
+  const fallback = new Date(`${match.date}T${time}:00`)
+  return Number.isNaN(fallback.getTime()) ? new Date(match.date) : fallback
 }
 
 export function getNextMatchGroup(matches: Match[]): Match[] {
