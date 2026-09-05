@@ -71,9 +71,6 @@
       var fields = row.fields
       text(fields.name, candidate.playerName)
       text(fields.team, candidate.teamName)
-      text(fields.initials, candidate.teamName.trim().split(/\s+/).slice(0, 2).map(function (part) {
-        return part.charAt(0)
-      }).join("").toUpperCase())
       text(fields.percent, candidate.percent + "%")
       text(fields.votes, votesLabel(candidate.votes))
       var width = candidate.percent + "%"

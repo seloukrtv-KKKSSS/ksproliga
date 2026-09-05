@@ -59,6 +59,7 @@ assert.equal((html.match(/<script\b/g) || []).length, 1)
 assert.match(html, /src="\/obs\/lion-voting\.js(?:\?[^"\s]*)?" defer/)
 assert.equal((html.match(/\bdata-row hidden/g) || []).length, 3)
 assert.match(html, /font-family: Arial, Helvetica, sans-serif/)
+assert.doesNotMatch(html, /class="brand"|class="initials"|data-field="initials"/)
 assert.doesNotMatch(html, /@font-face|@keyframes|\banimation\s*:|\btransition\s*:|backdrop-filter|<canvas|_next\//i)
 for (const invalid of [null, 0, -1, 1.5, Number.NaN]) {
   const missing = renderLionVotingDocument(invalid, 5000)
@@ -92,7 +93,7 @@ function createDisplay({ hidden = false, online = true } = {}) {
   }
   const rows = Array.from({ length: 3 }, (_, index) => {
     const row = element(`row${index}`, {}, true)
-    const fields = Object.fromEntries(["name", "team", "initials", "percent", "votes", "bar"].map((field) => [
+    const fields = Object.fromEntries(["name", "team", "percent", "votes", "bar"].map((field) => [
       field, element(`row${index}.${field}`, { "data-field": field }),
     ]))
     row.querySelectorAll = () => Object.values(fields)
