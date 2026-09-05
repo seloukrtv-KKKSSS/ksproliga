@@ -704,6 +704,14 @@ export function AdminPanel({
         championship_id: currentChampionshipId,
       }
 
+      if (!teamData.name) {
+        throw new Error("Вкажіть назву команди.")
+      }
+      if (teams.some((team) => team.championship_id === currentChampionshipId
+        && team.id !== editingTeam?.id && team.name === teamData.name)) {
+        throw new Error("Команда з такою назвою вже є в цьому турнірі. Відредагуйте наявну команду.")
+      }
+
       if (editingTeam) {
         await updateTeam(editingTeam.id, teamData, editingTeam.name)
         await logOrganizerAction(organizerName || "Адміністратор", "update_team", `Оновлено команду "${teamForm.name}"${teamForm.city ? ` (${teamForm.city})` : ""}`)
@@ -717,7 +725,12 @@ export function AdminPanel({
       onDataChange?.()
     } catch (error) {
       console.error("Error saving team:", error)
-      alert("Помилка при збереженні команди: " + getErrorMessage(error))
+      const message = getErrorMessage(error)
+      alert("Помилка при збереженні команди: " + (
+        message.includes("teams_championship_id_name_key")
+          ? "Команда з такою назвою вже є в цьому турнірі. Відредагуйте наявну команду."
+          : message
+      ))
     }
     setLoading(false)
   }

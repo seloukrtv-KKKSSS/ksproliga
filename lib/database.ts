@@ -621,7 +621,6 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
   try {
     // 1. Fetch current team before update to get previous name & championship
     let oldName = oldNameOverride?.trim()
-    let champId: number | undefined = updates.championship_id
 
     if (!oldName) {
       const { data: currentTeam } = await supabase
@@ -631,7 +630,6 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
         .maybeSingle()
       if (currentTeam) {
         oldName = currentTeam.name?.trim()
-        if (!champId) champId = currentTeam.championship_id
       }
     }
 
@@ -656,29 +654,38 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
     const newName = updates.name?.trim()
     if (newName && oldName && newName !== oldName) {
       const cleanOldName = oldName
+      const champId = updatedTeam.championship_id
       try {
         if (champId) {
+          // Event tables have match_id, not championship_id. Scope their
+          // updates through this tournament's matches, including older rounds.
+          const matchIds: number[] = []
+          for (let offset = 0; ; offset += 500) {
+            const { data, error } = await supabase.from("matches").select("id")
+              .eq("championship_id", champId).order("id").range(offset, offset + 499)
+            if (error) throw error
+            matchIds.push(...(data || []).map((match) => match.id))
+            if (!data || data.length < 500) break
+          }
+
           await Promise.all([
             supabase.from("matches").update({ home_team: newName }).eq("championship_id", champId).eq("home_team", cleanOldName),
             supabase.from("matches").update({ away_team: newName }).eq("championship_id", champId).eq("away_team", cleanOldName),
             supabase.from("matches").update({ technical_winner: newName }).eq("championship_id", champId).eq("technical_winner", cleanOldName),
             supabase.from("matches").update({ penalty_winner: newName }).eq("championship_id", champId).eq("penalty_winner", cleanOldName),
             supabase.from("players").update({ team: newName }).eq("championship_id", champId).eq("team", cleanOldName),
-            supabase.from("match_goals").update({ team_name: newName }).eq("team_name", cleanOldName),
-            supabase.from("match_cards").update({ team_name: newName }).eq("team_name", cleanOldName),
-            supabase.from("voting_candidates").update({ team_name: newName }).eq("team_name", cleanOldName),
           ])
-        } else {
-          await Promise.all([
-            supabase.from("matches").update({ home_team: newName }).eq("home_team", cleanOldName),
-            supabase.from("matches").update({ away_team: newName }).eq("away_team", cleanOldName),
-            supabase.from("matches").update({ technical_winner: newName }).eq("technical_winner", cleanOldName),
-            supabase.from("matches").update({ penalty_winner: newName }).eq("penalty_winner", cleanOldName),
-            supabase.from("players").update({ team: newName }).eq("team", cleanOldName),
-            supabase.from("match_goals").update({ team_name: newName }).eq("team_name", cleanOldName),
-            supabase.from("match_cards").update({ team_name: newName }).eq("team_name", cleanOldName),
-            supabase.from("voting_candidates").update({ team_name: newName }).eq("team_name", cleanOldName),
-          ])
+          for (let offset = 0; offset < matchIds.length; offset += 100) {
+            const batch = matchIds.slice(offset, offset + 100)
+            const changes = await Promise.all([
+              supabase.from("match_goals").update({ team_name: newName }).eq("team_name", cleanOldName).in("match_id", batch),
+              supabase.from("match_cards").update({ team_name: newName }).eq("team_name", cleanOldName).in("match_id", batch),
+              supabase.from("voting_candidates").update({ team_name: newName }).eq("team_name", cleanOldName).in("match_id", batch),
+            ])
+            for (const change of changes) {
+              if (change.error) throw change.error
+            }
+          }
         }
       } catch (cascadeError) {
         console.warn("Cascade team update notice:", cascadeError)
