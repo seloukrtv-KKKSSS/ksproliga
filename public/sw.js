@@ -22,6 +22,8 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+  // Broadcast inputs must never receive an offline page or stale display script.
+  if (url.pathname.startsWith("/obs/")) return
 
   if (request.mode === "navigate") {
     event.respondWith(

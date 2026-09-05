@@ -3101,7 +3101,7 @@ export function AdminPanel({
                             onClick={() => {
                               const url = `${window.location.origin}/obs/lion-voting?matchId=${selectedMatchForVoting.id}`
                               navigator.clipboard.writeText(url)
-                              alert(`✅ Посилання для OBS Studio / vMix успішно скопійовано!\n\n${url}\n\nІнструкція:\n1. В OBS/vMix додайте нове джерело "Браузер" (Browser Source).\n2. Вставте це посилання у поле URL.\n3. Встановіть розмір 450x650 (або ширину за вашим бажанням).\n4. Фон є напівпрозорим та адаптованим для прямого ефіру!`)
+                              alert(`✅ Посилання для OBS Studio / vMix успішно скопійовано!\n\n${url}\n\nІнструкція:\n1. В OBS/vMix додайте джерело "Браузер" (Web Browser).\n2. Вставте посилання у поле URL.\n3. Встановіть розмір 450×360, а позицію змініть у vMix.\n4. Результати оновлюються кожні 5 секунд. Для інтервалу 10 секунд додайте &refresh=10.\n5. Фон прозорий, а картка статична — без анімацій.`)
                             }}
                             className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-8 px-3 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer border border-amber-400"
                             title="Скопіювати посилання для OBS Studio та vMix"
