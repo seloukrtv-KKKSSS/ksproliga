@@ -98,8 +98,70 @@ export function formatDateTimeForViewer(
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
     timeZoneName: "short",
   }).format(date)
+}
+
+export type LocalDateTimeMode = "date" | "time" | "dateTime"
+export type LocalDateStyle = "short" | "medium" | "long" | "full"
+
+export function formatInstantForViewer(
+  value: string | null | undefined,
+  timeZone: string,
+  mode: LocalDateTimeMode = "dateTime",
+  dateStyle: LocalDateStyle = "short",
+): string {
+  const date = parseStoredUtcDateTime(value)
+  if (!date) return ""
+
+  const dateText = new Intl.DateTimeFormat("uk-UA", {
+    timeZone,
+    ...(dateStyle === "short" ? { day: "2-digit", month: "2-digit", year: "numeric" } as const : { dateStyle }),
+  }).format(date)
+  const timeText = new Intl.DateTimeFormat("uk-UA", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date)
+
+  if (mode === "date") return dateText
+  if (mode === "time") return timeText
+  return `${dateText}, ${timeText}`
+}
+
+// Match dates and clock times are entered in Kyiv, regardless of the admin's device.
+export function getMatchStartIso(match: Pick<Match, "date" | "match_time">): string | null {
+  const time = match.match_time?.trim().slice(0, 5)
+  return time ? parseDateTimeInTimeZone(`${match.date}T${time}`) : null
+}
+
+export function formatMatchDateTimeForViewer(
+  match: Pick<Match, "date" | "match_time">,
+  timeZone: string,
+  mode: LocalDateTimeMode = "dateTime",
+  dateStyle: LocalDateStyle = "short",
+): string {
+  const start = getMatchStartIso(match)
+  if (start) return formatInstantForViewer(start, timeZone, mode, dateStyle)
+
+  // With no kickoff time there is no instant to convert. Preserve the scheduled date.
+  if (mode === "time") return "Час уточнюється"
+  const dateText = formatInstantForViewer(`${match.date}T00:00:00Z`, "UTC", "date", dateStyle)
+  return mode === "date" ? dateText : `${dateText} · Час уточнюється`
+}
+
+export function getMatchDateRangeForViewer(matches: Match[], timeZone: string): [Match, Match] | [] {
+  // Unknown kickoffs retain their scheduled date, so range endpoints must follow
+  // displayed dates rather than the noon fallback used to order unscheduled matches.
+  const datedMatches = matches.map((match) => ({
+    match,
+    date: formatDateTimeForTimeZoneInput(getMatchStartIso(match), timeZone).slice(0, 10) || match.date,
+  })).sort((a, b) => a.date.localeCompare(b.date))
+  const first = datedMatches[0]
+  const last = datedMatches.at(-1)
+  return first && last ? [first.match, last.match] : []
 }
 
 export function getMatchDateTime(match: Pick<Match, "date" | "match_time">): Date {

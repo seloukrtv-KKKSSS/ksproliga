@@ -6,6 +6,7 @@ import { getChampionships, getMatchesForTeam, getPlayers, getTeamById, getTeams 
 import { buildLeagueTable } from "@/lib/league-utils"
 import { formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
 import { SafeImage } from "@/components/safe-image"
+import { LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
 import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
 type TeamPageProps = {
@@ -71,13 +72,14 @@ export default async function TeamPage({ params, searchParams }: TeamPageProps) 
           <div><Users /><strong>{team.roster?.length || teamPlayers.length}</strong><span>гравців</span></div>
         </div>
 
+        <ViewerTimeZoneNote className="mb-3 text-xs text-slate-500" />
         <div className="detail-grid">
           <section className="detail-card">
             <div className="detail-card__title"><CalendarDays /> Наступні матчі</div>
             <div className="profile-match-list">
               {upcoming.length ? upcoming.slice(0, 4).map((match) => (
                 <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={match.id}>
-                  <span>{getMatchDateTime(match).toLocaleDateString("uk-UA", { day: "2-digit", month: "short" })}</span>
+                  <span><LocalMatchDateTime match={match} mode="date" showTimeZone={false} /></span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>VS</b>
                 </Link>
@@ -90,7 +92,7 @@ export default async function TeamPage({ params, searchParams }: TeamPageProps) 
             <div className="profile-match-list">
               {recent.length ? recent.map((match) => (
                 <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={match.id}>
-                  <span>{getMatchDateTime(match).toLocaleDateString("uk-UA", { day: "2-digit", month: "short" })}</span>
+                  <span><LocalMatchDateTime match={match} mode="date" showTimeZone={false} /></span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>{formatMatchScore(match)}</b>
                 </Link>

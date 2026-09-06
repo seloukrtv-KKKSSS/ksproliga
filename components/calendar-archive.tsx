@@ -1,11 +1,13 @@
+"use client"
+
 import Link from "next/link"
 import { Archive, CheckCircle2, ChevronDown, History } from "lucide-react"
 
+import { LocalMatchDateTime, useViewerTimeZone } from "@/components/local-time"
 import { SafeImage } from "@/components/safe-image"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
-import { formatTime } from "@/lib/league-utils"
-import { formatMatchScore } from "@/lib/match-utils"
+import { formatMatchDateTimeForViewer, formatMatchScore, getMatchDateRangeForViewer, getMatchDateTime, TOURNAMENT_TIME_ZONE } from "@/lib/match-utils"
 import type { Match, Team } from "@/lib/supabase"
 
 interface CalendarArchiveProps {
@@ -24,23 +26,21 @@ function pluralize(value: number, one: string, few: string, many: string) {
   return many
 }
 
-function parseMatchDate(value: string) {
-  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value)
-}
+function RoundDateRange({ matches }: { matches: Match[] }) {
+  const timeZone = useViewerTimeZone()
+  const zone = timeZone || TOURNAMENT_TIME_ZONE
+  const [firstMatch, lastMatch] = getMatchDateRangeForViewer(matches, zone)
+  if (!firstMatch || !lastMatch) return null
 
-function formatDate(value: string) {
-  return parseMatchDate(value).toLocaleDateString("uk-UA", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })
-}
+  const isSameDate = formatMatchDateTimeForViewer(firstMatch, zone, "date") ===
+    formatMatchDateTimeForViewer(lastMatch, zone, "date")
 
-function formatRoundDateRange(matches: Match[]) {
-  const dates = [...matches].sort((a, b) => parseMatchDate(a.date).getTime() - parseMatchDate(b.date).getTime())
-  if (dates.length === 0) return ""
-  if (dates[0].date === dates.at(-1)?.date) return formatDate(dates[0].date)
-  return `${formatDate(dates[0].date)} — ${formatDate(dates.at(-1)!.date)}`
+  return (
+    <>
+      <LocalMatchDateTime match={firstMatch} mode="date" dateStyle="medium" />
+      {!isSameDate && <> — <LocalMatchDateTime match={lastMatch} mode="date" dateStyle="medium" /></>}
+    </>
+  )
 }
 
 function getWinner(match: Match): Winner {
@@ -71,7 +71,7 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
       const roundMatches = matches.filter((match) => match.round === round)
       const finishedRoundMatches = roundMatches
         .filter((match) => match.is_finished)
-        .sort((a, b) => parseMatchDate(b.date).getTime() - parseMatchDate(a.date).getTime())
+        .sort((a, b) => getMatchDateTime(b).getTime() - getMatchDateTime(a).getTime())
       const isComplete = roundMatches.length > 0 && roundMatches.every((match) => match.is_finished)
       const roundTitle = tournamentType === "cup"
         ? roundMatches.find((match) => match.cup_stage)?.cup_stage || `Раунд ${round}`
@@ -119,7 +119,7 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
                   </span>
                   <span className="calendar-archive-round__heading">
                     <strong>{roundTitle}</strong>
-                    <small>{formatRoundDateRange(finishedRoundMatches)}</small>
+                    <small><RoundDateRange matches={finishedRoundMatches} /></small>
                   </span>
                   <span className="calendar-archive-round__progress">
                     {isComplete
@@ -136,8 +136,8 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
                     return (
                       <article key={match.id} className="calendar-archive-match">
                         <div className="calendar-archive-match__date">
-                          <span>{formatDate(match.date)}</span>
-                          {match.match_time && <time dateTime={`${match.date}T${match.match_time}`}>{formatTime(match.match_time)}</time>}
+                          <span><LocalMatchDateTime match={match} mode="date" dateStyle="medium" /></span>
+                          {match.match_time && <LocalMatchDateTime match={match} mode="time" />}
                         </div>
 
                         <div className="calendar-archive-match__matchup">

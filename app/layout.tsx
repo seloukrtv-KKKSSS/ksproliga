@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { PwaManager } from '@/components/pwa-manager'
 import { GoogleAnalytics } from '@/components/google-analytics'
+import { ViewerTimeZoneProvider } from '@/components/local-time'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -57,7 +58,7 @@ export default function RootLayout({
       </head>
       <body className={`${GeistSans.className} antialiased`}>
         <PwaManager />
-        {children}
+        <ViewerTimeZoneProvider>{children}</ViewerTimeZoneProvider>
         <GoogleAnalytics />
       </body>
     </html>

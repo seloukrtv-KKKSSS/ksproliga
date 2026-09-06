@@ -3,7 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Award, Goal, ShieldAlert, Target, UserRound } from "lucide-react"
 import { getMatches, getPlayerById, getPlayerCards, getPlayerGoals, getTeams } from "@/lib/database"
-import { getMatchDateTime } from "@/lib/match-utils"
+import { LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
 import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
 type PlayerPageProps = {
@@ -59,13 +59,14 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
 
         <section className="detail-card">
           <div className="detail-card__title"><Goal /> Події у матчах</div>
+          <ViewerTimeZoneNote className="mb-3 text-xs text-slate-500" />
           <div className="player-events">
             {goals.map((goal) => {
               const match = matchById.get(goal.match_id)
               if (!match) return null
               return (
                 <Link href={withReturnTo(`/matches/${match.id}`, currentHref)} key={goal.id}>
-                  <span>{getMatchDateTime(match).toLocaleDateString("uk-UA")}</span>
+                  <span><LocalMatchDateTime match={match} mode="date" showTimeZone={false} /></span>
                   <strong>{match.home_team} — {match.away_team}</strong>
                   <b>{goal.minute ? `${goal.minute}′` : "Гол"}</b>
                 </Link>

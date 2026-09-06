@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, AlertTriangle } from "lucide-react"
+import { LocalMatchDateTime } from "@/components/local-time"
 import { SafeImage } from "@/components/safe-image"
-import { getCupMatches, getTeams, formatTime } from "@/lib/database"
+import { getCupMatches, getTeams } from "@/lib/database"
 import type { Match, Team } from "@/lib/supabase"
 
 interface CupTournamentProps {
@@ -149,7 +150,7 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                           </div>
                         )}
                         <div className="text-[9px] text-slate-400 font-semibold mt-1">
-                          {new Date(match.date).toLocaleDateString("uk-UA")}
+                          <LocalMatchDateTime match={match} mode="date" />
                         </div>
                       </div>
                     </div>
@@ -160,7 +161,7 @@ export function CupTournament({ championshipId }: CupTournamentProps) {
                         {match.match_time && (
                           <span className="flex items-center gap-1 font-medium text-slate-450">
                             <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            {formatTime(match.match_time)}
+                            <LocalMatchDateTime match={match} mode="time" />
                           </span>
                         )}
                         {match.is_technical_defeat && (

@@ -39,7 +39,6 @@ import {
 } from "lucide-react"
 import {
   buildLeagueTable,
-  formatTime,
   getMatchStatusInfo,
   sortChampionships,
 } from "@/lib/league-utils"
@@ -53,7 +52,8 @@ import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
-import { formatDateTimeForViewer, parseStoredUtcDateTime } from "@/lib/match-utils"
+import { parseStoredUtcDateTime } from "@/lib/match-utils"
+import { LocalDateTime, LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
 
 const loadDatabase = () => import("@/lib/database")
 
@@ -979,6 +979,7 @@ export default function KSLigaSite() {
               </div>
             ) : (
               <>
+              <ViewerTimeZoneNote className="text-center text-xs text-slate-500" />
               <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
@@ -1324,10 +1325,10 @@ export default function KSLigaSite() {
                                         </span>
                                         <div className="text-[10px] sm:text-[11px] font-bold text-slate-800 flex items-center justify-end gap-1 pt-0.5">
                                           <Clock className="h-3 w-3 text-slate-400" />
-                                          {formatTime(match.match_time) || "—"}
+                                          <LocalMatchDateTime match={match} mode="time" />
                                         </div>
                                         <div className="text-[9px] sm:text-[10px] font-medium text-slate-500">
-                                          {new Date(match.date).toLocaleDateString("uk-UA")}
+                                          <LocalMatchDateTime match={match} mode="date" />
                                         </div>
                                         <YouTubeExternalLink
                                           url={match.youtube_url}
@@ -1509,8 +1510,7 @@ export default function KSLigaSite() {
                                     {/* Date & Expand trigger */}
                                     <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-100/80">
                                       <span>
-                                        {match.match_time ? `${formatTime(match.match_time)} · ` : ""}
-                                        {new Date(match.date).toLocaleDateString("uk-UA")}
+                                        <LocalMatchDateTime match={match} />
                                       </span>
                                       <div className="flex items-center gap-2">
                                         <YouTubeExternalLink
@@ -1835,9 +1835,8 @@ export default function KSLigaSite() {
                             {(startTime || endTime) && (
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-500" title="Час показано у вашому часовому поясі">
                                 <Clock className="h-3 w-3 text-slate-400 shrink-0" />
-                                {startTime && <span>Початок: {formatDateTimeForViewer(voting.start_time)}</span>}
-                                {endTime && <span>Закриття: {formatDateTimeForViewer(voting.end_time)}</span>}
-                                <span className="text-slate-400">Ваш часовий пояс</span>
+                                {startTime && <span>Початок: <LocalDateTime value={voting.start_time} showTimeZone /></span>}
+                                {endTime && <span>Закриття: <LocalDateTime value={voting.end_time} showTimeZone /></span>}
                               </div>
                             )}
                           </div>

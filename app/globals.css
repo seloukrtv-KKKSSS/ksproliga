@@ -2208,7 +2208,7 @@
     font-weight: 700;
   }
 
-  .calendar-archive-match__date time {
+  .calendar-archive-match__date > time {
     padding: 0.18rem 0.36rem;
     border-radius: 7px;
     background: rgba(10, 132, 255, 0.08);

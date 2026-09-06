@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Award, CalendarDays, Clock, Goal, ShieldAlert, Users } from "lucide-react"
 import { MatchDetailActions } from "@/components/match-detail-actions"
+import { LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
 import { TeamDisplay } from "@/components/team-display"
 import { YouTubeBroadcast } from "@/components/youtube-broadcast"
 import {
@@ -14,8 +15,7 @@ import {
   getTeams,
   getVotingCandidates,
 } from "@/lib/database"
-import { formatTime } from "@/lib/league-utils"
-import { formatMatchScore, getMatchDateTime } from "@/lib/match-utils"
+import { formatMatchDateTimeForViewer, formatMatchScore, TOURNAMENT_TIME_ZONE } from "@/lib/match-utils"
 import { getSafeReturnTo, withReturnTo, type ReturnToParam } from "@/lib/detail-navigation"
 
 type MatchPageProps = {
@@ -29,9 +29,10 @@ export async function generateMetadata({ params }: MatchPageProps): Promise<Meta
   if (!match) return { title: "Матч не знайдено | KS LIGA" }
 
   const title = `${match.home_team} — ${match.away_team} | KS LIGA`
+  const schedule = formatMatchDateTimeForViewer(match, TOURNAMENT_TIME_ZONE, "dateTime", "long")
   const description = match.is_finished
     ? `Результат ${formatMatchScore(match)}. Протокол матчу KS LIGA.${match.youtube_url ? " Доступний запис трансляції." : ""}`
-    : `Матч ${getMatchDateTime(match).toLocaleString("uk-UA")}. Календар KS LIGA.${match.youtube_url ? " Доступна YouTube-трансляція." : ""}`
+    : `Матч ${schedule} (за київським часом). Календар KS LIGA.${match.youtube_url ? " Доступна YouTube-трансляція." : ""}`
 
   return {
     title,
@@ -96,9 +97,10 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
             </Link>
           </div>
           <div className="match-hero__schedule">
-            <span><CalendarDays /> {getMatchDateTime(match).toLocaleDateString("uk-UA", { dateStyle: "long" })}</span>
-            <span><Clock /> {formatTime(match.match_time) || "Час уточнюється"}</span>
+            <span><CalendarDays /> <LocalMatchDateTime match={match} mode="date" dateStyle="long" showTimeZone={false} /></span>
+            <span><Clock /> <LocalMatchDateTime match={match} mode="time" showTimeZone={false} /></span>
           </div>
+          <ViewerTimeZoneNote className="mt-2 text-center text-xs text-slate-500" />
           <MatchDetailActions match={match} />
         </section>
 

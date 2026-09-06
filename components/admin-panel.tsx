@@ -92,6 +92,7 @@ import {
 import type { Championship, Team, Match, Player, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Organizer, Product, OrganizerLog } from "@/lib/supabase"
 import type { AnalyticsPeriod, AnalyticsSummary } from "@/lib/database"
 import {
+  formatDateTimeForViewer,
   formatDateTimeForTimeZoneInput,
   normalizeYouTubeUrl,
   parseDateTimeInTimeZone,
@@ -761,6 +762,12 @@ export function AdminPanel({
       return
     }
 
+    const matchTime = formatTime(matchForm.match_time)
+    if (matchTime && !parseDateTimeInTimeZone(`${matchForm.date}T${matchTime}`)) {
+      alert("Вкажіть коректні дату й час матчу за Києвом. Цей час може не існувати через переведення годинника.")
+      return
+    }
+
     const rawYouTubeUrl = matchForm.youtube_url.trim()
     const youtubeUrl = rawYouTubeUrl ? normalizeYouTubeUrl(rawYouTubeUrl) : null
     if (rawYouTubeUrl && !youtubeUrl) {
@@ -785,7 +792,7 @@ export function AdminPanel({
             : null,
         is_finished: matchForm.is_technical_defeat ? true : matchForm.is_finished,
         championship_id: currentChampionshipId,
-        match_time: matchForm.match_time || undefined,
+        match_time: matchTime || undefined,
         youtube_url: youtubeUrl,
         cup_stage: currentChampionship?.tournament_type === "cup" ? (matchForm.cup_stage || undefined) : undefined,
         is_technical_defeat: matchForm.is_technical_defeat || undefined,
@@ -1303,6 +1310,11 @@ export function AdminPanel({
         </div>
       </div>
 
+      <div className="admin-inline-note flex items-start gap-2" title={TOURNAMENT_TIME_ZONE}>
+        <Clock className="h-4 w-4 shrink-0 mt-0.5" />
+        <p>Усі дати й час в адмінпанелі — за Києвом. Формат часу: ГГ:ХХ, без секунд. На сайті відвідувачі бачать час у своєму часовому поясі.</p>
+      </div>
+
       <Tabs value={visibleAdminTab} onValueChange={setActiveAdminTab} className="w-full">
         {/* Scrollable Mobile Tabs List */}
         <div className="overflow-x-auto scrollbar-none -mx-1 px-1 mb-5">
@@ -1773,7 +1785,7 @@ export function AdminPanel({
                   </div>
                   <div>
                     <Label htmlFor="match-date" className="text-slate-700 font-semibold text-xs">
-                      Дата
+                      Дата (за Києвом)
                     </Label>
                     <Input
                       id="match-date"
@@ -1786,11 +1798,12 @@ export function AdminPanel({
                   </div>
                   <div>
                     <Label htmlFor="match-time" className="text-slate-700 font-semibold text-xs">
-                      Час матчу
+                      Час матчу (за Києвом)
                     </Label>
                     <Input
                       id="match-time"
                       type="time"
+                      step={60}
                       value={matchForm.match_time}
                       onChange={(e) => setMatchForm({ ...matchForm, match_time: e.target.value })}
                       className="bg-slate-50 border-slate-200 text-slate-900 rounded-lg h-10 mt-1"
@@ -2215,7 +2228,7 @@ export function AdminPanel({
                             home_score: match.home_score?.toString() || "",
                             away_score: match.away_score?.toString() || "",
                             is_finished: match.is_finished,
-                            match_time: match.match_time || "",
+                            match_time: formatTime(match.match_time),
                             youtube_url: match.youtube_url || "",
                             cup_stage: match.cup_stage || "",
                             is_technical_defeat: match.is_technical_defeat || false,
@@ -2260,6 +2273,7 @@ export function AdminPanel({
                               <Input
                                 id="vote-start-time"
                                 type="datetime-local"
+                                step={60}
                                 value={votingTimeForm.start_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, start_time: e.target.value })}
                                 className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
@@ -2270,6 +2284,7 @@ export function AdminPanel({
                               <Input
                                 id="vote-end-time"
                                 type="datetime-local"
+                                step={60}
                                 value={votingTimeForm.end_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, end_time: e.target.value })}
                                 className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
@@ -2277,7 +2292,7 @@ export function AdminPanel({
                             </div>
                           </div>
                           <p className="text-[10px] text-slate-500" title={TOURNAMENT_TIME_ZONE}>
-                            Зберігається в UTC; глядачі бачитимуть час у своєму поясі.
+                            Вкажіть час за Києвом; глядачі бачитимуть його у своєму часовому поясі.
                           </p>
                           <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
                             <button
@@ -3134,6 +3149,7 @@ export function AdminPanel({
                               <Input
                                 id="voting-tab-start-time"
                                 type="datetime-local"
+                                step={60}
                                 value={votingTimeForm.start_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, start_time: e.target.value })}
                                 className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
@@ -3144,6 +3160,7 @@ export function AdminPanel({
                               <Input
                                 id="voting-tab-end-time"
                                 type="datetime-local"
+                                step={60}
                                 value={votingTimeForm.end_time}
                                 onChange={(e) => setVotingTimeForm({ ...votingTimeForm, end_time: e.target.value })}
                                 className="border-slate-200 text-slate-900 rounded-lg h-9 text-xs mt-1"
@@ -3151,7 +3168,7 @@ export function AdminPanel({
                             </div>
                           </div>
                           <p className="text-[10px] text-slate-500" title={TOURNAMENT_TIME_ZONE}>
-                            Зберігається в UTC; глядачі бачитимуть час у своєму поясі.
+                            Вкажіть час за Києвом; глядачі бачитимуть його у своєму часовому поясі.
                           </p>
                           <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-lg">
                             <button
@@ -3897,7 +3914,7 @@ export function AdminPanel({
                 </span>
                 {analyticsUpdatedAt && (
                   <span className="text-slate-400">
-                    Оновлено о {analyticsUpdatedAt.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })}
+                    Оновлено о {analyticsUpdatedAt.toLocaleTimeString("uk-UA", { timeZone: TOURNAMENT_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} за Києвом
                   </span>
                 )}
               </div>
@@ -4215,14 +4232,7 @@ export function AdminPanel({
                   </div>
 
                   <span className="text-[11px] text-slate-400 font-mono shrink-0 self-end sm:self-center">
-                    {new Date(log.created_at).toLocaleString("uk-UA", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
+                    {formatDateTimeForViewer(log.created_at, "uk-UA", TOURNAMENT_TIME_ZONE)}
                   </span>
                 </div>
               ))

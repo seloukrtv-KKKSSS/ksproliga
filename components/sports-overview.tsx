@@ -16,6 +16,7 @@ import {
   Vote,
 } from "lucide-react"
 import { TeamDisplay } from "@/components/team-display"
+import { LocalMatchDateTime } from "@/components/local-time"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import type { LeagueStanding } from "@/lib/league-utils"
@@ -244,7 +245,7 @@ export function SportsOverview({
               </div>
             </div>
             <span className="sports-smart-card__date">
-              {getMatchDateTime(nextMatch).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}
+              <LocalMatchDateTime match={nextMatch} dateStyle="medium" />
             </span>
             <div className="sports-smart-card__actions">
               {nextMatchBroadcastState === "broadcast" && (
@@ -278,7 +279,7 @@ export function SportsOverview({
             <div className="sports-smart-card__eyebrow"><Shield /> Останній результат</div>
             <strong>{lastResult.home_team} — {lastResult.away_team}</strong>
             <span className="sports-smart-card__score">{formatMatchScore(lastResult)}</span>
-            <span>{getMatchDateTime(lastResult).toLocaleDateString("uk-UA", { dateStyle: "medium" })}</span>
+            <span><LocalMatchDateTime match={lastResult} mode="date" dateStyle="medium" /></span>
             <span className="sports-smart-card__link">Протокол матчу <ChevronRight /></span>
           </Link>
         ) : (

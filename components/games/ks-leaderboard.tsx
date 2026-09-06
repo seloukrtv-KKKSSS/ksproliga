@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Crown, Flame, RefreshCw, Sparkles, Trophy } from "lucide-react"
 import { getGameLeaderboard } from "@/lib/database"
 import type { GameScore } from "@/lib/supabase"
+import { LocalDateTime } from "@/components/local-time"
 
 type ArcadeGame = "dino" | "snake"
 
@@ -181,12 +182,7 @@ export function KsLeaderboard({
                       {rank === 1 && <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />}
                     </div>
                     <span className="text-[10px] text-slate-400 font-medium">
-                      {new Date(score.created_at).toLocaleDateString("uk-UA", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <LocalDateTime value={score.created_at} dateStyle="medium" />
                     </span>
                   </div>
                 </div>
