@@ -1,305 +1,310 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
-import { Gamepad2, Trophy, User, Sparkles, Volume2, VolumeX, Edit3, Check, Flame } from "lucide-react"
+import {
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  Gamepad2,
+  Pencil,
+  Trophy,
+  UserRound,
+  Zap,
+} from "lucide-react"
 import { retroAudio } from "@/lib/retro-audio"
-import { getTeams } from "@/lib/database"
+import { readArcadeValue, writeArcadeValue } from "@/lib/games/arcade-storage"
 import type { Team } from "@/lib/supabase"
+import type { GameKind } from "@/lib/games/arcade-engine"
+import "./arcade.css"
 
 function GameLoading() {
   return (
-    <div className="flex min-h-72 w-full items-center justify-center" role="status">
-      <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
-      <span className="sr-only">Завантаження гри…</span>
+    <div className="arcade-loading" role="status">
+      <Gamepad2 />
+      <span>Готуємо поле…</span>
     </div>
   )
 }
+const KsDinoRunner = dynamic(
+  () => import("./ks-dino-runner").then((m) => m.KsDinoRunner),
+  { loading: GameLoading, ssr: false },
+)
+const KsSnakeGame = dynamic(
+  () => import("./ks-snake-game").then((m) => m.KsSnakeGame),
+  { loading: GameLoading, ssr: false },
+)
+const KsLeaderboard = dynamic(
+  () => import("./ks-leaderboard").then((m) => m.KsLeaderboard),
+  { loading: GameLoading, ssr: false },
+)
 
-const KsDinoRunner = dynamic(() => import("./ks-dino-runner").then((module) => module.KsDinoRunner), {
-  loading: GameLoading,
-  ssr: false,
-})
-const KsSnakeGame = dynamic(() => import("./ks-snake-game").then((module) => module.KsSnakeGame), {
-  loading: GameLoading,
-  ssr: false,
-})
-const KsLeaderboard = dynamic(() => import("./ks-leaderboard").then((module) => module.KsLeaderboard), {
-  loading: GameLoading,
-  ssr: false,
-})
-
-interface KsGamesHubProps {
-  teams: Team[]
-}
-
-export function KsGamesHub({ teams }: KsGamesHubProps) {
-  const [activeTab, setActiveTab] = useState<"dino" | "snake" | "leaderboard">("dino")
-  const [leaderboardGameType, setLeaderboardGameType] = useState<"dino" | "snake">("dino")
+export function KsGamesHub({ teams }: { teams: Team[] }) {
+  const [active, setActive] = useState<GameKind | "leaderboard">("dino")
+  const [rankingGame, setRankingGame] = useState<GameKind>("dino")
   const [playerName, setPlayerName] = useState("")
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [tempName, setTempName] = useState("")
-  const [isMuted, setIsMuted] = useState(false)
-  const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<number | undefined>(undefined)
-  const [allLeagueTeams, setAllLeagueTeams] = useState<Team[]>(teams || [])
-
+  const [draft, setDraft] = useState("")
+  const [editing, setEditing] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [lastScoreId, setLastScoreId] = useState<number>()
   useEffect(() => {
-    const savedName = localStorage.getItem("ks_player_name")
-    const initializeId = window.setTimeout(() => {
-      if (savedName) {
-        setPlayerName(savedName)
-        setTempName(savedName)
-      } else {
-        setIsEditingName(true)
-      }
-      setIsMuted(retroAudio.isMuted)
+    const timer = window.setTimeout(() => {
+      const name = readArcadeValue("ks_player_name")
+      setPlayerName(name)
+      setDraft(name)
+      setMuted(retroAudio.isMuted)
     }, 0)
-
-    // Load ALL teams across all leagues and championships in database
-    getTeams().then((data) => {
-      if (data && data.length > 0) {
-        setAllLeagueTeams(data)
-      }
-    }).catch(console.error)
-
-    return () => window.clearTimeout(initializeId)
+    return () => clearTimeout(timer)
   }, [])
-
-  const handleSaveName = (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    const clean = tempName.trim().slice(0, 25)
-    if (clean) {
-      setPlayerName(clean)
-      localStorage.setItem("ks_player_name", clean)
-      setIsEditingName(false)
-    }
+  const saveName = useCallback((name: string) => {
+    const clean = name.trim().slice(0, 25)
+    if (!clean) return
+    setPlayerName(clean)
+    setDraft(clean)
+    setEditing(false)
+    writeArcadeValue("ks_player_name", clean)
+  }, [])
+  const toggleMute = useCallback(() => setMuted(retroAudio.toggleMute()), [])
+  const viewLeaderboard = () => {
+    if (active !== "leaderboard") setRankingGame(active)
+    setActive("leaderboard")
   }
-
-  const handleToggleMute = () => {
-    const next = retroAudio.toggleMute()
-    setIsMuted(next)
-  }
-
-  const handleScoreSubmitted = (scoreId: number) => {
-    setLastSubmittedScoreId(scoreId)
+  const props = {
+    playerName,
+    onPlayerNameChange: saveName,
+    onScoreSubmitted: setLastScoreId,
+    onViewLeaderboard: viewLeaderboard,
+    muted,
+    onToggleMute: toggleMute,
   }
 
   return (
-    <div className="ks-games-scope space-y-6 max-w-5xl mx-auto pb-12 w-full flex flex-col items-center">
-      {/* Hero Games Room Header Banner */}
-      <div className="glass-hero relative overflow-hidden p-5 sm:p-7 w-full">
-        {/* Ambient Neon Blobs */}
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          {/* Title & Badge */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-300 p-0.5 shadow-md flex items-center justify-center">
-                <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                  <Gamepad2 className="h-5 w-5 text-cyan-300" />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">KS Games Arena</h2>
-                </div>
-                <p className="text-xs text-slate-300 font-medium">
-                  Аркадні футбольні пригоди, рекорди та змагання для спільноти KS LIGA.
-                </p>
-              </div>
-            </div>
+    <div className="ks-games-scope arcade-hub">
+      <header className="arcade-hero">
+        <div className="arcade-hero-copy">
+          <div className="arcade-brand-line">
+            <span className="arcade-brand">
+              <Gamepad2 /> KS GAMES
+            </span>
+            <span className="arcade-season">NIGHT LEAGUE / VOL. 02</span>
           </div>
-
-          {/* Player Gamer Profile Card (for retro arcades) */}
-          <div className="w-full md:w-auto bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-3 shadow-inner">
-            {isEditingName ? (
-              <form onSubmit={handleSaveName} className="flex items-center gap-2 w-full">
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  placeholder="Введіть ваше ім'я..."
-                  maxLength={25}
-                  autoFocus
-                  className="px-3 py-1.5 rounded-xl bg-slate-950/80 border border-white/20 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 flex-1 min-w-[130px]"
-                />
-                <button
-                  type="submit"
-                  className="p-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all active:scale-95 shrink-0"
-                >
-                  <Check className="h-4 w-4" />
-                </button>
-              </form>
-            ) : (
-              <div className="flex items-center justify-between gap-3 w-full">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 flex items-center justify-center font-black text-xs shadow-xs shrink-0">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-slate-400 font-medium leading-none">Гравець</div>
-                    <div className="text-xs sm:text-sm font-black text-white truncate max-w-[140px]">
-                      {playerName || "Гість"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempName(playerName)
-                      setIsEditingName(true)
-                    }}
-                    title="Змінити ім'я"
-                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all active:scale-95"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleToggleMute}
-                    title={isMuted ? "Увімкнути звук" : "Вимкнути звук"}
-                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all active:scale-95"
-                  >
-                    {isMuted ? <VolumeX className="h-3.5 w-3.5 text-red-400" /> : <Volume2 className="h-3.5 w-3.5 text-emerald-400" />}
-                  </button>
-                </div>
-              </div>
-            )}
+          <h2>
+            Після свистка.
+            <br />
+            <em>Гра триває.</em>
+          </h2>
+          <p>
+            Твій клуб. Твій ритм. Твій рекорд.
+            <br />
+            Футбольні аркади з характером KS LIGA.
+          </p>
+          <div className="arcade-hero-tags">
+            <span>
+              <i /> Дві гри — одна арена
+            </span>
+            <span>
+              ПК + смартфон <ArrowUpRight />
+            </span>
           </div>
         </div>
-      </div>
-
-      {/* Main Navigation Segmented Control */}
-      <div 
-        className="glass-control-bar flex items-center justify-center gap-1.5 p-1.5 select-none max-w-2xl mx-auto w-full overflow-x-auto"
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setLeaderboardGameType("dino")
-            setActiveTab("dino")
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
-            activeTab === "dino"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-          }`}
-        >
-          <span className="text-base pointer-events-none">🏃</span>
-          <span className="pointer-events-none">Dino Runner</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setLeaderboardGameType("snake")
-            setActiveTab("snake")
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
-            activeTab === "snake"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-          }`}
-        >
-          <span className="text-base pointer-events-none">🐍</span>
-          <span className="pointer-events-none">Retro Snake</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("leaderboard")}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs sm:text-sm transition-all select-none cursor-pointer ${
-            activeTab === "leaderboard"
-              ? "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-md font-black"
-              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-          }`}
-        >
-          <Trophy className="h-4 w-4 text-amber-500 pointer-events-none" />
-          <span className="pointer-events-none">Зал Слави</span>
-        </button>
-      </div>
-
-      {/* ─── Active Tab Content Area ─── */}
-      <div className="w-full">
-        {/* 1. Retro Dino Runner */}
-        {activeTab === "dino" && (
-          <div className="space-y-6 w-full max-w-3xl mx-auto">
-            <KsDinoRunner
-              teams={allLeagueTeams}
-              playerName={playerName}
-              onScoreSubmitted={handleScoreSubmitted}
-              onRequestName={() => setIsEditingName(true)}
-              onViewLeaderboard={() => {
-                setLeaderboardGameType("dino")
-                setActiveTab("leaderboard")
+        <div className="arcade-hero-art" aria-hidden="true">
+          <svg viewBox="0 0 420 300" fill="none">
+            <defs>
+              <linearGradient id="ks-orbit" x1="70" y1="0" x2="330" y2="290">
+                <stop stopColor="#c8ff5f" />
+                <stop offset="1" stopColor="#558c88" />
+              </linearGradient>
+              <radialGradient id="ks-ball">
+                <stop stopColor="#e7ffbb" />
+                <stop offset="1" stopColor="#a7dd58" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="224" cy="227" rx="121" ry="38" fill="#070f1880" />
+            <g transform="translate(30 36) rotate(-17 190 110)">
+              <rect
+                x="28"
+                y="45"
+                width="326"
+                height="177"
+                rx="35"
+                stroke="url(#ks-orbit)"
+                strokeWidth="1.2"
+              />
+              <rect
+                x="45"
+                y="60"
+                width="292"
+                height="145"
+                rx="26"
+                stroke="#b6e5b229"
+              />
+              <path
+                d="M191 61v144M46 92h46v78H46m290-78h-46v78h46"
+                stroke="#b6e5b241"
+              />
+              <ellipse cx="191" cy="132" rx="35" ry="32" stroke="#b6e5b241" />
+            </g>
+            <g transform="translate(135 61) rotate(16 75 75)">
+              <circle cx="75" cy="75" r="72" fill="url(#ks-ball)" />
+              <path d="m76 40 31 22-12 37H56L45 62Z" fill="#19382e" />
+              <path
+                d="m24 25 11 22L6 74M113 15l-6 30 37 16M128 124l-26-6-14 27M19 117l29-8 15 36M76 40 70 4M107 62l35-1M95 99l8 19M56 99l-9 11M45 62l-10-15"
+                stroke="#335838"
+                strokeWidth="2"
+              />
+              <path
+                d="M37 18a63 63 0 0 1 59-7"
+                stroke="#ffffff80"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+            </g>
+            <path
+              d="m76 71 8-20 9 20-9-6Zm252 136 6-14 6 14-6-4Z"
+              fill="#c8ff5f"
+            />
+            <circle cx="335" cy="62" r="5" fill="#6de6ff" />
+            <circle cx="102" cy="231" r="3" fill="#c8ff5f" />
+          </svg>
+          <span className="arcade-art-caption">LESS SCROLL. MORE PLAY.</span>
+        </div>
+      </header>
+      <div className="arcade-lobby-bar">
+        <div className="arcade-profile">
+          <span className="arcade-avatar">
+            <UserRound />
+          </span>
+          {editing ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                saveName(draft)
               }}
-            />
-
-            {/* Quick Rules Card */}
-            <div className="liquid-glass-card p-4 sm:p-5 w-full">
-              <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                Як грати в KS Dino Runner:
-              </h4>
-              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                <li><strong className="text-slate-900">ПК</strong>: Пробіл / Стрілка вгору — стрибок. Стрілка вниз — підкат.</li>
-                <li><strong className="text-slate-900">Смартфон</strong>: Тап по екрану або кнопка Стрибок. Кнопка Підкат для низьких перешкод.</li>
-                <li>Перестрибуйте логотипи клубів! Кожні 100 очок змінюється освітлення стадіону.</li>
-              </ul>
-            </div>
-          </div>
+            >
+              <input
+                aria-label="Ім’я гравця"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={25}
+                placeholder="Твій нікнейм"
+                autoFocus
+                required
+              />
+              <button
+                type="submit"
+                className="arcade-icon-button"
+                aria-label="Зберегти ім’я"
+              >
+                <Check />
+              </button>
+              <button
+                type="button"
+                className="arcade-text-button"
+                onClick={() => setEditing(false)}
+              >
+                Скасувати
+              </button>
+            </form>
+          ) : (
+            <>
+              <div>
+                <span>ТВІЙ ПРОФІЛЬ</span>
+                <strong>{playerName || "Вільний гравець"}</strong>
+              </div>
+              <button
+                type="button"
+                className="arcade-icon-button"
+                aria-label="Змінити ім’я"
+                onClick={() => {
+                  setDraft(playerName)
+                  setEditing(true)
+                }}
+              >
+                <Pencil />
+              </button>
+            </>
+          )}
+        </div>
+        <span className="arcade-lobby-caption">
+          {teams.length > 0 ? "Спільнота KS LIGA" : "Арена відкрита для всіх"}
+          <i />
+        </span>
+      </div>
+      <nav className="arcade-game-picker" aria-label="Обрати гру">
+        <button
+          type="button"
+          className={`arcade-game-card ${active === "dino" ? "is-active" : ""}`}
+          aria-pressed={active === "dino"}
+          onClick={() => setActive("dino")}
+        >
+          <span className="arcade-card-icon arcade-icon-run">
+            <Zap />
+          </span>
+          <span>
+            <small>01 / ШВИДКІСТЬ</small>
+            <strong>Neon Run</strong>
+            <em>Подвійний стрибок · Turbo</em>
+          </span>
+          <ChevronRight />
+        </button>
+        <button
+          type="button"
+          className={`arcade-game-card ${active === "snake" ? "is-active" : ""}`}
+          aria-pressed={active === "snake"}
+          onClick={() => setActive("snake")}
+        >
+          <span className="arcade-card-icon arcade-icon-snake">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path
+                d="M8 8h13a5 5 0 0 1 0 10H11a4 4 0 0 0 0 8h12"
+                stroke="currentColor"
+                strokeWidth="6"
+                strokeLinecap="round"
+              />
+              <circle cx="7" cy="7" r="1" fill="#0c2224" />
+            </svg>
+          </span>
+          <span>
+            <small>02 / ТАКТИКА</small>
+            <strong>Snake Arena</strong>
+            <em>Портали · Золоті м’ячі</em>
+          </span>
+          <ChevronRight />
+        </button>
+        <button
+          type="button"
+          className={`arcade-game-card arcade-ranking-card ${active === "leaderboard" ? "is-active" : ""}`}
+          aria-pressed={active === "leaderboard"}
+          onClick={viewLeaderboard}
+        >
+          <span className="arcade-card-icon arcade-icon-trophy">
+            <Trophy />
+          </span>
+          <span>
+            <small>ЗМАГАННЯ</small>
+            <strong>Зал слави</strong>
+            <em>Найкращі на полі</em>
+          </span>
+          <ChevronRight />
+        </button>
+      </nav>
+      <div className="arcade-active-game" key={active}>
+        {active === "dino" && <KsDinoRunner {...props} />}
+        {active === "snake" && <KsSnakeGame {...props} />}
+        {active === "leaderboard" && (
+          <KsLeaderboard
+            initialGameType={rankingGame}
+            currentPlayerName={playerName}
+            lastSubmittedScoreId={lastScoreId}
+          />
         )}
-
-        {/* 2. Retro Snake Game */}
-        {activeTab === "snake" && (
-          <div className="space-y-6 w-full max-w-md mx-auto">
-            <KsSnakeGame
-              teams={allLeagueTeams}
-              playerName={playerName}
-              onScoreSubmitted={handleScoreSubmitted}
-              onRequestName={() => setIsEditingName(true)}
-              onViewLeaderboard={() => {
-                setLeaderboardGameType("snake")
-                setActiveTab("leaderboard")
-              }}
-            />
-
-            {/* Quick Rules Card */}
-            <div className="liquid-glass-card p-4 sm:p-5 w-full">
-              <h4 className="font-bold text-xs sm:text-sm text-slate-900 mb-2 flex items-center gap-1.5">
-                <Flame className="h-4 w-4 text-emerald-600" />
-                Як грати в KS Retro Snake:
-              </h4>
-              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                <li><strong className="text-slate-900">ПК</strong>: Стрілки або клавіші W, A, S, D для руху.</li>
-                <li><strong className="text-slate-900">Смартфон</strong>: Свайпи пальцем по екрану або наекранний неоновий D-Pad.</li>
-                <li>Збирайте емблеми команд (+10 очок) та рідкісні Золоті Кубки (+50 очок)!</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* 3. Hall of Fame Leaderboard */}
-        {activeTab === "leaderboard" && (
-          <div className="space-y-6 w-full max-w-2xl mx-auto">
-            <KsLeaderboard
-              initialGameType={leaderboardGameType}
-              currentPlayerName={playerName}
-              lastSubmittedScoreId={lastSubmittedScoreId}
-            />
-          </div>
-        )}
+      </div>
+      <div className="arcade-bottom-line">
+        <span>KS GAMES © KS LIGA</span>
+        <span>
+          <Zap /> Ще один раунд?
+        </span>
       </div>
     </div>
   )
 }
-

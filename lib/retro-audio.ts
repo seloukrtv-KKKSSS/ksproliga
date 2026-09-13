@@ -1,8 +1,9 @@
 // Web Audio API 8-Bit Retro Sound Synthesizer (0 bytes external files)
 
-type AudioWindow = Window & typeof globalThis & {
-  webkitAudioContext?: typeof AudioContext
-}
+type AudioWindow = Window &
+  typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext
+  }
 
 class RetroAudioEngine {
   private ctx: AudioContext | null = null
@@ -10,23 +11,33 @@ class RetroAudioEngine {
 
   constructor() {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ks_games_muted")
-      this._isMuted = saved === "true"
+      try {
+        this._isMuted = localStorage.getItem("ks_games_muted") === "true"
+      } catch {}
     }
   }
 
   private initCtx() {
     if (typeof window === "undefined") return null
-    if (!this.ctx) {
-      const AudioContextClass = window.AudioContext || (window as AudioWindow).webkitAudioContext
-      if (AudioContextClass) {
-        this.ctx = new AudioContextClass()
+    try {
+      if (!this.ctx) {
+        const AudioContextClass =
+          window.AudioContext || (window as AudioWindow).webkitAudioContext
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass()
+        }
       }
+      if (this.ctx && this.ctx.state === "suspended") {
+        void this.ctx.resume().catch(() => {})
+      }
+      return this.ctx
+    } catch {
+      return null
     }
-    if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume()
-    }
-    return this.ctx
+  }
+
+  unlock() {
+    if (!this._isMuted) this.initCtx()
   }
 
   get isMuted(): boolean {
@@ -36,7 +47,9 @@ class RetroAudioEngine {
   setMuted(muted: boolean) {
     this._isMuted = muted
     if (typeof window !== "undefined") {
-      localStorage.setItem("ks_games_muted", String(muted))
+      try {
+        localStorage.setItem("ks_games_muted", String(muted))
+      } catch {}
     }
   }
 

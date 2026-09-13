@@ -12,8 +12,9 @@
     "test:match-utils": "node --experimental-strip-types scripts/test-match-utils.mjs",
     "test:teams": "node --experimental-strip-types scripts/test-team-updates.mjs",
     "test:lion-voting": "node --experimental-strip-types scripts/test-lion-voting.mjs",
+    "test:arcade": "node --experimental-strip-types scripts/test-arcade.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:teams && pnpm test:lion-voting && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:teams && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"

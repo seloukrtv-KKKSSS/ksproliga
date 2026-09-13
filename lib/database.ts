@@ -1646,7 +1646,7 @@ export async function getGameLeaderboard(gameType: "dino" | "snake", limit = 10)
     return uniqueScores
   } catch (error) {
     console.warn(`Error fetching ${gameType} leaderboard:`, error)
-    return []
+    throw error
   }
 }
 
