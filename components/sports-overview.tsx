@@ -75,7 +75,7 @@ export function SportsOverview({
     [finishedMatches],
   )
   const topScorer = useMemo(
-    () => [...scorers].sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "uk"))[0],
+    () => scorers.filter((player) => player.goals > 0).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "uk"))[0],
     [scorers],
   )
   const favoriteTeam = teams.find((team) => team.id === favoriteTeamId) || null

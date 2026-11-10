@@ -43,7 +43,9 @@ export default async function TeamPage({ params, searchParams }: TeamPageProps) 
   ])
   const standing = buildLeagueTable(matches, teams).find((row) => row.name === team.name)
   const championship = championships.find((item) => item.id === team.championship_id)
-  const teamPlayers = players.filter((player) => player.team === team.name)
+  const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("uk")
+  const teamPlayers = players.filter((player) => normalizeName(player.team) === normalizeName(team.name))
+  const rosterNames = team.roster ?? teamPlayers.map((player) => player.name)
   const finished = matches.filter((match) => match.is_finished)
   const upcoming = matches.filter((match) => !match.is_finished).sort((a, b) => getMatchDateTime(a).getTime() - getMatchDateTime(b).getTime())
   const recent = [...finished].sort((a, b) => getMatchDateTime(b).getTime() - getMatchDateTime(a).getTime()).slice(0, 5)
@@ -69,7 +71,7 @@ export default async function TeamPage({ params, searchParams }: TeamPageProps) 
           <div><Trophy /><strong>{standing?.pts ?? 0}</strong><span>очок</span></div>
           <div><CalendarDays /><strong>{standing?.games ?? finished.length}</strong><span>матчів</span></div>
           <div><Target /><strong>{standing?.gf ?? 0}:{standing?.ga ?? 0}</strong><span>голи</span></div>
-          <div><Users /><strong>{team.roster?.length || teamPlayers.length}</strong><span>гравців</span></div>
+          <div><Users /><strong>{rosterNames.length}</strong><span>гравців</span></div>
         </div>
 
         <ViewerTimeZoneNote className="mb-3 text-xs text-slate-500" />
@@ -103,13 +105,13 @@ export default async function TeamPage({ params, searchParams }: TeamPageProps) 
           <section className="detail-card detail-card--wide">
             <div className="detail-card__title"><Users /> Склад</div>
             <div className="roster-grid">
-              {(team.roster?.length ? team.roster : teamPlayers.map((player) => player.name)).map((name, index) => {
-                const player = teamPlayers.find((item) => item.name === name)
+              {rosterNames.map((name, index) => {
+                const player = teamPlayers.find((item) => normalizeName(item.name) === normalizeName(name))
                 return player
                   ? <Link href={withReturnTo(`/players/${player.id}`, currentHref)} key={player.id}><span>{index + 1}</span>{name}</Link>
                   : <div key={`${name}-${index}`}><span>{index + 1}</span>{name}</div>
               })}
-              {!team.roster?.length && !teamPlayers.length && <p className="detail-empty">Склад ще не опубліковано.</p>}
+              {!rosterNames.length && <p className="detail-empty">Склад ще не опубліковано.</p>}
             </div>
           </section>
         </div>

@@ -46,8 +46,8 @@ import {
 import type { Team, Match, Player, Championship, MatchGoal, MatchCard, MatchVoting, VotingCandidate, Product, Organizer } from "@/lib/supabase"
 import type { LeagueStanding } from "@/lib/league-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TeamDisplay } from "@/components/team-display"
 import { SportsOverview } from "@/components/sports-overview"
+import { PlayerStatistics } from "@/components/player-statistics"
 import { SafeImage } from "@/components/safe-image"
 import { SiteAnalyticsTracker } from "@/components/site-analytics-tracker"
 import { LiquidGlassLoader } from "@/components/liquid-glass-loader"
@@ -108,6 +108,7 @@ export default function KSLigaSite() {
   const [calendar, setCalendar] = useState<Match[]>([])
   const [results, setResults] = useState<Match[]>([])
   const [scorers, setScorers] = useState<Player[]>([])
+  const [playerStatsLoadFailed, setPlayerStatsLoadFailed] = useState(false)
   const [matchGoals, setMatchGoals] = useState<{ [key: number]: MatchGoal[] }>({})
   const [matchCards, setMatchCards] = useState<{ [key: number]: MatchCard[] }>({})
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null)
@@ -396,10 +397,15 @@ export default function KSLigaSite() {
     try {
       if (!silent) setLoading(true)
       const { getMatches, getPlayers, getTeams } = await loadDatabase()
-      const [teamsData, matchesData, playersData] = await Promise.all([
+      const [teamsData, matchesData, playersResult] = await Promise.all([
         getTeams(championshipId),
         getMatches(championshipId),
-        getPlayers(championshipId),
+        getPlayers(championshipId)
+          .then((data) => ({ data, failed: false }))
+          .catch((error: unknown) => {
+            console.error("Error loading player statistics:", error)
+            return { data: [] as Player[], failed: true }
+          }),
       ])
 
       if (requestId !== championshipRequestRef.current) return
@@ -409,7 +415,8 @@ export default function KSLigaSite() {
       setTable(buildLeagueTable(matchesData, teamsData))
       setCalendar(matchesData.filter((match) => !match.is_finished))
       setResults(finishedMatches)
-      setScorers(playersData)
+      setScorers(playersResult.data)
+      setPlayerStatsLoadFailed(playersResult.failed)
       setMatchGoals({})
       setMatchCards({})
       setMatchEventsLoadedFor(null)
@@ -756,7 +763,7 @@ export default function KSLigaSite() {
       : { id: "table", label: "Таблиця", shortLabel: "Таблиця", icon: Trophy },
     { id: "calendar", label: "Календар", shortLabel: "Календар", icon: Calendar },
     { id: "results", label: "Результати", shortLabel: "Результ.", icon: Zap },
-    { id: "scorers", label: "Бомбардири", shortLabel: "Бомбард.", icon: Target },
+    { id: "scorers", label: "Статистика гравців", shortLabel: "Статистика", icon: Users },
     { id: "lion", label: "Лев матчу", shortLabel: "Лев", icon: Vote },
     { id: "shop", label: "KS Shop", shortLabel: "Shop", icon: ShoppingBag },
     { id: "games", label: "KS Games", shortLabel: "Ігри", icon: Gamepad2 },
@@ -1047,8 +1054,8 @@ export default function KSLigaSite() {
                       value="scorers"
                       className="ios-segment flex items-center justify-center"
                     >
-                      <Target className="h-4 w-4" />
-                      <span className="ml-1.5">Бомбардири</span>
+                      <Users className="h-4 w-4" />
+                      <span className="ml-1.5">Статистика гравців</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="lion"
@@ -1684,60 +1691,14 @@ export default function KSLigaSite() {
               )}
             </TabsContent>
 
-                {/* Scorers Tab */}
+                {/* Player statistics */}
                 <TabsContent value="scorers" className="liquid-module outline-none space-y-2">
-                  <div className="ios-section-header">Рейтинг бомбардирів</div>
-                  <Card className="liquid-glass-card overflow-hidden">
-                    <CardContent className="p-0">
-                      {scorers.length === 0 ? (
-                        <div className="text-center py-12 p-6">
-                          <Target className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                          <div className="text-base font-semibold text-slate-900">Список бомбардирів пустий</div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            Статистика з'явиться після додавання голів у зіграні матчі.
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100">
-                          {scorers.map((scorer, index) => {
-                            const position = index + 1
-                            let badgeStyle = "bg-white/40 text-slate-700"
-                            if (position === 1) badgeStyle = "bg-amber-400 text-amber-900 font-bold shadow-[0_4px_10px_rgba(251,191,36,0.3)]"
-                            else if (position === 2) badgeStyle = "bg-slate-300 text-slate-800 font-bold shadow-[0_4px_10px_rgba(203,213,225,0.3)]"
-                            else if (position === 3) badgeStyle = "bg-orange-300 text-orange-900 font-bold shadow-[0_4px_10px_rgba(253,186,116,0.3)]"
-
-                            return (
-                              <div key={scorer.id} className="p-4 flex items-center justify-between gap-4 hover:bg-white/15 transition-colors">
-                                <div className="flex items-center gap-4 flex-1 min-w-0">
-                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${badgeStyle}`}>
-                                    {position}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <Link href={withReturnTo(`/players/${scorer.id}`, "/?section=scorers")} className="block text-sm font-bold text-slate-900 truncate hover:text-blue-600">
-                                      {scorer.name}
-                                    </Link>
-                                    <div className="text-xs text-slate-500 mt-1">
-                                      <TeamDisplay
-                                        teamName={scorer.team}
-                                        teamLogo={getTeamLogo(scorer.team)}
-                                        size="sm"
-                                        showName={true}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-right flex-shrink-0">
-                                  <span className="inline-flex items-center justify-center bg-[var(--lg-blue)] text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-[0_4px_12px_rgba(0,122,255,0.25)]">
-                                    {scorer.goals} голів
-                                  </span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  {playerStatsLoadFailed ? (
+                    <div role="alert" className="liquid-glass-card space-y-3 p-6 text-center">
+                      <p className="text-sm text-slate-700">Не вдалося завантажити статистику гравців.</p>
+                      <Button variant="outline" onClick={() => currentChampionshipId && void loadDataForChampionship(currentChampionshipId)}>Спробувати ще раз</Button>
+                    </div>
+                  ) : <PlayerStatistics key={currentChampionshipId} players={scorers} teams={teams} />}
                 </TabsContent>
 
                 {/* Lion of the Match Tab */}

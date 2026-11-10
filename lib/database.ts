@@ -8,21 +8,13 @@ import {
 } from "./analytics"
 import type { AnalyticsEventRow, AnalyticsPeriod, AnalyticsRpcRow, AnalyticsSummary } from "./analytics"
 import { buildLeagueTable, sortChampionships } from "./league-utils"
+import { normalizePlayerName, normalizePlayerStats, normalizeRoster, playerNameKey, validatePlayerStats } from "./player-stats"
 export { buildLeagueTable, formatTime, getMatchStatusInfo, sortChampionships } from "./league-utils"
 export type { LeagueStanding } from "./league-utils"
 export type { AnalyticsPeriod, AnalyticsSummary } from "./analytics"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
-
-const isRosterColumnError = (error: unknown) => {
-  if (!isRecord(error)) return false
-  return (
-    (typeof error.message === "string" && error.message.includes("roster")) ||
-    error.code === "PGRST204"
-  )
-}
-
 
 // Mock data for demo purposes
 const mockChampionships: Championship[] = [
@@ -150,6 +142,43 @@ const mockOrganizers: Organizer[] = []
 
 // Helper function to check if we should use mock data
 const shouldUseMockData = () => !isSupabaseConfigured
+
+async function fetchAllRows<T>(fetchPage: (start: number, end: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const rows: T[] = []
+  for (;;) {
+    const { data, error } = await fetchPage(rows.length, rows.length + 499)
+    if (error) throw error
+    if (!data?.length) return rows
+    rows.push(...data)
+  }
+}
+
+function ensureMockPlayer(name: string, team: string, championshipId: number): Player {
+  const existing = mockPlayers.find((player) => player.championship_id === championshipId && player.team === team && playerNameKey(player.name) === playerNameKey(name))
+  if (existing) return existing
+  const player: Player = {
+    id: Math.max(0, ...mockPlayers.map((item) => item.id)) + 1,
+    name: normalizePlayerName(name), team, championship_id: championshipId,
+    goals: 0, yellow_cards: 0, red_cards: 0, created_at: new Date().toISOString(),
+  }
+  mockPlayers.push(player)
+  return player
+}
+
+function syncMockRoster(team: Team): void {
+  for (const name of normalizeRoster(team.roster || [])) ensureMockPlayer(name, team.name, team.championship_id)
+}
+
+function applyMockEvent(event: MatchGoal | MatchCard, match: Match | undefined, direction: 1 | -1): void {
+  if (!match) return
+  const player = ensureMockPlayer(event.player_name, event.team_name, match.championship_id)
+  if (!match.is_finished || match.is_technical_defeat) return
+  if ("goal_type" in event && event.goal_type !== "own_goal") player.goals = Math.max(0, player.goals + direction)
+  if ("card_type" in event) {
+    if (event.card_type !== "red") player.yellow_cards = Math.max(0, (player.yellow_cards || 0) + direction)
+    if (event.card_type !== "yellow") player.red_cards = Math.max(0, (player.red_cards || 0) + direction)
+  }
+}
 
 // Championships
 export async function getChampionships(): Promise<Championship[]> {
@@ -520,6 +549,7 @@ export async function approveProduct(id: number): Promise<Product> {
 
 // Teams
 export async function addTeam(team: Omit<Team, "id" | "created_at">): Promise<Team> {
+  team = { ...team, name: team.name.trim(), ...(team.roster ? { roster: normalizeRoster(team.roster) } : {}) }
   if (shouldUseMockData()) {
     const newTeam = {
       ...team,
@@ -527,22 +557,13 @@ export async function addTeam(team: Omit<Team, "id" | "created_at">): Promise<Te
       created_at: new Date().toISOString(),
     }
     mockTeams.push(newTeam)
+    syncMockRoster(newTeam)
     return Promise.resolve(newTeam)
   }
 
-  try {
-    const { data, error } = await supabase.from("teams").insert([team]).select().single()
-    if (error) throw error
-    return data
-  } catch (error) {
-    if (isRosterColumnError(error)) {
-      const { roster, ...cleanTeam } = team
-      const { data, error: err2 } = await supabase.from("teams").insert([cleanTeam]).select().single()
-      if (err2) throw err2
-      return { ...data, roster }
-    }
-    throw error
-  }
+  const { data, error } = await supabase.from("teams").insert([team]).select().single()
+  if (error) throw error
+  return data
 }
 
 export async function getTeams(championshipId?: number): Promise<Team[]> {
@@ -588,6 +609,7 @@ export async function getTeamById(id: number): Promise<Team | null> {
 }
 
 export async function updateTeam(id: number, updates: Partial<Team>, oldNameOverride?: string): Promise<Team> {
+  updates = { ...updates, ...(updates.name !== undefined ? { name: updates.name.trim() } : {}), ...(updates.roster ? { roster: normalizeRoster(updates.roster) } : {}) }
   if (shouldUseMockData()) {
     const index = mockTeams.findIndex((t) => t.id === id)
     if (index !== -1) {
@@ -612,7 +634,12 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
             if (p.team?.trim() === oldName) p.team = newName
           }
         })
+        const matchIds = new Set(mockMatches.filter((match) => match.championship_id === oldTeam.championship_id).map((match) => match.id))
+        for (const event of [...mockMatchGoals, ...mockMatchCards]) {
+          if (matchIds.has(event.match_id) && event.team_name === oldName) event.team_name = newName
+        }
       }
+      syncMockRoster(mockTeams[index])
       return Promise.resolve(mockTeams[index])
     }
     throw new Error("Team not found")
@@ -634,21 +661,9 @@ export async function updateTeam(id: number, updates: Partial<Team>, oldNameOver
     }
 
     // 2. Perform the update on teams table
-    let updatedTeam: Team
-    try {
-      const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
-      if (error) throw error
-      updatedTeam = data
-    } catch (error) {
-      if (isRosterColumnError(error)) {
-        const { roster, ...cleanUpdates } = updates
-        const { data, error: err2 } = await supabase.from("teams").update(cleanUpdates).eq("id", id).select().single()
-        if (err2) throw err2
-        updatedTeam = { ...data, roster }
-      } else {
-        throw error
-      }
-    }
+    const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single()
+    if (error) throw error
+    const updatedTeam: Team = data
 
     // 3. If team name changed, CASCADE update all match and player references!
     const newName = updates.name?.trim()
@@ -813,7 +828,15 @@ export async function updateMatch(id: number, updates: Partial<Match>): Promise<
   if (shouldUseMockData()) {
     const index = mockMatches.findIndex((m) => m.id === id)
     if (index !== -1) {
-      mockMatches[index] = { ...mockMatches[index], ...updates }
+      const events = [...mockMatchGoals, ...mockMatchCards].filter((event) => event.match_id === id)
+      const previousMatch = mockMatches[index]
+      const nextMatch = { ...previousMatch, ...updates }
+      const countedBefore = previousMatch.is_finished && !previousMatch.is_technical_defeat
+      const countedAfter = nextMatch.is_finished && !nextMatch.is_technical_defeat
+      const statisticsChanged = countedBefore !== countedAfter || previousMatch.championship_id !== nextMatch.championship_id
+      if (statisticsChanged) events.forEach((event) => applyMockEvent(event, previousMatch, -1))
+      mockMatches[index] = nextMatch
+      if (statisticsChanged) events.forEach((event) => applyMockEvent(event, nextMatch, 1))
       return Promise.resolve(mockMatches[index])
     }
     throw new Error("Match not found")
@@ -828,6 +851,13 @@ export async function deleteMatch(id: number): Promise<void> {
   if (shouldUseMockData()) {
     const index = mockMatches.findIndex((m) => m.id === id)
     if (index !== -1) {
+      for (const events of [mockMatchGoals, mockMatchCards]) {
+        for (let eventIndex = events.length - 1; eventIndex >= 0; eventIndex--) {
+          if (events[eventIndex].match_id !== id) continue
+          applyMockEvent(events[eventIndex], mockMatches[index], -1)
+          events.splice(eventIndex, 1)
+        }
+      }
       mockMatches.splice(index, 1)
     }
     return Promise.resolve()
@@ -838,9 +868,11 @@ export async function deleteMatch(id: number): Promise<void> {
 }
 
 // Match Goals
+const mockMatchGoals: MatchGoal[] = []
+
 export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
   if (shouldUseMockData()) {
-    return Promise.resolve([])
+    return mockMatchGoals.filter((goal) => goal.match_id === matchId)
   }
 
   try {
@@ -860,7 +892,7 @@ export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
 
 export async function getMatchesGoals(matchIds: number[]): Promise<MatchGoal[]> {
   if (shouldUseMockData() || matchIds.length === 0) {
-    return Promise.resolve([])
+    return mockMatchGoals.filter((goal) => matchIds.includes(goal.match_id))
   }
 
   try {
@@ -885,12 +917,16 @@ export async function addMatchGoal(goal: {
   minute?: number
   goal_type: "regular" | "penalty" | "own_goal"
 }): Promise<MatchGoal> {
+  goal = { ...goal, player_name: normalizePlayerName(goal.player_name), team_name: goal.team_name.trim() }
+  if (!goal.player_name || !goal.team_name) throw new Error("Оберіть команду та гравця.")
   if (shouldUseMockData()) {
-    const newGoal = {
+    const newGoal: MatchGoal = {
       ...goal,
-      id: Math.floor(Math.random() * 1000),
+      id: Math.max(0, ...mockMatchGoals.map((item) => item.id)) + 1,
       created_at: new Date().toISOString(),
     }
+    mockMatchGoals.push(newGoal)
+    applyMockEvent(newGoal, mockMatches.find((match) => match.id === goal.match_id), 1)
     return Promise.resolve(newGoal)
   }
 
@@ -907,7 +943,12 @@ export async function addMatchGoal(goal: {
 
 export async function deleteMatchGoal(id: number): Promise<void> {
   if (shouldUseMockData()) {
-    return Promise.resolve()
+    const index = mockMatchGoals.findIndex((goal) => goal.id === id)
+    if (index !== -1) {
+      applyMockEvent(mockMatchGoals[index], mockMatches.find((match) => match.id === mockMatchGoals[index].match_id), -1)
+      mockMatchGoals.splice(index, 1)
+    }
+    return
   }
 
   const { error } = await supabase.from("match_goals").delete().eq("id", id)
@@ -939,7 +980,7 @@ export async function getMatchCards(matchId: number): Promise<MatchCard[]> {
 
 export async function getMatchesCards(matchIds: number[]): Promise<MatchCard[]> {
   if (shouldUseMockData() || matchIds.length === 0) {
-    return Promise.resolve([])
+    return mockMatchCards.filter((card) => matchIds.includes(card.match_id))
   }
 
   try {
@@ -964,13 +1005,16 @@ export async function addMatchCard(card: {
   minute?: number
   card_type: "yellow" | "red" | "yellow_red"
 }): Promise<MatchCard> {
+  card = { ...card, player_name: normalizePlayerName(card.player_name), team_name: card.team_name.trim() }
+  if (!card.player_name || !card.team_name) throw new Error("Оберіть команду та гравця.")
   if (shouldUseMockData()) {
     const newCard: MatchCard = {
       ...card,
-      id: Math.floor(Math.random() * 1000),
+      id: Math.max(0, ...mockMatchCards.map((item) => item.id)) + 1,
       created_at: new Date().toISOString(),
     }
     mockMatchCards.push(newCard)
+    applyMockEvent(newCard, mockMatches.find((match) => match.id === card.match_id), 1)
     return Promise.resolve(newCard)
   }
 
@@ -987,7 +1031,10 @@ export async function addMatchCard(card: {
 export async function deleteMatchCard(id: number): Promise<void> {
   if (shouldUseMockData()) {
     const idx = mockMatchCards.findIndex((c) => c.id === id)
-    if (idx !== -1) mockMatchCards.splice(idx, 1)
+    if (idx !== -1) {
+      applyMockEvent(mockMatchCards[idx], mockMatches.find((match) => match.id === mockMatchCards[idx].match_id), -1)
+      mockMatchCards.splice(idx, 1)
+    }
     return Promise.resolve()
   }
 
@@ -998,89 +1045,74 @@ export async function deleteMatchCard(id: number): Promise<void> {
 // Players
 export async function getPlayers(championshipId?: number): Promise<Player[]> {
   if (shouldUseMockData()) {
-    return Promise.resolve(
-      championshipId ? mockPlayers.filter((p) => p.championship_id === championshipId) : mockPlayers,
-    )
+    return (championshipId ? mockPlayers.filter((p) => p.championship_id === championshipId) : mockPlayers)
+      .map(normalizePlayerStats).sort((a, b) => b.goals - a.goals || a.id - b.id)
   }
 
-  try {
+  const players = await fetchAllRows<Player>((start, end) => {
     let query = supabase
       .from("players")
-      .select("id,name,team,goals,championship_id,created_at")
+      .select("id,name,team,goals,yellow_cards,red_cards,championship_id,created_at")
       .order("goals", { ascending: false })
-    if (championshipId) {
-      query = query.eq("championship_id", championshipId)
-    }
-    const { data, error } = await query
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.warn("Database error, using mock data:", error)
-    return championshipId ? mockPlayers.filter((p) => p.championship_id === championshipId) : mockPlayers
-  }
+      .order("id")
+    if (championshipId !== undefined) query = query.eq("championship_id", championshipId)
+    return query.range(start, end)
+  })
+  return players.map(normalizePlayerStats)
 }
 
 export async function getPlayerById(id: number): Promise<Player | null> {
   if (shouldUseMockData()) {
-    return Promise.resolve(mockPlayers.find((player) => player.id === id) || null)
+    const player = mockPlayers.find((player) => player.id === id)
+    return player ? normalizePlayerStats(player) : null
   }
 
-  try {
-    const { data, error } = await supabase
-      .from("players")
-      .select("id,name,team,goals,championship_id,created_at")
-      .eq("id", id)
-      .maybeSingle()
-
-    if (error) throw error
-    return data || null
-  } catch (error) {
-    console.warn("Database error getting player by id:", error)
-    return mockPlayers.find((player) => player.id === id) || null
-  }
+  const { data, error } = await supabase
+    .from("players")
+    .select("id,name,team,goals,yellow_cards,red_cards,championship_id,created_at")
+    .eq("id", id)
+    .maybeSingle()
+  if (error) throw error
+  return data ? normalizePlayerStats(data) : null
 }
 
-export async function getPlayerGoals(playerName: string): Promise<MatchGoal[]> {
-  if (shouldUseMockData()) return Promise.resolve([])
-
-  try {
-    const { data, error } = await supabase
-      .from("match_goals")
-      .select("id,match_id,player_name,team_name,minute,goal_type,created_at")
-      .eq("player_name", playerName)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.warn("Database error getting player goals:", error)
-    return []
-  }
+export async function getPlayerGoals(playerName: string, teamName?: string, championshipId?: number): Promise<MatchGoal[]> {
+  return getPlayerEvents<MatchGoal>("match_goals", "goal_type", playerName, teamName, championshipId)
 }
 
-export async function getPlayerCards(playerName: string): Promise<MatchCard[]> {
-  if (shouldUseMockData()) return Promise.resolve([])
+export async function getPlayerCards(playerName: string, teamName?: string, championshipId?: number): Promise<MatchCard[]> {
+  return getPlayerEvents<MatchCard>("match_cards", "card_type", playerName, teamName, championshipId)
+}
 
-  try {
-    const { data, error } = await supabase
-      .from("match_cards")
-      .select("id,match_id,player_name,team_name,minute,card_type,created_at")
-      .eq("player_name", playerName)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.warn("Database error getting player cards:", error)
-    return []
+async function getPlayerEvents<T extends MatchGoal | MatchCard>(table: "match_goals" | "match_cards", typeColumn: "goal_type" | "card_type", playerName: string, teamName?: string, championshipId?: number): Promise<T[]> {
+  const matchesPlayer = (event: MatchGoal | MatchCard) => playerNameKey(event.player_name) === playerNameKey(playerName)
+    && (teamName === undefined || playerNameKey(event.team_name) === playerNameKey(teamName))
+  if (shouldUseMockData()) {
+    return (table === "match_goals" ? mockMatchGoals : mockMatchCards).filter((event) => matchesPlayer(event) && (championshipId === undefined || mockMatches.some((match) => match.id === event.match_id && match.championship_id === championshipId))) as T[]
   }
+  const events = await fetchAllRows<T>((start, end) => {
+    let query = supabase.from(table)
+      .select(`id,match_id,player_name,team_name,minute,${typeColumn},created_at${championshipId !== undefined ? ",matches!inner(championship_id)" : ""}`)
+      .order("created_at", { ascending: false }).order("id")
+    if (championshipId !== undefined) query = query.eq("matches.championship_id", championshipId)
+    // Compare normalized identities within this tournament so legacy case and
+    // whitespace differences in player or team names do not lose history.
+    return query.range(start, end) as unknown as PromiseLike<{ data: T[] | null; error: unknown }>
+  })
+  return events.filter(matchesPlayer)
 }
 
 export async function addPlayer(player: Omit<Player, "id" | "created_at">): Promise<Player> {
+  validatePlayerStats(player)
+  player = { ...player, name: normalizePlayerName(player.name), team: player.team.trim(), yellow_cards: player.yellow_cards ?? 0, red_cards: player.red_cards ?? 0 }
+  const existingPlayers = await getPlayers(player.championship_id)
+  if (existingPlayers.some((existing) => existing.team === player.team && playerNameKey(existing.name) === playerNameKey(player.name))) {
+    throw new Error("Цей гравець уже є в команді. Відредагуйте його статистику у списку.")
+  }
   if (shouldUseMockData()) {
     const newPlayer = {
       ...player,
-      id: Math.max(...mockPlayers.map((p) => p.id)) + 1,
+      id: Math.max(0, ...mockPlayers.map((p) => p.id)) + 1,
       created_at: new Date().toISOString(),
     }
     mockPlayers.push(newPlayer)
@@ -1093,6 +1125,13 @@ export async function addPlayer(player: Omit<Player, "id" | "created_at">): Prom
 }
 
 export async function updatePlayer(id: number, updates: Partial<Player>): Promise<Player> {
+  validatePlayerStats(updates)
+  updates = { ...updates, ...(updates.name !== undefined ? { name: normalizePlayerName(updates.name) } : {}), ...(updates.team !== undefined ? { team: updates.team.trim() } : {}) }
+  const current = await getPlayerById(id)
+  if (!current) throw new Error("Гравця не знайдено.")
+  if ((updates.name !== undefined && updates.name !== current.name) || (updates.team !== undefined && updates.team !== current.team) || (updates.championship_id !== undefined && updates.championship_id !== current.championship_id)) {
+    throw new Error("У наявного гравця можна змінювати статистику. Склад і команду редагуйте в розділі команд.")
+  }
   if (shouldUseMockData()) {
     const index = mockPlayers.findIndex((p) => p.id === id)
     if (index !== -1) {
@@ -1108,6 +1147,22 @@ export async function updatePlayer(id: number, updates: Partial<Player>): Promis
 }
 
 export async function deletePlayer(id: number): Promise<void> {
+  const player = await getPlayerById(id)
+  if (!player) return
+  const teams = shouldUseMockData()
+    ? mockTeams.filter((team) => team.championship_id === player.championship_id)
+    : await fetchAllRows<Team>((start, end) => supabase.from("teams")
+      .select("id,name,roster,championship_id,created_at")
+      .eq("championship_id", player.championship_id).order("id").range(start, end))
+  const listedInRoster = teams.some((team) => playerNameKey(team.name) === playerNameKey(player.team)
+    && team.roster?.some((name) => playerNameKey(name) === playerNameKey(player.name)))
+  const [goals, cards] = await Promise.all([
+    getPlayerGoals(player.name, player.team, player.championship_id),
+    getPlayerCards(player.name, player.team, player.championship_id),
+  ])
+  if (listedInRoster || goals.length > 0 || cards.length > 0) {
+    throw new Error("Спочатку приберіть гравця зі складу та його голи й картки з матчів. Для виправлення показників змініть статистику гравця.")
+  }
   if (shouldUseMockData()) {
     const index = mockPlayers.findIndex((p) => p.id === id)
     if (index !== -1) {

@@ -64,9 +64,6 @@ import {
   updateMatch,
   deleteMatch,
   getPlayers,
-  addPlayer,
-  updatePlayer,
-  deletePlayer,
   getMatchGoals,
   addMatchGoal,
   deleteMatchGoal,
@@ -101,6 +98,8 @@ import {
   TOURNAMENT_TIME_ZONE,
 } from "@/lib/match-utils"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
+import { PlayerStatisticsModule } from "@/components/admin/player-statistics-module"
+import { normalizeRoster, normalizePlayerName, playerNameKey } from "@/lib/player-stats"
 
 const OrganizersModule = dynamic(
   () => import("@/components/admin/organizers-module").then((module) => module.OrganizersModule),
@@ -116,7 +115,7 @@ const ANALYTICS_SECTION_NAMES: Record<string, string> = {
   table: "Турнірна таблиця",
   calendar: "Календар матчів",
   results: "Результати матчів",
-  scorers: "Бомбардири",
+  scorers: "Статистика гравців",
   lion: "Голосування (Лев матчу)",
   shop: "Магазин KS Shop",
   games: "KS Games",
@@ -180,6 +179,7 @@ export function AdminPanel({
   const [teams, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [players, setPlayers] = useState<Player[]>([])
+  const [playerStatsLoadFailed, setPlayerStatsLoadFailed] = useState(false)
   const [organizers, setOrganizers] = useState<Organizer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
@@ -267,10 +267,6 @@ export function AdminPanel({
     championshipId: number
     matchIds: number[]
   } | null>(null)
-
-  // Player form state
-  const [playerForm, setPlayerForm] = useState({ name: "", team: "", goals: 0 })
-  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
 
   // Match goals and cards state
   const [selectedMatchForGoals, setSelectedMatchForGoals] = useState<Match | null>(null)
@@ -415,20 +411,27 @@ export function AdminPanel({
       setOrganizerLogs(logsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
-        const [teamsData, matchesData, playersData, votingsData] = await Promise.all([
+        const [teamsData, matchesData, playersResult, votingsData] = await Promise.all([
           getTeams(currentChampionshipId),
           getMatches(currentChampionshipId),
-          getPlayers(currentChampionshipId),
+          getPlayers(currentChampionshipId)
+            .then((data) => ({ data, failed: false }))
+            .catch((error: unknown) => {
+              console.error("Error loading player statistics:", error)
+              return { data: [] as Player[], failed: true }
+            }),
           getChampionshipVotings(currentChampionshipId),
         ])
         setTeams(teamsData)
         setMatches([...matchesData].sort((a, b) => (b.round || 0) - (a.round || 0)))
-        setPlayers(playersData)
+        setPlayers(playersResult.data)
+        setPlayerStatsLoadFailed(playersResult.failed)
         setChampionshipVotings(votingsData)
       } else {
         setTeams([])
         setMatches([])
         setPlayers([])
+        setPlayerStatsLoadFailed(false)
         setChampionshipVotings([])
       }
     } catch (error) {
@@ -703,10 +706,7 @@ export function AdminPanel({
 
     setLoading(true)
     try {
-      const rosterArray = teamForm.roster_text
-        .split("\n")
-        .map((n) => n.trim())
-        .filter((n) => n.length > 0)
+      const rosterArray = normalizeRoster(teamForm.roster_text.split("\n"))
 
       const teamData = {
         name: teamForm.name.trim(),
@@ -877,15 +877,16 @@ export function AdminPanel({
 
   const handleAddMatchGoal = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedMatchForGoals) return
+    if (!selectedMatchForGoals || loading) return
 
     setLoading(true)
     try {
+      validateEventPlayer(goalForm)
       await addMatchGoal({
         match_id: selectedMatchForGoals.id,
-        player_name: goalForm.player_name,
+        player_name: resolveEventPlayerName(goalForm.team_name, goalForm.player_name),
         team_name: goalForm.team_name,
-        minute: goalForm.minute ? Number.parseInt(goalForm.minute) : undefined,
+        minute: goalForm.minute ? Number(goalForm.minute) : undefined,
         goal_type: goalForm.goal_type,
       })
       await logOrganizerAction(organizerName || "Адміністратор", "add_goal", `Додано гол: ${goalForm.player_name} (${goalForm.team_name}${goalForm.minute ? `, ${goalForm.minute}'` : ""})`)
@@ -897,6 +898,7 @@ export function AdminPanel({
         goal_type: "regular",
       })
       await loadMatchEvents(selectedMatchForGoals.id)
+      await refreshPlayerStatistics()
     } catch (error) {
       console.error("Error adding match goal:", error)
       alert("Помилка при додаванні голу: " + getErrorMessage(error))
@@ -905,30 +907,37 @@ export function AdminPanel({
   }
 
   const handleDeleteMatchGoal = async (goalId: number) => {
+    if (loading) return
     if (confirm("Ви впевнені, що хочете видалити цей гол?")) {
+      setLoading(true)
       try {
         await deleteMatchGoal(goalId)
         await logOrganizerAction(organizerName || "Адміністратор", "delete_goal", `Видалено гол ID #${goalId}`)
         if (selectedMatchForGoals) {
           await loadMatchEvents(selectedMatchForGoals.id)
         }
+        await refreshPlayerStatistics()
       } catch (error) {
         console.error("Error deleting match goal:", error)
+        alert("Помилка при видаленні гола: " + getErrorMessage(error))
+      } finally {
+        setLoading(false)
       }
     }
   }
 
   const handleAddMatchCard = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedMatchForGoals) return
+    if (!selectedMatchForGoals || loading) return
 
     setLoading(true)
     try {
+      validateEventPlayer(cardForm)
       await addMatchCard({
         match_id: selectedMatchForGoals.id,
-        player_name: cardForm.player_name,
+        player_name: resolveEventPlayerName(cardForm.team_name, cardForm.player_name),
         team_name: cardForm.team_name,
-        minute: cardForm.minute ? Number.parseInt(cardForm.minute) : undefined,
+        minute: cardForm.minute ? Number(cardForm.minute) : undefined,
         card_type: cardForm.card_type,
       })
       await logOrganizerAction(organizerName || "Адміністратор", "add_card", `Додано картку (${cardForm.card_type === "yellow" ? "жовта" : "червона"}): ${cardForm.player_name} (${cardForm.team_name}${cardForm.minute ? `, ${cardForm.minute}'` : ""})`)
@@ -940,6 +949,7 @@ export function AdminPanel({
         card_type: "yellow",
       })
       await loadMatchEvents(selectedMatchForGoals.id)
+      await refreshPlayerStatistics()
     } catch (error) {
       console.error("Error adding match card:", error)
       alert("Помилка при додаванні картки: " + getErrorMessage(error))
@@ -948,15 +958,21 @@ export function AdminPanel({
   }
 
   const handleDeleteMatchCard = async (cardId: number) => {
+    if (loading) return
     if (confirm("Ви впевнені, що хочете видалити цю картку?")) {
+      setLoading(true)
       try {
         await deleteMatchCard(cardId)
         await logOrganizerAction(organizerName || "Адміністратор", "delete_card", `Видалено картку ID #${cardId}`)
         if (selectedMatchForGoals) {
           await loadMatchEvents(selectedMatchForGoals.id)
         }
+        await refreshPlayerStatistics()
       } catch (error) {
         console.error("Error deleting match card:", error)
+        alert("Помилка при видаленні картки: " + getErrorMessage(error))
+      } finally {
+        setLoading(false)
       }
     }
   }
@@ -1217,47 +1233,34 @@ export function AdminPanel({
     setLoading(false)
   }
 
-  // Player handlers
-  const handlePlayerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0) {
-      alert("Спочатку створіть чемпіонат")
-      return
-    }
-
-    if (!playerForm.team) {
-      alert("Оберіть команду для гравця")
-      return
-    }
-
-    setLoading(true)
+  const refreshPlayerStatistics = async () => {
     try {
-      const playerData = { ...playerForm, championship_id: currentChampionshipId }
-      if (editingPlayer) {
-        await updatePlayer(editingPlayer.id, playerData)
-        setEditingPlayer(null)
-      } else {
-        await addPlayer(playerData)
-      }
-      setPlayerForm({ name: "", team: "", goals: 0 })
-      await loadData()
-      onDataChange?.()
+      setPlayers(await getPlayers(currentChampionshipId))
+      setPlayerStatsLoadFailed(false)
     } catch (error) {
-      console.error("Error saving player:", error)
-      alert("Помилка при збереженні гравця: " + getErrorMessage(error))
+      console.error("Error refreshing player statistics:", error)
+      setPlayers([])
+      setPlayerStatsLoadFailed(true)
     }
-    setLoading(false)
+    onDataChange?.()
   }
 
-  const handleDeletePlayer = async (id: number) => {
-    if (confirm("Ви впевнені, що хочете видалити цього гравця?")) {
-      try {
-        await deletePlayer(id)
-        await loadData()
-        onDataChange?.()
-      } catch (error) {
-        console.error("Error deleting player:", error)
-      }
+  const getEventPlayerNames = (teamName: string) => normalizeRoster([
+    ...players.filter((player) => player.team === teamName).map((player) => player.name),
+    ...(teams.find((team) => team.name === teamName)?.roster || []),
+  ]).sort((a, b) => a.localeCompare(b, "uk"))
+
+  const resolveEventPlayerName = (teamName: string, name: string) => getEventPlayerNames(teamName)
+    .find((candidate) => playerNameKey(candidate) === playerNameKey(name)) || normalizePlayerName(name)
+
+  const validateEventPlayer = (event: { player_name: string; team_name: string; minute: string }) => {
+    const name = normalizePlayerName(event.player_name)
+    if (!name || name.length > 255) throw new Error("Вкажіть ім’я гравця довжиною від 1 до 255 символів.")
+    if (!selectedMatchForGoals || ![selectedMatchForGoals.home_team, selectedMatchForGoals.away_team].includes(event.team_name)) {
+      throw new Error("Оберіть команду, яка бере участь у цьому матчі.")
+    }
+    if (event.minute && (!Number.isInteger(Number(event.minute)) || Number(event.minute) < 1 || Number(event.minute) > 120)) {
+      throw new Error("Хвилина події має бути цілим числом від 1 до 120.")
     }
   }
 
@@ -1370,7 +1373,7 @@ export function AdminPanel({
               className="ios-segment disabled:opacity-40 whitespace-nowrap text-xs font-extrabold px-3.5 py-2.5 rounded-xl min-h-[40px] flex items-center gap-1.5 cursor-pointer"
             >
               <Target className="h-3.5 w-3.5" />
-              <span>Гравці</span>
+              <span>Статистика гравців</span>
             </TabsTrigger>
             <TabsTrigger
               value="votings"
@@ -1641,17 +1644,22 @@ export function AdminPanel({
                   </div>
                   <div className="sm:col-span-3">
                     <Label htmlFor="team-roster" className="text-slate-700 font-semibold text-xs flex items-center justify-between">
-                      <span>Склад команди (список гравців для голосування за Лева Матчу)</span>
+                      <span>Склад команди</span>
                       <span className="text-[10px] text-slate-400 font-normal">Кожен гравець з нового рядка</span>
                     </Label>
                     <textarea
                       id="team-roster"
+                      aria-describedby="team-roster-help"
                       rows={4}
                       value={teamForm.roster_text}
                       onChange={(e) => setTeamForm({ ...teamForm, roster_text: e.target.value })}
                       placeholder={`Андрій Шевченко\nАндрій Ярмоленко\nВіктор Циганков`}
                       className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg p-3 text-xs focus:ring-2 focus:ring-blue-500 font-mono mt-1"
                     />
+                    <p id="team-roster-help" className="mt-2 text-xs leading-relaxed text-slate-500">
+                      Після збереження кожен гравець автоматично з’явиться у «Статистиці гравців» і списку для голосування.
+                      Повторні імена пропускаються, наявні голи та картки зберігаються. Видалення імені зі складу не видаляє історію гравця.
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -2613,6 +2621,9 @@ export function AdminPanel({
                         </Button>
                       </div>
 
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        Додавання та видалення подій автоматично оновлює статистику гравців. Обирайте імена зі складу команди, щоб зберегти єдину історію гравця.
+                      </p>
                       {/* --- SECTION 1: GOALS --- */}
                       <div className="space-y-4">
                         <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -2629,12 +2640,18 @@ export function AdminPanel({
                               </Label>
                               <Input
                                 id="goal-player-name"
+                                list="goal-player-options"
+                                autoComplete="off"
                                 value={goalForm.player_name}
                                 onChange={(e) => setGoalForm({ ...goalForm, player_name: e.target.value })}
                                 required
                                 placeholder="Шевченко Андрій"
                                 className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
                               />
+                              <datalist id="goal-player-options">
+                                {getEventPlayerNames(goalForm.team_name).map((name) => <option key={name} value={name} />)}
+                              </datalist>
+                              <p className="mt-1 text-[11px] text-slate-500">Оберіть гравця зі складу або введіть ім’я нового.</p>
                             </div>
                             <div>
                               <Label htmlFor="goal-team-name" className="text-slate-700 font-medium text-xs">
@@ -2642,7 +2659,7 @@ export function AdminPanel({
                               </Label>
                               <Select
                                 value={goalForm.team_name}
-                                onValueChange={(value) => setGoalForm({ ...goalForm, team_name: value })}
+                                onValueChange={(value) => setGoalForm({ ...goalForm, team_name: value, player_name: "" })}
                               >
                                 <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
                                   <SelectValue />
@@ -2767,12 +2784,18 @@ export function AdminPanel({
                               </Label>
                               <Input
                                 id="card-player-name"
+                                list="card-player-options"
+                                autoComplete="off"
                                 value={cardForm.player_name}
                                 onChange={(e) => setCardForm({ ...cardForm, player_name: e.target.value })}
                                 required
                                 placeholder="Ярмоленко Андрій"
                                 className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
                               />
+                              <datalist id="card-player-options">
+                                {getEventPlayerNames(cardForm.team_name).map((name) => <option key={name} value={name} />)}
+                              </datalist>
+                              <p className="mt-1 text-[11px] text-slate-500">Оберіть гравця зі складу або введіть ім’я нового.</p>
                             </div>
                             <div>
                               <Label htmlFor="card-team-name" className="text-slate-700 font-medium text-xs">
@@ -2780,7 +2803,7 @@ export function AdminPanel({
                               </Label>
                               <Select
                                 value={cardForm.team_name}
-                                onValueChange={(value) => setCardForm({ ...cardForm, team_name: value })}
+                                onValueChange={(value) => setCardForm({ ...cardForm, team_name: value, player_name: "" })}
                               >
                                 <SelectTrigger className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs">
                                   <SelectValue />
@@ -2837,6 +2860,7 @@ export function AdminPanel({
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
+                              <p className="mt-1 text-[11px] text-slate-500">Друга жовта додає одну жовту та одну червону. Першу жовту внесіть окремою подією.</p>
                             </div>
                           </div>
                           <Button
@@ -2909,149 +2933,26 @@ export function AdminPanel({
           )}
         </TabsContent>
 
-        {/* Players Tab */}
+        {/* Player statistics */}
         <TabsContent value="players" className="space-y-4">
-          {!currentChampionshipId || currentChampionshipId === 0 || championships.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
-              Спочатку створіть чемпіонат
+          {!currentChampionshipId || championships.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white py-8 text-center text-slate-500">Спочатку створіть чемпіонат</div>
+          ) : playerStatsLoadFailed ? (
+            <div role="alert" className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p>Не вдалося завантажити статистику гравців. Спробуйте ще раз.</p>
+              <Button type="button" variant="outline" onClick={() => void loadData()}>Спробувати ще раз</Button>
             </div>
           ) : teams.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 text-slate-400 bg-white border border-slate-200 rounded-lg">
-              Додайте команди для створення гравців
-            </div>
+            <div className="rounded-lg border border-slate-200 bg-white py-8 text-center text-slate-500">Додайте команди для створення гравців</div>
           ) : (
-            <>
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div className="text-sm text-slate-900 font-medium">
-                  <strong>Поточний чемпіонат:</strong> {championships.find((c) => c.id === currentChampionshipId)?.name}{" "}
-                  ({championships.find((c) => c.id === currentChampionshipId)?.season})
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Гравці будуть додані до цього чемпіонату
-                </div>
-              </div>
-              <form
-                onSubmit={handlePlayerSubmit}
-                className="space-y-4 p-4 sm:p-6 bg-white border border-slate-200 rounded-lg"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="player-name" className="text-slate-700 font-medium text-sm">
-                      Ім'я гравця
-                    </Label>
-                    <Input
-                      id="player-name"
-                      value={playerForm.name}
-                      onChange={(e) => setPlayerForm({ ...playerForm, name: e.target.value })}
-                      required
-                      className="border border-slate-200 text-slate-900 rounded-lg h-10"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="player-team" className="text-slate-700 font-medium text-sm">
-                      Команда
-                    </Label>
-                    <Select
-                      value={playerForm.team}
-                      onValueChange={(value) => setPlayerForm({ ...playerForm, team: value })}
-                    >
-                      <SelectTrigger className="border border-slate-200 text-slate-900 rounded-lg h-10">
-                        <SelectValue placeholder="Оберіть команду" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-slate-200">
-                        {teams.map((team) => (
-                          <SelectItem key={team.id} value={team.name} className="text-slate-900">
-                            {team.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="player-goals" className="text-slate-700 font-medium text-sm">
-                      Голи
-                    </Label>
-                    <Input
-                      id="player-goals"
-                      type="number"
-                      min="0"
-                      value={playerForm.goals === 0 ? "" : playerForm.goals}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setPlayerForm({ ...playerForm, goals: val === "" ? 0 : Number.parseInt(val) })
-                      }}
-                      className="border border-slate-200 text-slate-900 rounded-lg h-10"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    type="submit"
-                    disabled={loading || !playerForm.team}
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg h-10"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {editingPlayer ? "Оновити" : "Додати"} гравця
-                  </Button>
-                  {editingPlayer && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingPlayer(null)
-                        setPlayerForm({ name: "", team: "", goals: 0 })
-                      }}
-                      className="border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg h-10"
-                    >
-                      Скасувати
-                    </Button>
-                  )}
-                </div>
-              </form>
-
-              <div className="space-y-2">
-                {players.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 bg-white border border-slate-200 rounded-lg">
-                    Немає гравців. Додайте першого гравця вище.
-                  </div>
-                ) : (
-                  players.map((player) => (
-                    <div
-                      key={player.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="font-semibold text-slate-900">{player.name}</div>
-                        <div className="text-sm text-slate-500">
-                          {player.team} · {player.goals} голів
-                        </div>
-                      </div>
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingPlayer(player)
-                            setPlayerForm({ name: player.name, team: player.team, goals: player.goals })
-                          }}
-                          className="border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeletePlayer(player.id)}
-                          className="bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg flex-1 sm:flex-none"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
+            <PlayerStatisticsModule
+              key={currentChampionshipId}
+              championshipId={currentChampionshipId}
+              players={players}
+              teams={teams}
+              organizerName={organizerName}
+              onChange={async () => { await loadData(); onDataChange?.() }}
+            />
           )}
         </TabsContent>
 

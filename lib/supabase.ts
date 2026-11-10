@@ -81,6 +81,8 @@ export interface Player {
   name: string
   team: string
   goals: number
+  yellow_cards?: number
+  red_cards?: number
   championship_id: number
   created_at: string
 }
