@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { getPosterLogoSource } from "../lib/posters/assets.ts"
+import nextConfig from "../next.config.mjs"
 import { createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
@@ -33,4 +35,32 @@ assert.equal(getPosterMatchScore({ ...matches[0], is_finished: true, is_technica
 assert.equal(getPosterMatchScore({ ...matches[0], is_finished: true, is_technical_defeat: true }), "ТЕХ.")
 assert.equal(createPosterOptions({ ...data, mode: "match", matches: [{ ...matches[0], is_finished: true }] }).showScores, true)
 assert.equal(createPosterOptions({ ...data, championship: { ...data.championship, tournament_type: "cup" }, matches: [{ ...matches[0], cup_stage: "ФІНАЛ" }] }).title, "ФІНАЛ")
-console.log("Poster model checks passed")
+for (const source of ["https://imgpx.com/6JUCdiXP5OtG.webp", "https://kdfa.if.ua/storage/teams/20/team-logo-20.png?v=2"]) {
+  const optimized = new URL(getPosterLogoSource(source), "https://ksliga.com")
+  assert.equal(optimized.origin, "https://ksliga.com", "Logo optimization must stay on the current site")
+  assert.equal(optimized.pathname, "/_next/image")
+  assert.equal(optimized.searchParams.get("url"), source)
+  assert.equal(optimized.searchParams.get("w"), "256")
+  assert.equal(optimized.searchParams.get("q"), "85")
+  const upstream = new URL(source)
+  assert.ok(nextConfig.images.remotePatterns.some((pattern) => pattern.hostname === upstream.hostname && pattern.protocol === "https" && pattern.port === ""), "Optimized badge providers must be allowed by Next")
+}
+assert.ok(nextConfig.images.qualities.includes(85), "Canvas badge quality must be allowed by Next")
+assert.equal(new URL(getPosterLogoSource("https://imgpx.com/logo.png#badge"), "https://ksliga.com").searchParams.get("url"), "https://imgpx.com/logo.png")
+for (const source of [
+  "/images/ks-logo.png",
+  "blob:https://ksliga.com/uploaded-background",
+  "data:image/png;base64,aGVsbG8=",
+  "https://other.example/team.png",
+  "https://imgpx.com.evil.example/team.png",
+  "https://imgpx.com@evil.example/team.png",
+  "https://evil.example@imgpx.com/team.png",
+  "https://user:password@imgpx.com/team.png",
+  "http://imgpx.com/team.png",
+  "https://imgpx.com:8443/team.png",
+  "https://www.imgpx.com/team.png",
+  "https://kdfa.if.ua/other/team.png",
+  "https://kdfa.if.ua/storage/teams-other/team.png",
+  "https://kdfa.if.ua/storage/teams/../../other/team.png",
+]) assert.equal(getPosterLogoSource(source), source, "Only exact approved logo providers and paths may use the optimizer")
+console.log("Poster model and logo source checks passed")

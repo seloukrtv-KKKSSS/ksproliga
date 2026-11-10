@@ -1,4 +1,5 @@
 import type { Match, Team } from "../supabase"
+import { getPosterLogoSource } from "./assets"
 import {
   getPosterDateLabel,
   getPosterMatchScore,
@@ -13,7 +14,7 @@ type Palette = { bg: string; text: string; muted: string; card: string; line: st
 type Assets = Map<string, HTMLImageElement | null>
 const assetCache = new Map<string, Promise<HTMLImageElement | null>>()
 
-function loadImage(url: string): Promise<HTMLImageElement | null> {
+function loadImage(url: string, source = url): Promise<HTMLImageElement | null> {
   let cached = assetCache.get(url)
   if (cached) return cached
   cached = new Promise((resolve) => {
@@ -31,7 +32,7 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
     img.crossOrigin = "anonymous"
     img.onload = () => finish(img.naturalWidth > 0 && img.naturalHeight > 0 ? img : null)
     img.onerror = () => finish(null)
-    img.src = url
+    img.src = source
   })
   // Keep a small cache: repeated typing should not download badges repeatedly.
   if (assetCache.size > 80) assetCache.clear()
@@ -291,7 +292,7 @@ export async function renderPoster(canvas: HTMLCanvasElement, data: PosterData, 
   const usedTeams = matches.flatMap((match) => [findTeam(data, match, match.home_team), findTeam(data, match, match.away_team)])
   const logoUrls = [...new Set(usedTeams.map((team) => team?.logo).filter((url): url is string => Boolean(url)))]
   const urls = ["/images/ks-logo.png", ...logoUrls, ...(options.backgroundUrl ? [options.backgroundUrl] : [])]
-  const assets: Assets = new Map(await Promise.all(urls.map(async (url) => [url, await loadImage(url)] as const)))
+  const assets: Assets = new Map(await Promise.all(urls.map(async (url) => [url, await loadImage(url, logoUrls.includes(url) ? getPosterLogoSource(url) : url)] as const)))
   const warnings: string[] = []
   if (logoUrls.some((url) => !assets.get(url))) warnings.push("Деякі емблеми недоступні для експорту. Замість них використано ініціали команд.")
   if (options.backgroundUrl && !assets.get(options.backgroundUrl)) warnings.push("Не вдалося прочитати фото тла. Оберіть зображення ще раз.")

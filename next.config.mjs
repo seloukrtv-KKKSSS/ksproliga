@@ -27,6 +27,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "ksliga.com" },
+      { protocol: "https", hostname: "imgpx.com", port: "", pathname: "/**" },
+      { protocol: "https", hostname: "kdfa.if.ua", port: "", pathname: "/storage/teams/**" },
       {
         protocol: "https",
         hostname: "tkshtyrfwvihpzsnbmvx.supabase.co",
