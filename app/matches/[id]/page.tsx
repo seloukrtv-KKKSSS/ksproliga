@@ -101,7 +101,7 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
             <span><Clock /> <LocalMatchDateTime match={match} mode="time" showTimeZone={false} /></span>
           </div>
           <ViewerTimeZoneNote className="mt-2 text-center text-xs text-slate-500" />
-          <MatchDetailActions match={match} />
+          <MatchDetailActions match={match} teams={teams} championship={championship} />
         </section>
 
         {match.youtube_url && <YouTubeBroadcast match={match} />}

@@ -36,6 +36,7 @@ import {
   Mail,
   KeyRound,
   House,
+  ImagePlus,
 } from "lucide-react"
 import {
   buildLeagueTable,
@@ -54,8 +55,10 @@ import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import { parseStoredUtcDateTime } from "@/lib/match-utils"
 import { LocalDateTime, LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
+import type { PosterData } from "@/lib/posters/model"
 
 const loadDatabase = () => import("@/lib/database")
+const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
 function ModuleLoading() {
   return (
@@ -116,6 +119,7 @@ export default function KSLigaSite() {
   const [currentChampionshipId, setCurrentChampionshipId] = useState<number | null>(null)
   const [championships, setChampionships] = useState<Championship[]>([])
   const [currentChampionship, setCurrentChampionship] = useState<Championship | null>(null)
+  const [posterData, setPosterData] = useState<PosterData | null>(null)
 
   // Lion of the Match states
   const [votings, setVotings] = useState<MatchVoting[]>([])
@@ -226,6 +230,17 @@ export default function KSLigaSite() {
 
   // All matches merged for voting match lookup
   const allMatches = useMemo(() => [...calendar, ...results], [calendar, results])
+  const openRoundPoster = (round: number) => {
+    if (!currentChampionship || currentChampionship.id !== currentChampionshipId) return
+    const matches = allMatches.filter((match) => match.round === round && match.championship_id === currentChampionshipId)
+    if (!matches.length) return
+    setPosterData({
+      mode: "round",
+      matches,
+      teams: teams.filter((team) => team.championship_id === currentChampionshipId),
+      championship: currentChampionship,
+    })
+  }
   const activeVotingMatchId = useMemo(
     () => votings.find((voting) => {
       const startTime = parseStoredUtcDateTime(voting.start_time)
@@ -763,6 +778,7 @@ export default function KSLigaSite() {
 
   return (
     <div className="app-shell min-h-screen bg-transparent text-slate-900 flex flex-col font-sans">
+      {posterData && <PosterEditor {...posterData} onClose={() => setPosterData(null)} />}
       <SiteAnalyticsTracker activeSection={activeTab} />
       {/* ── Mobile Pull to Refresh Animated Floating Indicator ── */}
       {(isPulling || isPullRefreshing || refreshSuccess || pullDistance > 0) && (
@@ -1248,10 +1264,11 @@ export default function KSLigaSite() {
                       return (
                         <div key={round} className="space-y-3">
                           {/* Round Spoiler Header */}
+                          <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setCollapsedCalendarRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
-                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
+                            className="min-w-0 flex-1 flex items-center justify-between gap-2 p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-2xs shrink-0"></span>
@@ -1268,6 +1285,10 @@ export default function KSLigaSite() {
                               {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                             </div>
                           </button>
+                          <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5 text-xs" onClick={() => openRoundPoster(round)} aria-label={`Створити афішу: ${roundTitle}`} disabled={currentChampionship?.id !== currentChampionshipId}>
+                            <ImagePlus className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">Афіша туру</span>
+                          </Button>
+                          </div>
 
                           {/* Matches Grid (Shown when not collapsed) */}
                           {!isCollapsed && (
@@ -1358,6 +1379,7 @@ export default function KSLigaSite() {
                     matches={allMatches}
                     teams={teams}
                     tournamentType={currentChampionship?.tournament_type || "league"}
+                    onCreatePosterRound={openRoundPoster}
                   />
                 </TabsContent>
 
@@ -1382,10 +1404,11 @@ export default function KSLigaSite() {
                       return (
                         <div key={round} className="space-y-3">
                           {/* Round Spoiler Header */}
+                          <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setCollapsedResultsRounds((prev) => ({ ...prev, [round]: !prev[round] }))}
-                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
+                            className="min-w-0 flex-1 flex items-center justify-between gap-2 p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:bg-white transition-all cursor-pointer select-none group"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs shrink-0"></span>
@@ -1402,6 +1425,10 @@ export default function KSLigaSite() {
                               {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                             </div>
                           </button>
+                          <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5 text-xs" onClick={() => openRoundPoster(round)} aria-label={`Створити афішу: ${roundTitle}`} disabled={currentChampionship?.id !== currentChampionshipId}>
+                            <ImagePlus className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">Афіша туру</span>
+                          </Button>
+                          </div>
 
                           {/* Matches Grid (Shown when not collapsed) */}
                           {!isCollapsed && (

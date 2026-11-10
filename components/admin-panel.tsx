@@ -39,6 +39,7 @@ import {
   Tv,
   ExternalLink,
   RotateCw,
+  ImagePlus,
 } from "lucide-react"
 import {
   getChampionships,
@@ -105,6 +106,8 @@ const OrganizersModule = dynamic(
   () => import("@/components/admin/organizers-module").then((module) => module.OrganizersModule),
   { loading: () => <div className="admin-step-card text-sm text-slate-500">Завантаження модуля доступів…</div> },
 )
+
+const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
 
@@ -259,6 +262,11 @@ export function AdminPanel({
   })
   const [editingMatch, setEditingMatch] = useState<Match | null>(null)
   const matchFormRef = useRef<HTMLFormElement>(null)
+  const [posterTarget, setPosterTarget] = useState<{
+    mode: "match" | "round"
+    championshipId: number
+    matchIds: number[]
+  } | null>(null)
 
   // Player form state
   const [playerForm, setPlayerForm] = useState({ name: "", team: "", goals: 0 })
@@ -301,6 +309,9 @@ export function AdminPanel({
 
 
   const currentChampionship = championships.find((c) => c.id === currentChampionshipId)
+  const posterMatches = posterTarget?.championshipId === currentChampionshipId && currentChampionship
+    ? matches.filter((match) => match.championship_id === currentChampionshipId && posterTarget.matchIds.includes(match.id))
+    : []
 
   const [collapsedAdminRounds, setCollapsedAdminRounds] = useState<Record<string, boolean>>({})
 
@@ -1252,6 +1263,16 @@ export function AdminPanel({
 
   return (
     <div className="ks-admin-scope space-y-4 sm:space-y-6">
+      {posterTarget && posterMatches.length > 0 && currentChampionship && (
+        <PosterEditor
+          key={`${posterTarget.championshipId}:${posterTarget.mode}:${posterTarget.matchIds.join(",")}`}
+          mode={posterTarget.mode}
+          matches={posterMatches}
+          teams={teams.filter((team) => team.championship_id === currentChampionshipId)}
+          championship={currentChampionship}
+          onClose={() => setPosterTarget(null)}
+        />
+      )}
       {/* Header */}
       <div className="glass-hero flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 !rounded-[22px] text-white">
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -2104,6 +2125,7 @@ export function AdminPanel({
                 return (
                   <div key={round} className="space-y-3">
                     {/* Round Spoiler Header */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <button
                       type="button"
                       aria-expanded={!isCollapsed}
@@ -2111,7 +2133,7 @@ export function AdminPanel({
                         ...prev,
                         [roundStateKey]: !(prev[roundStateKey] ?? true),
                       }))}
-                      className="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 transition-all cursor-pointer select-none font-bold text-slate-800 text-xs sm:text-sm"
+                      className="min-w-0 flex-1 flex items-center justify-between gap-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 transition-all cursor-pointer select-none font-bold text-slate-800 text-xs sm:text-sm"
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></span>
@@ -2126,6 +2148,22 @@ export function AdminPanel({
                         {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                       </div>
                     </button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!currentChampionship || !roundMatches.some((match) => match.championship_id === currentChampionshipId)}
+                      onClick={() => setPosterTarget({
+                        mode: "round",
+                        championshipId: currentChampionshipId,
+                        matchIds: roundMatches.filter((match) => match.championship_id === currentChampionshipId).map((match) => match.id),
+                      })}
+                      className="shrink-0 border-blue-200 text-blue-700 hover:bg-blue-50"
+                      aria-label={`Створити афішу: ${roundTitle}`}
+                    >
+                      <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                      Афіша {currentChampionship?.tournament_type === "cup" ? "етапу" : "туру"}
+                    </Button>
+                    </div>
 
                     {/* Matches List (when not collapsed) */}
                     {!isCollapsed && (
@@ -2176,6 +2214,18 @@ export function AdminPanel({
                       </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!currentChampionship || match.championship_id !== currentChampionshipId}
+                        onClick={() => setPosterTarget({ mode: "match", championshipId: currentChampionshipId, matchIds: [match.id] })}
+                        className="border-blue-200 text-blue-700 hover:bg-blue-50 rounded-lg flex-1 sm:flex-none"
+                        aria-label={`Створити афішу матчу ${match.home_team} — ${match.away_team}`}
+                      >
+                        <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                        Афіша
+                      </Button>
                       {match.is_finished && !match.is_technical_defeat && (
                         <Button
                           size="sm"

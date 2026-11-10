@@ -1,12 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarPlus, Check, Share2 } from "lucide-react"
+import dynamic from "next/dynamic"
+import { CalendarPlus, Check, ImagePlus, Share2 } from "lucide-react"
 import { createMatchCalendarEvent } from "@/lib/match-utils"
-import type { Match } from "@/lib/supabase"
+import type { Championship, Match, Team } from "@/lib/supabase"
 
-export function MatchDetailActions({ match }: { match: Match }) {
+const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
+
+interface MatchDetailActionsProps {
+  match: Match
+  teams: Team[]
+  championship?: Championship
+}
+
+export function MatchDetailActions({ match, teams, championship }: MatchDetailActionsProps) {
   const [copied, setCopied] = useState(false)
+  const [showPoster, setShowPoster] = useState(false)
 
   const shareMatch = async () => {
     const url = window.location.href
@@ -35,6 +45,13 @@ export function MatchDetailActions({ match }: { match: Match }) {
 
   return (
     <div className="detail-actions">
+      {showPoster && (
+        <PosterEditor mode="match" matches={[match]} teams={teams} championship={championship} onClose={() => setShowPoster(false)} />
+      )}
+      <button type="button" className="ios-btn-secondary" onClick={() => setShowPoster(true)}>
+        <ImagePlus aria-hidden="true" />
+        Афіша матчу
+      </button>
       <button type="button" className="ios-btn-secondary" onClick={() => void shareMatch()}>
         {copied ? <Check aria-hidden="true" /> : <Share2 aria-hidden="true" />}
         {copied ? "Посилання скопійовано" : "Поділитися"}

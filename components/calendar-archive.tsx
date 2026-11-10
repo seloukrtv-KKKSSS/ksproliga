@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Archive, CheckCircle2, ChevronDown, History } from "lucide-react"
+import { Archive, CheckCircle2, ChevronDown, History, ImagePlus } from "lucide-react"
 
 import { LocalMatchDateTime, useViewerTimeZone } from "@/components/local-time"
 import { SafeImage } from "@/components/safe-image"
@@ -14,6 +14,7 @@ interface CalendarArchiveProps {
   matches: Match[]
   teams: Team[]
   tournamentType: "league" | "cup"
+  onCreatePosterRound?: (round: number) => void
 }
 
 type Winner = "home" | "away" | null
@@ -57,7 +58,7 @@ function getWinner(match: Match): Winner {
   return null
 }
 
-export function CalendarArchive({ matches, teams, tournamentType }: CalendarArchiveProps) {
+export function CalendarArchive({ matches, teams, tournamentType, onCreatePosterRound }: CalendarArchiveProps) {
   const finishedMatches = matches.filter((match) => match.is_finished)
   if (finishedMatches.length === 0) return null
 
@@ -130,6 +131,11 @@ export function CalendarArchive({ matches, teams, tournamentType }: CalendarArch
                 </summary>
 
                 <div className="calendar-archive-round__matches">
+                  {onCreatePosterRound && (
+                    <button type="button" className="inline-flex w-fit items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100" onClick={() => onCreatePosterRound(round)}>
+                      <ImagePlus className="h-4 w-4" aria-hidden="true" /> Афіша {tournamentType === "cup" ? "етапу" : "туру"}
+                    </button>
+                  )}
                   {finishedRoundMatches.map((match) => {
                     const winner = getWinner(match)
 
