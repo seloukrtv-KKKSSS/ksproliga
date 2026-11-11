@@ -1,0 +1,367 @@
+[
+  {
+    "name": "Борисевич Роман",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 9,
+    "mergedIds": [
+      9,
+      322
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Назарійчук Віталій",
+    "team": "СК Трійця",
+    "championship": 6,
+    "keepId": 11,
+    "mergedIds": [
+      11,
+      334
+    ],
+    "source": "https://oxcore.if.ua/teams/sk-triitsia"
+  },
+  {
+    "name": "Слободян Андрій",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 12,
+    "mergedIds": [
+      12,
+      324
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Максимець Руслан",
+    "team": "Прикарпаття-Тепловик",
+    "championship": 6,
+    "keepId": 29,
+    "mergedIds": [
+      29,
+      276
+    ],
+    "source": "https://oxcore.if.ua/teams/prykarpattia-teplovyk"
+  },
+  {
+    "name": "Конкольняк Ярослав",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 31,
+    "mergedIds": [
+      31,
+      323
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Сондей Іван",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 32,
+    "mergedIds": [
+      32,
+      325
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Блащук Василь",
+    "team": "Покуття",
+    "championship": 6,
+    "keepId": 33,
+    "mergedIds": [
+      33,
+      326
+    ],
+    "source": "https://oxcore.if.ua/teams/pokuttia"
+  },
+  {
+    "name": "Андрієць Владислав",
+    "team": "ФК Снятин",
+    "championship": 6,
+    "keepId": 34,
+    "mergedIds": [
+      34,
+      192,
+      340
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-sniatyn"
+  },
+  {
+    "name": "Гоянюк Максим",
+    "team": "СК Трійця",
+    "championship": 6,
+    "keepId": 35,
+    "mergedIds": [
+      35,
+      333
+    ],
+    "source": "https://oxcore.if.ua/teams/sk-triitsia"
+  },
+  {
+    "name": "Будейчук Василь",
+    "team": "СК Трійця",
+    "championship": 6,
+    "keepId": 36,
+    "mergedIds": [
+      36,
+      332
+    ],
+    "source": "https://oxcore.if.ua/teams/sk-triitsia"
+  },
+  {
+    "name": "Шевчук Олександр",
+    "team": "СК Трійця",
+    "championship": 6,
+    "keepId": 37,
+    "mergedIds": [
+      37,
+      335
+    ],
+    "source": "https://oxcore.if.ua/teams/sk-triitsia"
+  },
+  {
+    "name": "Ємельянов Владислав",
+    "team": "ФК Вільхівці",
+    "championship": 6,
+    "keepId": 39,
+    "mergedIds": [
+      39,
+      170,
+      338
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-vilkhivtsi"
+  },
+  {
+    "name": "Дитко Роман",
+    "team": "ФК Вільхівці",
+    "championship": 6,
+    "keepId": 40,
+    "mergedIds": [
+      40,
+      184,
+      337
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-vilkhivtsi"
+  },
+  {
+    "name": "Сапа Андрій",
+    "team": "Прут",
+    "championship": 8,
+    "keepId": 43,
+    "mergedIds": [
+      43,
+      352
+    ],
+    "source": "https://oxcore.if.ua/teams/prut"
+  },
+  {
+    "name": "Пророчук Павло",
+    "team": "Кремінь",
+    "championship": 8,
+    "keepId": 45,
+    "mergedIds": [
+      45,
+      346
+    ],
+    "source": "https://oxcore.if.ua/teams/kremin-pistyn"
+  },
+  {
+    "name": "Олевич Ярослав",
+    "team": "Сокіл",
+    "championship": 8,
+    "keepId": 47,
+    "mergedIds": [
+      47,
+      355
+    ],
+    "source": "https://oxcore.if.ua/teams/sokil-pavlivka"
+  },
+  {
+    "name": "Мельничук Андрій",
+    "team": "Сокіл",
+    "championship": 8,
+    "keepId": 48,
+    "mergedIds": [
+      48,
+      354
+    ],
+    "source": "https://oxcore.if.ua/teams/sokil-pavlivka"
+  },
+  {
+    "name": "Сімановський Віталій",
+    "team": "Хутровик",
+    "championship": 8,
+    "keepId": 50,
+    "mergedIds": [
+      50,
+      358
+    ],
+    "source": "https://oxcore.if.ua/teams/khutrovyk"
+  },
+  {
+    "name": "Ілюк Максим",
+    "team": "Покуття",
+    "championship": 6,
+    "keepId": 52,
+    "mergedIds": [
+      52,
+      327
+    ],
+    "source": "https://oxcore.if.ua/teams/pokuttia"
+  },
+  {
+    "name": "Ключко Едуард",
+    "team": "Покуття",
+    "championship": 6,
+    "keepId": 53,
+    "mergedIds": [
+      53,
+      328
+    ],
+    "source": "https://oxcore.if.ua/teams/pokuttia"
+  },
+  {
+    "name": "Супрунюк Максим",
+    "team": "Прикарпаття-Тепловик",
+    "championship": 6,
+    "keepId": 54,
+    "mergedIds": [
+      54,
+      277
+    ],
+    "source": "https://oxcore.if.ua/teams/prykarpattia-teplovyk"
+  },
+  {
+    "name": "Шкварилюк Захар",
+    "team": "ФК Вільхівці",
+    "championship": 6,
+    "keepId": 59,
+    "mergedIds": [
+      59,
+      185
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-vilkhivtsi"
+  },
+  {
+    "name": "Макотяк Дмитро",
+    "team": "Прикарпаття-Тепловик",
+    "championship": 6,
+    "keepId": 66,
+    "mergedIds": [
+      66,
+      275
+    ],
+    "source": "https://oxcore.if.ua/teams/prykarpattia-teplovyk"
+  },
+  {
+    "name": "Титов Дмитро",
+    "team": "Прикарпаття-Тепловик",
+    "championship": 6,
+    "keepId": 67,
+    "mergedIds": [
+      67,
+      274
+    ],
+    "source": "https://oxcore.if.ua/teams/prykarpattia-teplovyk"
+  },
+  {
+    "name": "Львов Леонід",
+    "team": "УСК Довбуш",
+    "championship": 11,
+    "keepId": 75,
+    "mergedIds": [
+      75,
+      359
+    ]
+  },
+  {
+    "name": "Феліпович Владислав",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 88,
+    "mergedIds": [
+      88,
+      222
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Остапчук Михайло",
+    "team": "Вихор",
+    "championship": 6,
+    "keepId": 89,
+    "mergedIds": [
+      89,
+      211
+    ],
+    "source": "https://oxcore.if.ua/teams/vykhor"
+  },
+  {
+    "name": "Марій Владислав",
+    "team": "Горгани",
+    "championship": 6,
+    "keepId": 90,
+    "mergedIds": [
+      90,
+      146
+    ],
+    "source": "https://oxcore.if.ua/teams/horhany"
+  },
+  {
+    "name": "Бойко Тарас",
+    "team": "ФК Вільхівці",
+    "championship": 6,
+    "keepId": 91,
+    "mergedIds": [
+      91,
+      178
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-vilkhivtsi"
+  },
+  {
+    "name": "Староселиць Олександр",
+    "team": "СК Трійця",
+    "championship": 6,
+    "keepId": 94,
+    "mergedIds": [
+      94,
+      229
+    ],
+    "source": "https://oxcore.if.ua/teams/sk-triitsia"
+  },
+  {
+    "name": "Заторський Віталій",
+    "team": "Горгани",
+    "championship": 6,
+    "keepId": 119,
+    "mergedIds": [
+      119,
+      147
+    ],
+    "source": "https://oxcore.if.ua/teams/horhany"
+  },
+  {
+    "name": "Липчук Микола",
+    "team": "ФК Снятин",
+    "championship": 6,
+    "keepId": 191,
+    "mergedIds": [
+      191,
+      341
+    ],
+    "source": "https://oxcore.if.ua/teams/fk-sniatyn"
+  },
+  {
+    "name": "Трусевич Віталій",
+    "team": "Горгани",
+    "championship": 6,
+    "keepId": 120,
+    "mergedIds": [
+      120,
+      149
+    ],
+    "source": "https://oxcore.if.ua/teams/horhany; user confirmed"
+  }
+]
