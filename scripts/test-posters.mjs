@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { getPosterDraftKey, loadPosterDraft, savePosterDraft, removePosterDraft } from "../lib/posters/drafts.ts"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
 import { getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
@@ -122,3 +123,59 @@ assert.equal(getPosterSponsors({sponsors:[]}).main, undefined)
 for (const format of ["square", "post", "story"]) {
   assert.equal(getPosterRoundLayout(data, {...options,format,sponsors}).bottom, getPosterRoundLayout(data,{...options,format,sponsors:[]}).bottom, "The main sponsor must not reduce space above the footer")
 }
+
+// Drafts survive immediate close/reopen and remain scoped to tournament + target.
+const draftRecords = new Map()
+const draftStorage = {
+  getItem: key => draftRecords.get(key) ?? null,
+  setItem: (key, value) => draftRecords.set(key, value),
+  removeItem: key => draftRecords.delete(key),
+}
+const draftKey = getPosterDraftKey(data)
+assert.ok(draftKey)
+assert.equal(getPosterDraftKey({...data, matches:[...matches].reverse()}), draftKey)
+assert.equal(getPosterDraftKey({...data, matches:[{...matches[0], id:999}, ...matches]}), draftKey, "Adding a fixture must not lose the round draft")
+assert.equal(getPosterDraftKey({...data, matches:matches.slice(1)}), draftKey)
+assert.notEqual(getPosterDraftKey({...data, mode:"match"}), draftKey)
+assert.notEqual(getPosterDraftKey({...data, matches:matches.map(match=>({...match, championship_id:2}))}), draftKey)
+assert.notEqual(getPosterDraftKey({...data, matches:matches.map(match=>({...match, round:5}))}), draftKey)
+assert.notEqual(getPosterDraftKey({...data, mode:"match", matches:[matches[0]]}), getPosterDraftKey({...data, mode:"match", matches:[matches[1]]}))
+assert.equal(getPosterDraftKey({...data,matches:[]}), null)
+assert.equal(loadPosterDraft(draftStorage, draftKey, options).restored, false)
+const completeDraft = {
+  options: {...options, title:"Збережена афіша", subtitle:"Підзаголовок", venue:"Стадіон", footer:"KSLIGA.COM", format:"square", template:"editorial", font:"serif", accent:"#0a84ff", showTime:false, showVenue:false, showScores:true, showScorers:true, backgroundUrl:"https://imgpx.com/background.webp", backgroundOpacity:37, backgroundPosition:62, sponsors:[{id:"primary",name:"Головний",url:"https://imgpx.com/main.webp"},{id:"secondary",name:"Партнер",url:""}], mainSponsorId:"primary", page:99},
+  imageUrls: {background:"https://imgpx.com/not-yet-applied", "sponsor:primary":"https://imgpx.com/changed-but-not-applied", "sponsor:secondary":"unfinished URL"},
+}
+assert.equal(savePosterDraft(draftStorage, draftKey, completeDraft), true)
+const restoredDraft = loadPosterDraft(draftStorage, draftKey, options)
+assert.equal(restoredDraft.restored, true)
+assert.deepEqual(restoredDraft.draft, {...completeDraft, options:{...completeDraft.options, page:0}}, "Every setting and unapplied URL must be restored; pagination starts on a valid first page")
+const otherKey = getPosterDraftKey({...data, mode:"match"})
+assert.equal(loadPosterDraft(draftStorage, otherKey, options).restored, false, "A round draft must not leak into a match")
+savePosterDraft(draftStorage, otherKey, completeDraft)
+assert.equal(removePosterDraft(draftStorage, draftKey), true)
+assert.equal(loadPosterDraft(draftStorage, draftKey, options).restored, false)
+assert.equal(loadPosterDraft(draftStorage, otherKey, options).restored, true, "Resetting a draft must preserve every other target")
+for (const raw of ["{broken", JSON.stringify({version:99,options}), JSON.stringify({version:1,options:null}), "x".repeat(100001)]) {
+  draftRecords.set(draftKey, raw)
+  assert.deepEqual(loadPosterDraft(draftStorage, draftKey, options).draft, {options,imageUrls:{}}, "Damaged or obsolete data must not break the editor")
+}
+draftRecords.set(draftKey, JSON.stringify({version:1,options:{...completeDraft.options, format:"bad", template:"bad",font:"bad",accent:"url(bad)",backgroundOpacity:-10,backgroundPosition:500,backgroundUrl:"data:image/png;base64,abc",sponsors:[{id:"a",name:"A",url:"javascript:alert(1)"},{id:"a",name:"Duplicate",url:"https://imgpx.com/a.webp"}],mainSponsorId:"missing"}}))
+const repaired = loadPosterDraft(draftStorage,draftKey,options).draft.options
+assert.equal(repaired.format,options.format)
+assert.equal(repaired.template,options.template)
+assert.equal(repaired.font,options.font)
+assert.equal(repaired.accent,options.accent)
+assert.equal(repaired.backgroundOpacity,0)
+assert.equal(repaired.backgroundPosition,100)
+assert.equal(repaired.backgroundUrl,undefined)
+assert.equal(repaired.sponsors.length,1)
+assert.equal(repaired.sponsors[0].url,"")
+assert.equal(repaired.mainSponsorId,undefined)
+const deniedStorage = {getItem:()=>{throw new Error("denied")},setItem:()=>{throw new Error("quota")},removeItem:()=>{throw new Error("denied")}}
+assert.equal(loadPosterDraft(deniedStorage,draftKey,options).available,false)
+assert.equal(savePosterDraft(deniedStorage,draftKey,completeDraft),false)
+assert.equal(removePosterDraft(deniedStorage,draftKey),false)
+assert.equal(savePosterDraft(undefined,draftKey,completeDraft),false)
+assert.equal(savePosterDraft(draftStorage,null,completeDraft),false)
+console.log("Poster draft persistence, recovery, reset and isolation checks passed")
