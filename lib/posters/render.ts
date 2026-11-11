@@ -1,7 +1,8 @@
-import type { Match, Team } from "../supabase"
+import type { Match } from "../supabase"
 import { getPosterLogoSource } from "./assets"
 import {
   getPosterDateLabel,
+  getPosterTeamLogo,
   getPosterScorers,
   getPosterMatchScore,
   getPosterMatchTime,
@@ -42,6 +43,7 @@ function loadImage(url: string, source = url): Promise<HTMLImageElement | null> 
   // Keep a small cache: repeated typing should not download badges repeatedly.
   if (assetCache.size > 80) assetCache.clear()
   assetCache.set(url, cached)
+  void cached.then((image) => { if (!image && assetCache.get(url) === cached) assetCache.delete(url) })
   return cached
 }
 
@@ -129,8 +131,8 @@ function contain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number
   ctx.drawImage(img, x - width / 2, y - height / 2, width, height)
 }
 
-function logo(ctx: CanvasRenderingContext2D, team: Team | undefined, name: string, x: number, y: number, size: number, assets: Assets, p: Palette, options: PosterOptions) {
-  const img = team?.logo ? assets.get(team.logo) : null
+function logo(ctx: CanvasRenderingContext2D, url: string | undefined, name: string, x: number, y: number, size: number, assets: Assets, p: Palette, options: PosterOptions) {
+  const img = url ? assets.get(url) : null
   if (img) {
     // White backing keeps transparent dark crests legible in either theme.
     box(ctx, x - size / 2 - 8, y - size / 2 - 8, size + 16, size + 16, size * 0.22, "#ffffff")
@@ -238,11 +240,6 @@ function footer(ctx: CanvasRenderingContext2D, height: number, data: PosterData,
   text(ctx, page, 1020, height - 37, 18, p.onAccent, options, main ? 250 : 340, "right", 800)
 }
 
-function findTeam(data: PosterData, match: Match, name: string) {
-  const normalized = name.trim().toLocaleLowerCase("uk-UA")
-  return data.teams.find((team) => team.championship_id === match.championship_id && team.name.trim().toLocaleLowerCase("uk-UA") === normalized)
-}
-
 function drawSponsor(ctx: CanvasRenderingContext2D, sponsor: PosterOptions["sponsors"][number], x: number, y: number, width: number, size: number, assets: Assets, options: PosterOptions) {
   box(ctx, x - width / 2, y - size / 2, width, size, 10, "#ffffff")
   const img = assets.get(sponsor.url)
@@ -277,8 +274,8 @@ function matchPoster(ctx: CanvasRenderingContext2D, match: Match, data: PosterDa
   const dateTop = bottom - (showTime ? 105 : 75)
   const size = compact ? Math.max(64, Math.min(180, (dateTop - top) * .34)) : height === 1920 ? 240 : height === 1080 ? 158 : 204
   const centerY = compact ? top + size / 2 : height * (height === 1080 ? .435 : .46)
-  logo(ctx, findTeam(data, match, match.home_team), match.home_team, 270, centerY, size, assets, p, options)
-  logo(ctx, findTeam(data, match, match.away_team), match.away_team, 810, centerY, size, assets, p, options)
+  logo(ctx, getPosterTeamLogo(data, options, match.championship_id, match.home_team), match.home_team, 270, centerY, size, assets, p, options)
+  logo(ctx, getPosterTeamLogo(data, options, match.championship_id, match.away_team), match.away_team, 810, centerY, size, assets, p, options)
   text(ctx, score || "VS", 540, centerY + 24, 70, p.accentText, options, 240, "center", 900)
   const penalties = score && match.penalty_home != null && match.penalty_away != null ? `пен. ${match.penalty_home}:${match.penalty_away}` : score && match.is_technical_defeat ? "ТЕХНІЧНИЙ РЕЗУЛЬТАТ" : ""
   if (penalties) text(ctx, penalties, 540, centerY + 61, 18, p.muted, options, 240, "center")
@@ -323,8 +320,8 @@ function roundPoster(ctx: CanvasRenderingContext2D, matches: Match[], data: Post
     const mainHeight = rowHeight - detailHeight - scorerHeight
     const logoSize = Math.min(58, mainHeight - 18)
     const centerY = y + mainHeight / 2
-    logo(ctx, findTeam(data, match, match.home_team), match.home_team, 403, centerY, logoSize, assets, p, options)
-    logo(ctx, findTeam(data, match, match.away_team), match.away_team, 677, centerY, logoSize, assets, p, options)
+    logo(ctx, getPosterTeamLogo(data, options, match.championship_id, match.home_team), match.home_team, 403, centerY, logoSize, assets, p, options)
+    logo(ctx, getPosterTeamLogo(data, options, match.championship_id, match.away_team), match.away_team, 677, centerY, logoSize, assets, p, options)
     const clock = options.showTime ? getPosterMatchTime(match) : "VS"
     const centerText = center || clock
     const centerHeight = Math.min(54, mainHeight - 12)
@@ -351,13 +348,14 @@ export async function renderPoster(canvas: HTMLCanvasElement, data: PosterData, 
   const format = POSTER_FORMATS.find((item) => item.id === options.format) || POSTER_FORMATS[0]
   const pages = getPosterPages(data, options)
   const matches = pages[Math.max(0, Math.min(options.page, pages.length - 1))] || []
-  const usedTeams = matches.flatMap((match) => [findTeam(data, match, match.home_team), findTeam(data, match, match.away_team)])
-  const logoUrls = [...new Set(usedTeams.map((team) => team?.logo).filter((url): url is string => Boolean(url)))]
+  const badges = matches.flatMap((match) => [match.home_team, match.away_team].map((name) => ({ name, url: getPosterTeamLogo(data, options, match.championship_id, name) })))
+  const logoUrls = [...new Set(badges.map((badge) => badge.url).filter((url): url is string => Boolean(url)))]
   const sponsorUrls = options.sponsors.map((sponsor) => sponsor.url).filter(Boolean)
   const urls = ["/images/ks-logo.png", ...logoUrls, ...sponsorUrls, ...(options.backgroundUrl ? [options.backgroundUrl] : [])]
   const assets: Assets = new Map(await Promise.all(urls.map(async (url) => [url, await loadImage(url, getPosterLogoSource(url, url === options.backgroundUrl ? 1920 : 256))] as const)))
   const warnings: string[] = []
-  if (logoUrls.some((url) => !assets.get(url))) warnings.push("Деякі емблеми недоступні для експорту. Замість них використано ініціали команд.")
+  const failedTeams = [...new Set(badges.filter((badge) => badge.url && !assets.get(badge.url)).map((badge) => badge.name))]
+  if (failedTeams.length) warnings.push(`Недоступні емблеми: ${failedTeams.slice(0, 5).join(", ")}${failedTeams.length > 5 ? ` та ще ${failedTeams.length - 5}` : ""}. Замініть посилання у «Емблеми команд». Поки використано ініціали.`)
   if (sponsorUrls.some((url) => !assets.get(url))) warnings.push("Деякі логотипи спонсорів недоступні. Перевірте пряме посилання та дозвіл CORS; тимчасово показано назву партнера.")
   if (options.backgroundUrl && !assets.get(options.backgroundUrl)) warnings.push("Не вдалося прочитати фото тла. Оберіть зображення ще раз.")
   if (typeof document !== "undefined" && document.fonts) await document.fonts.ready

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { getPosterDraftKey, loadPosterDraft, savePosterDraft, removePosterDraft } from "../lib/posters/drafts.ts"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
-import { getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
+import { getPosterTeams, getPosterTeamKey, getPosterTeamLogo, getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
   id: index + 1, round: 4, date: `2026-11-${index < 11 ? "15" : "16"}`, match_time: `${String(8 + index % 11).padStart(2, "0")}:00`,
@@ -179,3 +179,38 @@ assert.equal(removePosterDraft(deniedStorage,draftKey),false)
 assert.equal(savePosterDraft(undefined,draftKey,completeDraft),false)
 assert.equal(savePosterDraft(draftStorage,null,completeDraft),false)
 console.log("Poster draft persistence, recovery, reset and isolation checks passed")
+
+// Manual emblem URLs are scoped by tournament and team and survive old/new drafts.
+const homeLogoKey = getPosterTeamKey(1, "ФК Тучапи")
+const awayLogoKey = getPosterTeamKey(1, "Еверест")
+const logoData = {...data, teams:[{id:1,name:"ФК Тучапи",logo:"https://imgpx.com/original.webp",championship_id:1},{id:2,name:"ФК Тучапи",logo:"https://imgpx.com/other-tournament.webp",championship_id:2}]}
+assert.equal(getPosterTeamKey(1,"  ФК ТУЧАПИ  "),homeLogoKey)
+assert.equal(getPosterTeams(logoData).length,2,"A team playing repeatedly in the round needs only one URL field")
+assert.equal(getPosterTeams(logoData).find(team=>team.key===homeLogoKey).logo,"https://imgpx.com/original.webp")
+const editedLogos = {...options, teamLogos:{[homeLogoKey]:"https://imgpx.com/replacement.webp"}}
+assert.equal(getPosterTeamLogo(logoData,editedLogos,1,"ФК ТУЧАПИ"),"https://imgpx.com/replacement.webp")
+assert.equal(getPosterTeamLogo(logoData,editedLogos,2,"ФК Тучапи"),"https://imgpx.com/other-tournament.webp")
+assert.equal(getPosterTeamLogo(logoData,editedLogos,1,"Еверест"),undefined)
+assert.equal(logoData.teams[0].logo,"https://imgpx.com/original.webp","Poster edits must not mutate site team records")
+assert.equal(getPosterTeamLogo(logoData,{...options,teamLogos:{}},1,"ФК Тучапи"),"https://imgpx.com/original.webp","Reset must restore the current site emblem")
+const extendedRound = {...logoData,matches:[...matches,{...matches[0],id:500,home_team:"Третя команда",away_team:"Четверта команда",date:"2027-01-01"}]}
+assert.equal(getPosterTeams(extendedRound).length,4)
+assert.equal(getPosterTeams({...extendedRound,mode:"match"}).length,2,"A match poster must not list unrelated teams")
+const logoDraft = {...completeDraft,options:{...completeDraft.options,teamLogos:editedLogos.teamLogos},imageUrls:{...completeDraft.imageUrls,[homeLogoKey]:"https://imgpx.com/pending-logo.webp",[awayLogoKey]:"unfinished replacement URL"}}
+assert.equal(savePosterDraft(draftStorage,draftKey,logoDraft),true)
+const recoveredLogos = loadPosterDraft(draftStorage,draftKey,options).draft
+assert.deepEqual(recoveredLogos.options.teamLogos,editedLogos.teamLogos)
+assert.equal(recoveredLogos.imageUrls[homeLogoKey],"https://imgpx.com/pending-logo.webp")
+assert.equal(recoveredLogos.imageUrls[awayLogoKey],"unfinished replacement URL","Unapplied team URLs must not be lost on close")
+const oldDraftOptions = {...completeDraft.options};delete oldDraftOptions.teamLogos
+const oldDraftRecord = {version:1,options:oldDraftOptions,imageUrls:completeDraft.imageUrls}
+draftRecords.set(draftKey,JSON.stringify(oldDraftRecord))
+const migratedDraft = loadPosterDraft(draftStorage,draftKey,options).draft
+assert.deepEqual(migratedDraft.options.teamLogos,{})
+assert.equal(migratedDraft.options.title,completeDraft.options.title)
+assert.deepEqual(migratedDraft.options.sponsors,completeDraft.options.sponsors,"Existing drafts must retain sponsors and formatting")
+draftRecords.set(draftKey,JSON.stringify({version:1,options:{...options,teamLogos:{[homeLogoKey]:"javascript:alert(1)",[awayLogoKey]:"data:image/png;base64,x",rogue:"https://imgpx.com/a.webp"}},imageUrls:{[homeLogoKey]:"pending",rogue:"bad"}}))
+const sanitizedLogos = loadPosterDraft(draftStorage,draftKey,options).draft
+assert.deepEqual(sanitizedLogos.options.teamLogos,{})
+assert.deepEqual(sanitizedLogos.imageUrls,{[homeLogoKey]:"pending"})
+console.log("Poster team emblem overrides and draft compatibility checks passed")

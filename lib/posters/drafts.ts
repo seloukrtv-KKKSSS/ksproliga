@@ -6,6 +6,11 @@ export interface PosterDraft {
 }
 
 type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">
+const MAX_DRAFT_CHARS = 1_500_000
+
+function teamKey(key: string): boolean {
+  return key.length <= 1024 && /^team:\d+:.+$/u.test(key)
+}
 
 export function getPosterDraftKey(data: PosterData): string | null {
   const match = data.matches[0]
@@ -32,7 +37,7 @@ function imageUrl(value: unknown): string | undefined {
 
 function normalizeDraft(value: unknown, defaults: PosterOptions): PosterDraft {
   const source = record(value) && record(value.options) ? value.options : {}
-  const options: PosterOptions = { ...defaults, sponsors: [], page: 0 }
+  const options: PosterOptions = { ...defaults, sponsors: [], teamLogos: {}, page: 0 }
   if (["stadium", "editorial", "minimal"].includes(String(source.template))) options.template = source.template as PosterOptions["template"]
   if (["post", "story", "square"].includes(String(source.format))) options.format = source.format as PosterOptions["format"]
   if (["sans", "condensed", "serif"].includes(String(source.font))) options.font = source.font as PosterOptions["font"]
@@ -47,6 +52,9 @@ function normalizeDraft(value: unknown, defaults: PosterOptions): PosterDraft {
     if (typeof source[key] === "number" && Number.isFinite(source[key])) options[key] = Math.max(0, Math.min(100, source[key]))
   }
   options.backgroundUrl = imageUrl(source.backgroundUrl)
+  if (record(source.teamLogos)) {
+    options.teamLogos = Object.fromEntries(Object.entries(source.teamLogos).filter(([key, url]) => teamKey(key) && imageUrl(url)).slice(0, 128)) as Record<string, string>
+  }
   const ids = new Set<string>()
   if (Array.isArray(source.sponsors)) {
     for (const sponsor of source.sponsors.slice(0, 8)) {
@@ -57,7 +65,7 @@ function normalizeDraft(value: unknown, defaults: PosterOptions): PosterDraft {
   }
   options.mainSponsorId = typeof source.mainSponsorId === "string" && ids.has(source.mainSponsorId) ? source.mainSponsorId : undefined
   const rawUrls = record(value) && record(value.imageUrls) ? value.imageUrls : {}
-  const keys = ["background", ...options.sponsors.map((sponsor) => `sponsor:${sponsor.id}`)]
+  const keys = ["background", ...options.sponsors.map((sponsor) => `sponsor:${sponsor.id}`), ...Object.keys(rawUrls).filter(teamKey).slice(0, 128)]
   const imageUrls = Object.fromEntries(keys.filter((key) => typeof rawUrls[key] === "string").map((key) => [key, (rawUrls[key] as string).slice(0, 4096)]))
   return { options, imageUrls }
 }
@@ -72,7 +80,7 @@ export function loadPosterDraft(storage: DraftStorage | undefined, key: string |
     return { draft: empty, restored: false, available: false }
   }
   try {
-    if (!raw || raw.length > 100_000) return { draft: empty, restored: false, available: true }
+    if (!raw || raw.length > MAX_DRAFT_CHARS) return { draft: empty, restored: false, available: true }
     const value: unknown = JSON.parse(raw)
     if (!record(value) || value.version !== 1 || !record(value.options)) return { draft: empty, restored: false, available: true }
     return { draft: normalizeDraft(value, defaults), restored: true, available: true }
@@ -87,7 +95,9 @@ export function savePosterDraft(storage: DraftStorage | undefined, key: string |
   try {
     // Persist only settings and URL text, never canvas pixels, files or match data.
     const safe = normalizeDraft(draft, draft.options)
-    storage.setItem(key, JSON.stringify({ version: 1, ...safe }))
+    const serialized = JSON.stringify({ version: 1, ...safe })
+    if (serialized.length > MAX_DRAFT_CHARS) return false
+    storage.setItem(key, serialized)
     return true
   } catch {
     return false

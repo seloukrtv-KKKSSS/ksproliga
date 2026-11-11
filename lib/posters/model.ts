@@ -29,6 +29,7 @@ export interface PosterOptions {
   showScores: boolean
   showScorers: boolean
   sponsors: PosterSponsor[]
+  teamLogos: Record<string, string>
   mainSponsorId?: string
   backgroundOpacity: number
   backgroundPosition: number
@@ -68,10 +69,32 @@ export function createPosterOptions(data: PosterData): PosterOptions {
     showScores: allFinished,
     showScorers: false,
     sponsors: [],
+    teamLogos: {},
     backgroundOpacity: 80,
     backgroundPosition: 50,
     page: 0,
   }
+}
+
+export function getPosterTeamKey(championshipId: number, name: string): string {
+  return `team:${championshipId}:${name.trim().toLocaleLowerCase("uk-UA")}`
+}
+
+export function getPosterTeamLogo(data: PosterData, options: Pick<PosterOptions, "teamLogos">, championshipId: number, name: string): string | undefined {
+  const key = getPosterTeamKey(championshipId, name)
+  return options.teamLogos[key] || data.teams.find((team) => team.championship_id === championshipId && getPosterTeamKey(team.championship_id, team.name) === key)?.logo
+}
+
+export function getPosterTeams(data: PosterData) {
+  const unique = new Map<string, { key: string; name: string; championshipId: number; logo?: string }>()
+  const matches = data.mode === "match" ? getPosterPages(data, { format: "post" })[0] : data.matches
+  for (const match of matches) {
+    for (const name of [match.home_team, match.away_team]) {
+      const key = getPosterTeamKey(match.championship_id, name)
+      if (!unique.has(key)) unique.set(key, { key, name, championshipId: match.championship_id, logo: getPosterTeamLogo(data, { teamLogos: {} }, match.championship_id, name) })
+    }
+  }
+  return [...unique.values()]
 }
 
 type LayoutOptions = Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors" | "showVenue" | "venue">>

@@ -9,6 +9,7 @@ import {
   POSTER_TEMPLATES,
   getPosterFilename,
   getPosterPages,
+  getPosterTeams,
   type PosterData,
   type PosterOptions,
 } from "@/lib/posters/model"
@@ -28,12 +29,12 @@ export interface PosterEditorProps {
 const ACCENTS = ["#f2bd3e", "#0a84ff", "#28a96b", "#ef6b51", "#a78bfa"]
 
 function ImageUrlField({ label, value, onChange, onApply, disabled }: { label: string; value: string; onChange: (url: string) => void; onApply: (url: string) => void; disabled: boolean }) {
-  const [error, setError] = useState("")
-  return <div className="poster-editor__url"><label className="poster-editor__field"><span>{label}</span><input type="url" maxLength={4096} placeholder="https://…/image.png" value={value} disabled={disabled} onChange={(event) => { onChange(event.target.value); setError("") }} /></label><button type="button" className="poster-editor__upload" disabled={disabled} onClick={() => {
+  const [error, setError] = useState<{ value: string; message: string } | null>(null)
+  return <div className="poster-editor__url"><label className="poster-editor__field"><span>{label}</span><input type="url" maxLength={4096} placeholder="https://…/image.png" value={value} disabled={disabled} onChange={(event) => { onChange(event.target.value); setError(null) }} /></label><button type="button" className="poster-editor__upload" disabled={disabled} onClick={() => {
     const clean = value.trim()
-    if (clean) { try { const url = new URL(clean); if (url.protocol !== "https:" || url.username || url.password) throw new Error() } catch { setError("Вкажіть пряме HTTPS-посилання на зображення."); return } }
+    if (clean) { try { const url = new URL(clean); if (url.protocol !== "https:" || url.username || url.password) throw new Error() } catch { setError({ value, message: "Вкажіть пряме HTTPS-посилання на зображення." }); return } }
     onApply(clean)
-  }}>Застосувати URL</button>{error && <p className="poster-editor__error" role="alert">{error}</p>}</div>
+  }}>Застосувати URL</button>{error?.value === value && <p className="poster-editor__error" role="alert">{error.message}</p>}</div>
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -74,6 +75,7 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
   const format = POSTER_FORMATS.find((item) => item.id === options.format) || POSTER_FORMATS[0]
   const pages = getPosterPages(data, options)
   const visibleMatches = pages[options.page] || []
+  const posterTeams = getPosterTeams(data)
   const goalKey = matches.filter((match) => match.is_finished).map((match) => match.id).sort((a,b) => a-b).join(",")
   const loadingGoals = options.showScorers && Boolean(goalKey) && goalResult?.key !== goalKey
   const isRendering = loadingGoals || rendered?.options !== options || rendered?.data !== data
@@ -139,6 +141,18 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
 
   function updateImageUrl(key: string, value: string) {
     commit((previous) => ({ ...previous, imageUrls: { ...previous.imageUrls, [key]: value } }))
+  }
+
+  function applyTeamLogo(key: string, url: string) {
+    commit((previous) => {
+      const teamLogos = { ...previous.options.teamLogos }
+      const nextImageUrls = { ...previous.imageUrls }
+      if (url) { teamLogos[key] = url; nextImageUrls[key] = url }
+      else { delete teamLogos[key]; delete nextImageUrls[key] }
+      return { ...previous, options: { ...previous.options, teamLogos }, imageUrls: nextImageUrls }
+    })
+    setDownloaded(false)
+    setDownloadError("")
   }
 
   async function download() {
@@ -237,6 +251,16 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
               {options.showScorers && !loadingGoals && <p className="poster-editor__hint">{goalResult?.error ? "Не вдалося завантажити протоколи. Відкрийте редактор ще раз." : data.goals?.length ? "Автори голів із протоколів матчів." : "У протоколах поки немає записаних голів."}</p>}
             </div>
 
+            <details className="poster-editor__details">
+              <summary>Емблеми команд ({posterTeams.length})</summary><div>
+                <p className="poster-editor__hint">Замініть недоступну емблему прямим HTTPS-посиланням на зображення. Зміни зберігаються у чернетці цієї афіші. Джерело має дозволяти експорт зображень.</p>
+                {posterTeams.map((team) => <div key={team.key} className="poster-editor__sponsor">
+                  <strong className="text-xs">{team.name}</strong>
+                  <ImageUrlField key={`${resetCount}:${options.teamLogos[team.key] || "auto"}`} label={`URL емблеми: ${team.name}`} value={imageUrls[team.key] ?? options.teamLogos[team.key] ?? team.logo ?? ""} onChange={(value) => updateImageUrl(team.key, value)} disabled={downloading} onApply={(url) => applyTeamLogo(team.key, url)} />
+                  <button type="button" className="poster-editor__remove-photo" disabled={downloading || (!options.teamLogos[team.key] && (imageUrls[team.key] ?? team.logo ?? "") === (team.logo || ""))} onClick={() => applyTeamLogo(team.key, "")}>Використати емблему із сайту</button>
+                </div>)}
+              </div>
+            </details>
             <details className="poster-editor__details">
               <summary>Тло за URL</summary><div>
                 <ImageUrlField key={`${resetCount}:${options.backgroundUrl || "empty"}`} label="URL зображення тла" value={imageUrls.background ?? options.backgroundUrl ?? ""} onChange={(value) => updateImageUrl("background", value)} disabled={downloading} onApply={(url) => update("backgroundUrl", url || undefined)} />
