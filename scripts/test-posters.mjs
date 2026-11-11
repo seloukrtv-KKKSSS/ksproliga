@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
-import { createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
+import { getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
   id: index + 1, round: 4, date: `2026-11-${index < 11 ? "15" : "16"}`, match_time: `${String(8 + index % 11).padStart(2, "0")}:00`,
@@ -64,3 +64,17 @@ for (const source of [
   "https://kdfa.if.ua/storage/teams/../../other/team.png",
 ]) assert.equal(getPosterLogoSource(source), source, "Only exact approved logo providers and paths may use the optimizer")
 console.log("Poster model and logo source checks passed")
+
+assert.equal(options.footer, "KSLIGA.COM")
+assert.equal(options.showScorers, false)
+const sponsors = [{id: "main", name: "Partner", url: "https://imgpx.com/logo.webp"}]
+for (const format of ["post", "square", "story"]) {
+  const pages = getPosterPages(data, {format, showScorers: true, sponsors})
+  assert.equal(pages.flat().length, matches.length)
+  assert.ok(pages[0].length < getPosterPages(data, {format})[0].length)
+}
+const goal = {id: 1, match_id: 1, player_name: "Іван Петренко", team_name: "ФК Тучапи", minute: 0, goal_type: "regular", created_at: ""}
+assert.equal(getPosterScorers([goal, {...goal, id:2, minute:12}], 1, "ФК Тучапи"), "Іван Петренко ×2 (0′, 12′)")
+assert.equal(getPosterScorers([{...goal, goal_type:"own_goal",minute:null}], 1, "ФК Тучапи"), "Іван Петренко (АГ)")
+assert.equal(getPosterScorers([goal], 2, "ФК Тучапи"), "")
+assert.equal(getPosterScorers([goal], 1, "Інша команда"), "")

@@ -1,4 +1,4 @@
-import type { Championship, Match, Team } from "../supabase"
+import type { Championship, Match, Team, MatchGoal } from "../supabase"
 
 export type PosterMode = "match" | "round"
 export type PosterFormat = "post" | "story" | "square"
@@ -10,7 +10,10 @@ export interface PosterData {
   matches: Match[]
   teams: Team[]
   championship?: Championship | null
+  goals?: MatchGoal[]
 }
+
+export interface PosterSponsor { id: string; name: string; url: string }
 
 export interface PosterOptions {
   template: PosterTemplate
@@ -24,6 +27,11 @@ export interface PosterOptions {
   showTime: boolean
   showVenue: boolean
   showScores: boolean
+  showScorers: boolean
+  sponsors: PosterSponsor[]
+  mainSponsorId?: string
+  backgroundOpacity: number
+  backgroundPosition: number
   backgroundUrl?: string
   page: number
 }
@@ -53,24 +61,41 @@ export function createPosterOptions(data: PosterData): PosterOptions {
       : (data.championship?.tournament_type === "cup" ? match?.cup_stage || `РАУНД ${match?.round || 1}` : `ТУР ${match?.round || 1}`),
     subtitle: [data.mode === "match" ? roundLabel : "", data.championship?.season ? `Сезон ${data.championship.season}` : "Футбол, який нас об’єднує"].filter(Boolean).join(" · "),
     venue: "",
-    footer: "ksliga.com",
+    footer: "KSLIGA.COM",
     font: "sans",
     showTime: true,
     showVenue: true,
     showScores: allFinished,
+    showScorers: false,
+    sponsors: [],
+    backgroundOpacity: 80,
+    backgroundPosition: 50,
     page: 0,
   }
 }
 
-export function getPosterPages(data: PosterData, options: Pick<PosterOptions, "format">): Match[][] {
+export function getPosterPages(data: PosterData, options: Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors">>): Match[][] {
   const sorted = [...data.matches].sort((a, b) =>
     a.date.localeCompare(b.date) || (a.match_time || "99:99").localeCompare(b.match_time || "99:99") || a.id - b.id,
   )
   if (data.mode === "match") return [sorted.slice(0, 1)]
-  const perPage = options.format === "story" ? 9 : options.format === "square" ? 5 : 6
+  const dense = options.showScorers || options.sponsors?.some((sponsor) => sponsor.url)
+  const both = options.showScorers && options.sponsors?.some((sponsor) => sponsor.url)
+  const perPage = both ? (options.format === "story" ? 4 : options.format === "square" ? 1 : 2) : dense ? (options.format === "story" ? 5 : options.format === "square" ? 2 : 3) : options.format === "story" ? 9 : options.format === "square" ? 5 : 6
   return Array.from({ length: Math.max(1, Math.ceil(sorted.length / perPage)) }, (_, index) =>
     sorted.slice(index * perPage, (index + 1) * perPage),
   )
+}
+
+export function getPosterScorers(goals: MatchGoal[], matchId: number, team: string): string {
+  const grouped = new Map<string, string[]>()
+  for (const goal of goals.filter((item) => item.match_id === matchId && item.team_name === team)) {
+    const name = `${goal.player_name}${goal.goal_type === "own_goal" ? " (АГ)" : goal.goal_type === "penalty" ? " (пен.)" : ""}`
+    const entries = grouped.get(name) || []
+    entries.push(goal.minute == null ? "" : `${goal.minute}′`)
+    grouped.set(name, entries)
+  }
+  return [...grouped].map(([name, entries]) => `${name}${entries.length > 1 ? ` ×${entries.length}` : ""}${entries.some(Boolean) ? ` (${entries.filter(Boolean).join(", ")})` : ""}`).join(" · ")
 }
 
 export function getPosterDateLabel(matches: Pick<Match, "date">[]): string {

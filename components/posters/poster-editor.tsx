@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { AlertCircle, Check, ChevronLeft, ChevronRight, Download, ImagePlus, LoaderCircle, Palette, RotateCcw, SlidersHorizontal, X } from "lucide-react"
-import type { Championship, Match, Team } from "@/lib/supabase"
+import { AlertCircle, Check, ChevronLeft, ChevronRight, Download, LoaderCircle, Palette, RotateCcw, SlidersHorizontal, X } from "lucide-react"
+import type { Championship, Match, Team, MatchGoal } from "@/lib/supabase"
 import {
   POSTER_FORMATS,
   POSTER_TEMPLATES,
@@ -25,6 +25,16 @@ export interface PosterEditorProps {
 }
 
 const ACCENTS = ["#f2bd3e", "#0a84ff", "#28a96b", "#ef6b51", "#a78bfa"]
+
+function ImageUrlField({ label, value, onApply, disabled }: { label: string; value: string; onApply: (url: string) => void; disabled: boolean }) {
+  const [draft, setDraft] = useState(value)
+  const [error, setError] = useState("")
+  return <div className="poster-editor__url"><label className="poster-editor__field"><span>{label}</span><input type="url" placeholder="https://…/image.png" value={draft} disabled={disabled} onChange={(event) => { setDraft(event.target.value); setError("") }} /></label><button type="button" className="poster-editor__upload" disabled={disabled} onClick={() => {
+    const clean = draft.trim()
+    if (clean) { try { const url = new URL(clean); if (url.protocol !== "https:" || url.username || url.password) throw new Error() } catch { setError("Вкажіть пряме HTTPS-посилання на зображення."); return } }
+    onApply(clean)
+  }}>Застосувати URL</button>{error && <p className="poster-editor__error" role="alert">{error}</p>}</div>
+}
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -49,20 +59,20 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
   const inputId = useId()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const uploadRef = useRef<HTMLInputElement>(null)
-  const uploadSequence = useRef(0)
   const isMounted = useRef(false)
-  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship }), [mode, matches, teams, championship])
+  const [goalResult, setGoalResult] = useState<{ key: string; goals: MatchGoal[]; error?: boolean } | null>(null)
+  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship, goals: goalResult?.goals || [] }), [mode, matches, teams, championship, goalResult])
   const [options, setOptions] = useState<PosterOptions>(() => createPosterOptions(data))
   const [rendered, setRendered] = useState<{ options: PosterOptions; data: PosterData; warnings: string[]; error?: string } | null>(null)
-  const [uploadError, setUploadError] = useState("")
   const [downloadError, setDownloadError] = useState("")
   const [downloading, setDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
   const format = POSTER_FORMATS.find((item) => item.id === options.format) || POSTER_FORMATS[0]
   const pages = getPosterPages(data, options)
   const visibleMatches = pages[options.page] || []
-  const isRendering = rendered?.options !== options || rendered?.data !== data
+  const goalKey = matches.filter((match) => match.is_finished).map((match) => match.id).sort((a,b) => a-b).join(",")
+  const loadingGoals = options.showScorers && Boolean(goalKey) && goalResult?.key !== goalKey
+  const isRendering = loadingGoals || rendered?.options !== options || rendered?.data !== data
   const canDownload = !isRendering && !rendered?.error && !downloading && matches.length > 0
 
   useEffect(() => {
@@ -74,7 +84,6 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
     dialog?.showModal()
     return () => {
       isMounted.current = false
-      uploadSequence.current += 1
       dialog?.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus()
@@ -82,9 +91,13 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
   }, [])
 
   useEffect(() => {
-    const url = options.backgroundUrl
-    return () => { if (url?.startsWith("blob:")) URL.revokeObjectURL(url) }
-  }, [options.backgroundUrl])
+    if (!options.showScorers || !goalKey || goalResult?.key === goalKey) return
+    let cancelled = false
+    void import("@/lib/database").then((database) => database.getMatchesGoals(goalKey.split(",").map(Number))).then((goals) => {
+      if (!cancelled) setGoalResult({ key: goalKey, goals })
+    }).catch(() => { if (!cancelled) setGoalResult({key: goalKey, goals: [], error: true}) })
+    return () => { cancelled = true }
+  }, [options.showScorers, goalKey, goalResult?.key])
 
   useEffect(() => {
     let cancelled = false
@@ -109,7 +122,7 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
   }, [data, options])
 
   function update<K extends keyof PosterOptions>(key: K, value: PosterOptions[K]) {
-    setOptions((previous) => ({ ...previous, [key]: value, ...(key === "format" ? { page: 0 } : {}) }))
+    setOptions((previous) => ({ ...previous, [key]: value, ...(["format", "sponsors", "showScorers"].includes(key) ? { page: 0 } : {}) }))
     setDownloaded(false)
     setDownloadError("")
   }
@@ -118,34 +131,6 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
     setOptions((previous) => ({ ...previous, page: Math.max(0, Math.min(getPosterPages(data, previous).length - 1, previous.page + direction)) }))
     setDownloaded(false)
     setDownloadError("")
-  }
-
-  async function uploadBackground(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ""
-    if (!file) return
-    setUploadError("")
-    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) {
-      setUploadError("Оберіть фото у форматі JPG, PNG, WebP або AVIF.")
-      return
-    }
-    if (file.size > 15 * 1024 * 1024) {
-      setUploadError("Фото має бути не більше 15 МБ.")
-      return
-    }
-    const sequence = ++uploadSequence.current
-    const url = URL.createObjectURL(file)
-    try {
-      const image = new window.Image()
-      image.src = url
-      await image.decode()
-      if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 60_000_000) throw new Error("Зменште розмір фото та спробуйте ще раз.")
-      if (!isMounted.current || sequence !== uploadSequence.current) { URL.revokeObjectURL(url); return }
-      update("backgroundUrl", url)
-    } catch {
-      URL.revokeObjectURL(url)
-      if (isMounted.current && sequence === uploadSequence.current) setUploadError("Не вдалося відкрити фото. Спробуйте інше зображення.")
-    }
   }
 
   async function download() {
@@ -238,16 +223,31 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
               <label><input type="checkbox" checked={options.showTime} onChange={(event) => update("showTime", event.target.checked)} disabled={downloading} /> Показувати час матчів</label>
               <label><input type="checkbox" checked={options.showVenue} onChange={(event) => update("showVenue", event.target.checked)} disabled={downloading} /> Показувати місце проведення</label>
               <label><input type="checkbox" checked={options.showScores} onChange={(event) => update("showScores", event.target.checked)} disabled={downloading} /> Рахунки завершених матчів</label>
+              <label><input type="checkbox" checked={options.showScorers} onChange={(event) => update("showScorers", event.target.checked)} disabled={downloading} /> Показувати авторів голів</label>
+              {options.showScorers && !loadingGoals && <p className="poster-editor__hint">{goalResult?.error ? "Не вдалося завантажити протоколи. Відкрийте редактор ще раз." : data.goals?.length ? "Автори голів із протоколів матчів." : "У протоколах поки немає записаних голів."}</p>}
             </div>
 
-            <div className="poster-editor__photo">
-              <input ref={uploadRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif" hidden onChange={(event) => void uploadBackground(event)} />
-              <button type="button" className="poster-editor__upload" onClick={() => uploadRef.current?.click()} disabled={downloading}><ImagePlus size={17} /> {options.backgroundUrl ? "Замінити фото тла" : "Додати фото тла"}</button>
-              {options.backgroundUrl ? <button type="button" className="poster-editor__remove-photo" onClick={() => { uploadSequence.current += 1; update("backgroundUrl", undefined) }} disabled={downloading}>Прибрати фото</button> : <p>JPG, PNG, WebP, AVIF · до 15 МБ</p>}
-              {uploadError && <p className="poster-editor__error" role="alert">{uploadError}</p>}
-            </div>
+            <details className="poster-editor__details">
+              <summary>Тло за URL</summary><div>
+                <ImageUrlField key={options.backgroundUrl || "empty"} label="URL зображення тла" value={options.backgroundUrl || ""} disabled={downloading} onApply={(url) => update("backgroundUrl", url || undefined)} />
+                <label className="poster-editor__field"><span>Затемнення / висвітлення: {options.backgroundOpacity}%</span><input type="range" min="0" max="100" value={options.backgroundOpacity} disabled={downloading} onChange={(event) => update("backgroundOpacity", Number(event.target.value))} /></label>
+                <label className="poster-editor__field"><span>Положення тла: {options.backgroundPosition}%</span><input type="range" min="0" max="100" value={options.backgroundPosition} disabled={downloading} onChange={(event) => update("backgroundPosition", Number(event.target.value))} /></label>
+                <p className="poster-editor__hint">Пряме HTTPS-посилання. Файли не завантажуються у сховище сайту. Джерело має дозволяти експорт зображень (CORS).</p>
+              </div>
+            </details>
+            <details className="poster-editor__details">
+              <summary>Спонсори ({options.sponsors.length}/8)</summary><div>
+                {options.sponsors.map((sponsor, index) => <div key={sponsor.id} className="poster-editor__sponsor">
+                  <label className="poster-editor__field"><span>Назва спонсора {index + 1}</span><input maxLength={60} value={sponsor.name} disabled={downloading} onChange={(event) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, name: event.target.value } : item))} /></label>
+                  <ImageUrlField key={sponsor.url} label={`URL логотипа ${index + 1}`} value={sponsor.url} disabled={downloading} onApply={(url) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, url } : item))} />
+                  <label className="poster-editor__main-sponsor"><input type="radio" name={`${inputId}-main-sponsor`} checked={options.mainSponsorId === sponsor.id} disabled={downloading} onChange={() => update("mainSponsorId", sponsor.id)} /> Головний спонсор (більше лого)</label>
+                  <button type="button" className="poster-editor__remove-photo" disabled={downloading} onClick={() => { update("sponsors", options.sponsors.filter((item) => item.id !== sponsor.id)); if (options.mainSponsorId === sponsor.id) update("mainSponsorId", undefined) }}>Видалити спонсора</button>
+                </div>)}
+                <button type="button" className="poster-editor__upload" disabled={downloading || options.sponsors.length >= 8} onClick={() => { const id = crypto.randomUUID(); update("sponsors", [...options.sponsors, { id, name: "", url: "" }]); if (!options.mainSponsorId) update("mainSponsorId", id) }}>+ Додати спонсора</button>
+              </div>
+            </details>
 
-            <button type="button" className="poster-editor__reset" disabled={downloading} onClick={() => { uploadSequence.current += 1; setOptions(createPosterOptions(data)); setUploadError(""); setDownloadError(""); setDownloaded(false) }}><RotateCcw size={13} /> Скинути налаштування</button>
+            <button type="button" className="poster-editor__reset" disabled={downloading} onClick={() => { setOptions(createPosterOptions(data)); setDownloadError(""); setDownloaded(false) }}><RotateCcw size={13} /> Скинути налаштування</button>
           </div>
 
           <section className="poster-editor__preview" aria-label="Попередній перегляд афіші" aria-busy={isRendering}>

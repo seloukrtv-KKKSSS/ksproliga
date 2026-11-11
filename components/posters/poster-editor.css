@@ -106,3 +106,4 @@
   .poster-editor__footer > p { display: none; }
   .poster-editor__footer > div, .poster-editor__download { width: 100%; }
 }
+.poster-editor__sponsor { padding: 12px; border: 1px solid #dbe3ed; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; } .poster-editor__url { display: flex; flex-direction: column; gap: 8px; } .poster-editor__main-sponsor { display: flex; align-items: center; gap: 7px; font-size: 11px; } .poster-editor__hint { font-size: 11px; line-height: 1.5; color: #71839b; } .poster-editor input[type=range] { padding: 0; accent-color: #0877e8; }

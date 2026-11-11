@@ -1,5 +1,5 @@
 /** Use the existing same-origin optimizer for badge providers without canvas CORS. */
-export function getPosterLogoSource(source: string): string {
+export function getPosterLogoSource(source: string, width: 256 | 1920 = 256): string {
   let url: URL
   try {
     url = new URL(source)
@@ -14,5 +14,5 @@ export function getPosterLogoSource(source: string): string {
 
   // Fragments do not identify a different image and are not sent upstream.
   url.hash = ""
-  return `/_next/image?url=${encodeURIComponent(url.href)}&w=256&q=85`
+  return `/_next/image?url=${encodeURIComponent(url.href)}&w=${width}&q=85`
 }
