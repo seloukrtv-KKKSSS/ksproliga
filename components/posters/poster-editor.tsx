@@ -237,6 +237,7 @@ export default function PosterEditor({ mode, matches, teams, championship, onClo
             </details>
             <details className="poster-editor__details">
               <summary>Спонсори ({options.sponsors.length}/8)</summary><div>
+                <p className="poster-editor__hint">Головний спонсор — у нижній смузі, менші логотипи — над нею.</p>
                 {options.sponsors.map((sponsor, index) => <div key={sponsor.id} className="poster-editor__sponsor">
                   <label className="poster-editor__field"><span>Назва спонсора {index + 1}</span><input maxLength={60} value={sponsor.name} disabled={downloading} onChange={(event) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, name: event.target.value } : item))} /></label>
                   <ImageUrlField key={sponsor.url} label={`URL логотипа ${index + 1}`} value={sponsor.url} disabled={downloading} onApply={(url) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, url } : item))} />

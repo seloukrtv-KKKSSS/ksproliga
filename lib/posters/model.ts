@@ -76,9 +76,17 @@ export function createPosterOptions(data: PosterData): PosterOptions {
 
 type LayoutOptions = Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors" | "showVenue" | "venue">>
 
+export function getPosterSponsors(options: Partial<Pick<PosterOptions, "sponsors" | "mainSponsorId">>) {
+  const active = options.sponsors?.filter((sponsor) => sponsor.url.trim()) || []
+  const main = active.find((sponsor) => sponsor.id === options.mainSponsorId) || active[0]
+  return { main, partners: active.filter((sponsor) => sponsor.id !== main?.id) }
+}
+
+// Only secondary partners need space above the footer. The main sponsor uses
+// the existing accent band, including when it is the only sponsor.
 export function getPosterSponsorHeight(options: Pick<LayoutOptions, "sponsors">): number {
-  const count = options.sponsors?.filter((sponsor) => sponsor.url.trim()).length || 0
-  return count === 0 ? 0 : count === 1 ? 112 : count <= 4 ? 128 : 152
+  const count = getPosterSponsors(options).partners.length
+  return count === 0 ? 0 : count <= 4 ? 88 : 152
 }
 
 export function getPosterScorerRows(data: PosterData, options: LayoutOptions, match: Match): number {

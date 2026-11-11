@@ -8,6 +8,7 @@ import {
   getPosterPages,
   getPosterRoundLayout,
   getPosterSponsorHeight,
+  getPosterSponsors,
   getPosterScorerRows,
   POSTER_FORMATS,
   type PosterData,
@@ -220,12 +221,21 @@ function header(ctx: CanvasRenderingContext2D, data: PosterData, options: Poster
   ctx.fillRect(60, titleY + (compact ? 48 : 58), 92, 5)
 }
 
-function footer(ctx: CanvasRenderingContext2D, height: number, data: PosterData, options: PosterOptions, p: Palette, pageCount: number) {
+function footer(ctx: CanvasRenderingContext2D, height: number, data: PosterData, options: PosterOptions, assets: Assets, p: Palette, pageCount: number) {
+  const { main } = getPosterSponsors(options)
+  const top = height - 92
   ctx.fillStyle = p.accent
-  ctx.fillRect(0, height - 92, 1080, 92)
-  text(ctx, options.footer, 60, height - 37, 26, p.onAccent, options, 570, "left", 800)
+  ctx.fillRect(0, top, 1080, 92)
+  if (main) {
+    text(ctx, "ГОЛОВНИЙ ПАРТНЕР", 60, top + 28, 13, p.onAccent, options, 260, "left", 800)
+    text(ctx, options.footer, 60, top + 58, 26, p.onAccent, options, 260, "left", 800)
+    drawSponsor(ctx, main, 540, top + 42, 360, 64, assets, options)
+    if (main.name) text(ctx, main.name, 540, top + 88, 13, p.onAccent, options, 360, "center", 700)
+  } else {
+    text(ctx, options.footer, 60, height - 37, 26, p.onAccent, options, 570, "left", 800)
+  }
   const page = pageCount > 1 ? `${options.page + 1} / ${pageCount}` : data.mode === "match" ? "ЗУСТРІНЕМОСЯ НА ФУТБОЛІ" : "ПІДТРИМУЙ СВОЮ КОМАНДУ"
-  text(ctx, page, 1020, height - 37, 18, p.onAccent, options, 340, "right", 800)
+  text(ctx, page, 1020, height - 37, 18, p.onAccent, options, main ? 250 : 340, "right", 800)
 }
 
 function findTeam(data: PosterData, match: Match, name: string) {
@@ -233,33 +243,28 @@ function findTeam(data: PosterData, match: Match, name: string) {
   return data.teams.find((team) => team.championship_id === match.championship_id && team.name.trim().toLocaleLowerCase("uk-UA") === normalized)
 }
 
+function drawSponsor(ctx: CanvasRenderingContext2D, sponsor: PosterOptions["sponsors"][number], x: number, y: number, width: number, size: number, assets: Assets, options: PosterOptions) {
+  box(ctx, x - width / 2, y - size / 2, width, size, 10, "#ffffff")
+  const img = assets.get(sponsor.url)
+  if (img) {
+    const ratio = Math.min((width - 20) / img.naturalWidth, (size - 12) / img.naturalHeight)
+    ctx.drawImage(img, x - img.naturalWidth * ratio / 2, y - img.naturalHeight * ratio / 2, img.naturalWidth * ratio, img.naturalHeight * ratio)
+  } else text(ctx, sponsor.name || "Партнер", x, y + 6, 18, "#10203a", options, width - 18, "center")
+}
+
 function sponsorStrip(ctx: CanvasRenderingContext2D, options: PosterOptions, assets: Assets, p: Palette, height: number) {
-  const sponsors = options.sponsors.filter((sponsor) => sponsor.url.trim())
-  if (!sponsors.length) return
-  const main = sponsors.find((sponsor) => sponsor.id === options.mainSponsorId) || sponsors[0]
-  const others = sponsors.filter((sponsor) => sponsor.id !== main.id)
+  const { partners } = getPosterSponsors(options)
+  if (!partners.length) return
   const top = height - 92 - getPosterSponsorHeight(options)
-  const mainX = others.length ? 210 : 540
-  text(ctx, "ГОЛОВНИЙ ПАРТНЕР", mainX, top + 16, 14, p.muted, options, 300, "center")
-  const drawSponsor = (sponsor: typeof main, x: number, y: number, width: number, size: number) => {
-    box(ctx, x - width / 2, y - size / 2, width, size, 12, "#ffffff")
-    const img = assets.get(sponsor.url)
-    if (img) {
-      const ratio = Math.min((width - 20) / img.naturalWidth, (size - 14) / img.naturalHeight)
-      ctx.drawImage(img, x - img.naturalWidth * ratio / 2, y - img.naturalHeight * ratio / 2, img.naturalWidth * ratio, img.naturalHeight * ratio)
-    } else text(ctx, sponsor.name || "Партнер", x, y + 6, 18, "#10203a", options, width - 18, "center")
-  }
-  const twoRows = others.length > 3
-  drawSponsor(main, mainX, top + (twoRows ? 78 : 60), 300, twoRows ? 100 : 68)
-  if (main.name) text(ctx, main.name, mainX, top + (twoRows ? 146 : 108), 14, p.muted, options, 300, "center")
-  others.forEach((sponsor, index) => {
-    const columns = twoRows ? 4 : others.length
+  partners.forEach((sponsor, index) => {
+    const columns = Math.min(4, partners.length)
     const row = Math.floor(index / columns)
-    const columnWidth = 636 / columns
-    const x = 384 + columnWidth * (index % columns + .5)
-    const y = top + (twoRows ? 43 + row * 68 : 62)
-    drawSponsor(sponsor, x, y, Math.min(200, columnWidth - 12), twoRows ? 42 : 46)
-    if (sponsor.name) text(ctx, sponsor.name, x, y + (twoRows ? 34 : 39), 13, p.muted, options, columnWidth - 10, "center")
+    const countInRow = Math.min(columns, partners.length - row * columns)
+    const columnWidth = 960 / columns
+    const x = 540 + ((index % columns) - (countInRow - 1) / 2) * columnWidth
+    const y = top + 34 + row * 68
+    drawSponsor(ctx, sponsor, x, y, Math.min(200, columnWidth - 16), 42, assets, options)
+    if (sponsor.name) text(ctx, sponsor.name, x, y + 34, 13, p.muted, options, Math.min(220, columnWidth - 10), "center")
   })
 }
 
@@ -367,6 +372,6 @@ export async function renderPoster(canvas: HTMLCanvasElement, data: PosterData, 
   else if (data.mode === "match") matchPoster(ctx, matches[0], data, options, assets, p, format.height)
   else roundPoster(ctx, matches, data, options, assets, p, format.height)
   sponsorStrip(ctx, options, assets, p, format.height)
-  footer(ctx, format.height, data, options, p, pages.length)
+  footer(ctx, format.height, data, options, assets, p, pages.length)
   return { warnings }
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
-import { getPosterRoundLayout, getPosterSponsorHeight, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
+import { getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
   id: index + 1, round: 4, date: `2026-11-${index < 11 ? "15" : "16"}`, match_time: `${String(8 + index % 11).padStart(2, "0")}:00`,
@@ -109,3 +109,16 @@ assert.equal(getPosterSponsorHeight({sponsors: [{id:"draft", name:"Draft", url:"
 assert.ok(getPosterSponsorHeight({sponsors:eightSponsors}) < 160, "Sponsor strip must stay compact")
 assert.equal(getPosterPages({ ...busyRound, mode: "match" }, {...options, sponsors: eightSponsors, showScorers:true}).length, 1)
 console.log("Poster pagination and sponsor layout regressions passed")
+
+assert.equal(getPosterSponsorHeight({sponsors}), 0, "A main sponsor uses the existing footer, without taking space from fixtures")
+assert.equal(getPosterSponsorHeight({sponsors:eightSponsors.slice(0, 5)}), 88, "Up to four secondary partners fit in one row above the footer")
+assert.equal(getPosterSponsorHeight({sponsors:eightSponsors}), 152, "Seven secondary partners fit in two rows")
+const selectedSponsors = getPosterSponsors({sponsors:eightSponsors, mainSponsorId:"5"})
+assert.equal(selectedSponsors.main.id, "5")
+assert.equal(selectedSponsors.partners.length, 7)
+assert.ok(selectedSponsors.partners.every(sponsor => sponsor.id !== "5"), "The main logo must not be repeated among secondary partners")
+assert.equal(getPosterSponsors({sponsors:[{id:"draft",name:"Draft",url:""}, ...sponsors],mainSponsorId:"draft"}).main.id, "main", "An unfinished main logo must fall back to a usable sponsor")
+assert.equal(getPosterSponsors({sponsors:[]}).main, undefined)
+for (const format of ["square", "post", "story"]) {
+  assert.equal(getPosterRoundLayout(data, {...options,format,sponsors}).bottom, getPosterRoundLayout(data,{...options,format,sponsors:[]}).bottom, "The main sponsor must not reduce space above the footer")
+}
