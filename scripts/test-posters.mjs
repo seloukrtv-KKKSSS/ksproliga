@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
-import { getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
+import { getPosterRoundLayout, getPosterSponsorHeight, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
   id: index + 1, round: 4, date: `2026-11-${index < 11 ? "15" : "16"}`, match_time: `${String(8 + index % 11).padStart(2, "0")}:00`,
@@ -71,10 +71,41 @@ const sponsors = [{id: "main", name: "Partner", url: "https://imgpx.com/logo.web
 for (const format of ["post", "square", "story"]) {
   const pages = getPosterPages(data, {format, showScorers: true, sponsors})
   assert.equal(pages.flat().length, matches.length)
-  assert.ok(pages[0].length < getPosterPages(data, {format})[0].length)
+  assert.ok(pages.length > 1, "Large rounds must still paginate")
 }
 const goal = {id: 1, match_id: 1, player_name: "Іван Петренко", team_name: "ФК Тучапи", minute: 0, goal_type: "regular", created_at: ""}
 assert.equal(getPosterScorers([goal, {...goal, id:2, minute:12}], 1, "ФК Тучапи"), "Іван Петренко ×2 (0′, 12′)")
 assert.equal(getPosterScorers([{...goal, goal_type:"own_goal",minute:null}], 1, "ФК Тучапи"), "Іван Петренко (АГ)")
 assert.equal(getPosterScorers([goal], 2, "ФК Тучапи"), "")
 assert.equal(getPosterScorers([goal], 1, "Інша команда"), "")
+
+// A normal round must stay together when sponsors or the scorer toggle are added.
+const eightSponsors = Array.from({ length: 8 }, (_, index) => ({ id: String(index), name: `Sponsor ${index}`, url: `https://imgpx.com/logo-${index}.png` }))
+for (const format of ["post", "square", "story"]) {
+  for (const count of [4, 6, 8]) {
+    for (const sponsorList of [[], sponsors, eightSponsors]) {
+      const round = { ...data, matches: matches.slice(0, count) }
+      const settings = { ...options, format, sponsors: sponsorList, showScorers: true, showVenue: true, venue: "Стадіон" }
+      assert.equal(getPosterPages(round, settings).length, 1, `${count} fixtures must stay together in ${format} with ${sponsorList.length} sponsors, even with an empty scorer toggle`)
+    }
+  }
+}
+const busyRound = { ...data, matches: matches.slice(0, 4).map((match, i) => ({ ...match, date: i % 2 ? "2026-11-15" : "2026-11-16", is_finished: true })), goals: [] }
+busyRound.goals = busyRound.matches.flatMap(match => [match.home_team, match.away_team].flatMap(team => Array.from({ length: 6 }, (_, index) => ({ ...goal, id: match.id * 100 + index, match_id: match.id, team_name: team, minute: index * 7, player_name: `Довге прізвище гравця ${index}` }))))
+for (const format of ["post", "square", "story"]) {
+  const settings = { ...options, format, sponsors: eightSponsors, showScorers: true, showVenue: true, venue: "Спорткомплекс" }
+  assert.equal(getPosterPages(busyRound, settings).length, 1, "Four fixtures with goals, different dates, venue and eight sponsors must fit")
+  for (const round of [busyRound, data]) {
+    const pages = getPosterPages(round, settings)
+    assert.deepEqual(pages.flat().map(match => match.id).sort((a,b) => a-b), round.matches.map(match => match.id).sort((a,b) => a-b))
+    const layout = getPosterRoundLayout(round, settings)
+    for (const page of pages) {
+      const required = page.reduce((height, match) => height + layout.minimumRowHeight(match), 0) + Math.max(0, page.length - 1) * layout.gap
+      assert.ok(required <= layout.bottom - layout.top, "All rows must stay above sponsors, venue and footer")
+    }
+  }
+}
+assert.equal(getPosterSponsorHeight({sponsors: [{id:"draft", name:"Draft", url:""}]}), 0)
+assert.ok(getPosterSponsorHeight({sponsors:eightSponsors}) < 160, "Sponsor strip must stay compact")
+assert.equal(getPosterPages({ ...busyRound, mode: "match" }, {...options, sponsors: eightSponsors, showScorers:true}).length, 1)
+console.log("Poster pagination and sponsor layout regressions passed")

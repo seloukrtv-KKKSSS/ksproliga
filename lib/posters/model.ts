@@ -74,17 +74,56 @@ export function createPosterOptions(data: PosterData): PosterOptions {
   }
 }
 
-export function getPosterPages(data: PosterData, options: Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors">>): Match[][] {
+type LayoutOptions = Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors" | "showVenue" | "venue">>
+
+export function getPosterSponsorHeight(options: Pick<LayoutOptions, "sponsors">): number {
+  const count = options.sponsors?.filter((sponsor) => sponsor.url.trim()).length || 0
+  return count === 0 ? 0 : count === 1 ? 112 : count <= 4 ? 128 : 152
+}
+
+export function getPosterScorerRows(data: PosterData, options: LayoutOptions, match: Match): number {
+  if (!options.showScorers || !match.is_finished) return 0
+  const length = Math.max(...[match.home_team, match.away_team].map((team) => getPosterScorers(data.goals || [], match.id, team).length))
+  return Math.min(3, Math.ceil(length / 42))
+}
+
+// Pagination and drawing share the same bounds; sponsor flags alone never
+// force a small round onto another page.
+export function getPosterRoundLayout(data: PosterData, options: LayoutOptions) {
+  const height = (POSTER_FORMATS.find((format) => format.id === options.format) || POSTER_FORMATS[0]).height
+  const top = 300
+  const bottom = height - 92 - getPosterSponsorHeight(options) - (options.showVenue && options.venue?.trim() ? 32 : 16)
+  const gap = 8
+  const multipleDates = new Set(data.matches.map((match) => match.date)).size > 1
+  const minimumRowHeight = (match: Match) => {
+    const detailHeight = multipleDates || (match.is_finished && (match.is_technical_defeat || (match.penalty_home != null && match.penalty_away != null))) ? 16 : 0
+    const scorerRows = getPosterScorerRows(data, options, match)
+    return 52 + detailHeight + (scorerRows ? scorerRows * 16 + 4 : 0)
+  }
+  return { top, bottom, gap, minimumRowHeight, maxMatches: options.format === "story" ? 16 : options.format === "square" ? 8 : 10 }
+}
+
+export function getPosterPages(data: PosterData, options: LayoutOptions): Match[][] {
   const sorted = [...data.matches].sort((a, b) =>
     a.date.localeCompare(b.date) || (a.match_time || "99:99").localeCompare(b.match_time || "99:99") || a.id - b.id,
   )
   if (data.mode === "match") return [sorted.slice(0, 1)]
-  const dense = options.showScorers || options.sponsors?.some((sponsor) => sponsor.url)
-  const both = options.showScorers && options.sponsors?.some((sponsor) => sponsor.url)
-  const perPage = both ? (options.format === "story" ? 4 : options.format === "square" ? 1 : 2) : dense ? (options.format === "story" ? 5 : options.format === "square" ? 2 : 3) : options.format === "story" ? 9 : options.format === "square" ? 5 : 6
-  return Array.from({ length: Math.max(1, Math.ceil(sorted.length / perPage)) }, (_, index) =>
-    sorted.slice(index * perPage, (index + 1) * perPage),
-  )
+  const layout = getPosterRoundLayout(data, options)
+  const pages: Match[][] = [[]]
+  let used = 0
+  for (const match of sorted) {
+    let page = pages[pages.length - 1]
+    const rowHeight = layout.minimumRowHeight(match)
+    const nextHeight = rowHeight + (page.length ? layout.gap : 0)
+    if (page.length && (page.length >= layout.maxMatches || used + nextHeight > layout.bottom - layout.top)) {
+      pages.push([])
+      page = pages[pages.length - 1]
+      used = 0
+    }
+    used += rowHeight + (page.length ? layout.gap : 0)
+    page.push(match)
+  }
+  return pages
 }
 
 export function getPosterScorers(goals: MatchGoal[], matchId: number, team: string): string {
