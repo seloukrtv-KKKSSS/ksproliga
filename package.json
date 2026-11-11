@@ -15,10 +15,11 @@
     "test:players": "node --experimental-strip-types scripts/test-player-stats.mjs",
     "test:players:sql": "node scripts/test-player-statistics-sql.mjs",
     "test:players:dedup": "node scripts/test-player-dedup.mjs",
+    "test:players:rosters": "node scripts/test-roster-import.mjs",
     "test:lion-voting": "node --experimental-strip-types scripts/test-lion-voting.mjs",
     "test:arcade": "node --experimental-strip-types scripts/test-arcade.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:posters && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:posters && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:players:rosters && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"
