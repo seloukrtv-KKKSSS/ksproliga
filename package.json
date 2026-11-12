@@ -16,6 +16,7 @@
     "test:players:sql": "node scripts/test-player-statistics-sql.mjs",
     "test:players:dedup": "node scripts/test-player-dedup.mjs",
     "test:players:rosters": "node scripts/test-roster-import.mjs",
+    "test:players:documents": "node scripts/test-document-rosters.mjs",
     "test:lion-voting": "node --experimental-strip-types scripts/test-lion-voting.mjs",
     "test:arcade": "node --experimental-strip-types scripts/test-arcade.mjs",
     "typecheck": "tsc --noEmit",
