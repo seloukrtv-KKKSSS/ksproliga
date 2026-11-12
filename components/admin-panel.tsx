@@ -99,6 +99,7 @@ import {
 } from "@/lib/match-utils"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { MatchPlayerEvents, type QuickEventType } from "@/components/admin/match-player-events"
+import { MatchEventEditor, type EditableMatchEvent } from "@/components/admin/match-event-editor"
 import { PlayerStatisticsModule } from "@/components/admin/player-statistics-module"
 import { normalizeRoster, normalizePlayerName, playerNameKey } from "@/lib/player-stats"
 
@@ -273,6 +274,7 @@ export function AdminPanel({
   const [selectedMatchForGoals, setSelectedMatchForGoals] = useState<Match | null>(null)
   const [matchGoals, setMatchGoals] = useState<MatchGoal[]>([])
   const [matchCards, setMatchCards] = useState<MatchCard[]>([])
+  const [editingEvent, setEditingEvent] = useState<EditableMatchEvent | null>(null)
   const [matchEventsLoading, setMatchEventsLoading] = useState(false)
   const [matchEventsError, setMatchEventsError] = useState(false)
   const matchEventsRequestRef = useRef(0)
@@ -1314,6 +1316,17 @@ export function AdminPanel({
 
   return (
     <div className="ks-admin-scope space-y-4 sm:space-y-6">
+      {editingEvent && matches.find(match => match.id === editingEvent.event.match_id) && <MatchEventEditor
+        key={`${editingEvent.kind}-${editingEvent.event.id}`}
+        item={editingEvent}
+        match={matches.find(match => match.id === editingEvent.event.match_id)!}
+        namesForTeam={getEventPlayerNames}
+        onClose={() => setEditingEvent(null)}
+        onSaved={async () => {
+          await Promise.all([loadMatchEvents(editingEvent.event.match_id), refreshPlayerStatistics()])
+          await logOrganizerAction(organizerName || "Адміністратор", editingEvent.kind === "goal" ? "update_goal" : "update_card", `Відредаговано ${editingEvent.kind === "goal" ? "гол" : "картку"} #${editingEvent.event.id} у матчі #${editingEvent.event.match_id}`)
+        }}
+      />}
       {posterTarget && posterMatches.length > 0 && currentChampionship && (
         <PosterEditor
           key={`${posterTarget.championshipId}:${posterTarget.mode}:${posterTarget.matchIds.join(",")}`}
@@ -2803,7 +2816,7 @@ export function AdminPanel({
                               {matchGoals.map((goal) => (
                                 <div
                                   key={goal.id}
-                                  className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
+                                  className="flex flex-wrap gap-2 items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="font-bold text-slate-900">{goal.player_name}</span>
@@ -2819,6 +2832,18 @@ export function AdminPanel({
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    onClick={() => setEditingEvent({ kind: "goal", event: goal })}
+                                    disabled={loading || matchEventsLoading || matchEventsError}
+                                    aria-label={`Редагувати гол: ${goal.player_name}`}
+                                    className="h-7 px-2 text-blue-700 hover:bg-blue-50 rounded-md"
+                                  >
+                                    Редагувати
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={loading || matchEventsLoading}
                                     onClick={() => handleDeleteMatchGoal(goal.id)}
                                     className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
                                   >
@@ -2945,7 +2970,7 @@ export function AdminPanel({
                               {matchCards.map((card) => (
                                 <div
                                   key={card.id}
-                                  className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
+                                  className="flex flex-wrap gap-2 items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs"
                                 >
                                   <div className="flex items-center gap-2">
                                     {card.card_type === "yellow" && (
@@ -2967,6 +2992,18 @@ export function AdminPanel({
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    onClick={() => setEditingEvent({ kind: "card", event: card })}
+                                    disabled={loading || matchEventsLoading || matchEventsError}
+                                    aria-label={`Редагувати картку: ${card.player_name}`}
+                                    className="h-7 px-2 text-blue-700 hover:bg-blue-50 rounded-md"
+                                  >
+                                    Редагувати
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={loading || matchEventsLoading}
                                     onClick={() => handleDeleteMatchCard(card.id)}
                                     className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
                                   >

@@ -75,6 +75,33 @@ try {
   assert.equal(await db.getPlayerById(cardOnly.id), null, "standalone event-free players may be deleted")
 
   // Simulate a REST row cap below the requested page size, to prove the list
+  const editMatch = await db.addMatch({ round: 2, date: "2026-11-12", home_team: team.name, away_team: "Opponent", home_score: 1, away_score: 0, is_finished: true, championship_id: 101 })
+  const editableGoal = await db.addMatchGoal({ match_id: editMatch.id, player_name: player.name, team_name: team.name, goal_type: "regular", minute: 10 })
+  await db.updateMatchGoal(editableGoal.id, editMatch.id, { player_name: player.name, team_name: team.name, goal_type: "penalty", minute: null })
+  assert.equal((await db.getMatchGoals(editMatch.id)).length, 1, "editing must not insert another goal")
+  assert.equal((await db.getMatchGoals(editMatch.id))[0].minute, undefined, "minute can be cleared")
+  const goalBeforeTransfer = (await db.getPlayerById(player.id)).goals
+  await db.updateMatchGoal(editableGoal.id, editMatch.id, { player_name: "Марко Коваль", team_name: team.name, goal_type: "regular", minute: 42 })
+  assert.equal((await db.getPlayerById(player.id)).goals, goalBeforeTransfer - 1)
+  const marko = (await db.getPlayers(101)).find(p => p.name === "Марко Коваль")
+  assert.equal(marko.goals, 1)
+  await db.updateMatchGoal(editableGoal.id, editMatch.id, { player_name: marko.name, team_name: team.name, goal_type: "own_goal", minute: 42 })
+  assert.equal((await db.getPlayerById(marko.id)).goals, 0)
+  await assert.rejects(db.updateMatchGoal(editableGoal.id, editMatch.id + 999, { player_name: marko.name, team_name: team.name, goal_type: "regular", minute: 1 }), /іншому матчу/)
+  const editableCard = await db.addMatchCard({ match_id: editMatch.id, player_name: marko.name, team_name: team.name, card_type: "yellow" })
+  await db.updateMatchCard(editableCard.id, editMatch.id, { player_name: marko.name, team_name: team.name, card_type: "red", minute: 88 })
+  let edited = await db.getPlayerById(marko.id)
+  assert.deepEqual([edited.yellow_cards, edited.red_cards], [0, 1])
+  await db.updateMatchCard(editableCard.id, editMatch.id, { player_name: marko.name, team_name: team.name, card_type: "yellow_red", minute: 89 })
+  await db.updatePlayer(marko.id, { yellow_cards: 0, red_cards: 0 })
+  await db.updateMatchCard(editableCard.id, editMatch.id, { player_name: marko.name, team_name: team.name, card_type: "yellow", minute: null })
+  edited = await db.getPlayerById(marko.id)
+  assert.deepEqual([edited.yellow_cards, edited.red_cards], [0, 0], "net edits preserve manually corrected zero totals")
+  assert.equal((await db.getMatchCards(editMatch.id)).length, 1)
+  await assert.rejects(db.updateMatchCard(editableCard.id, editMatch.id, { player_name: marko.name, team_name: team.name, card_type: "red", minute: 1.5 }), /Хвилина/)
+  await db.deleteMatch(editMatch.id)
+
+  // Simulate a REST row cap below the requested page size, to prove the list
   // continues until an empty page rather than losing players after the cap.
   const transportPlayers = Array.from({ length: 1003 }, (_, index) => ({ id: index + 100, name: `Player ${index}`, team: "Club", goals: 1, championship_id: 104, created_at: "2026-11-10" }))
   let calls = 0

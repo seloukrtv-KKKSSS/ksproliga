@@ -942,6 +942,57 @@ export async function addMatchGoal(goal: {
   return data
 }
 
+type GoalEdit = Pick<MatchGoal, "player_name" | "team_name" | "goal_type"> & { minute: number | null }
+type CardEdit = Pick<MatchCard, "player_name" | "team_name" | "card_type"> & { minute: number | null }
+
+function validateEventEdit(edit: GoalEdit | CardEdit) {
+  if (!normalizePlayerName(edit.player_name) || !edit.team_name.trim()) throw new Error("Оберіть команду та гравця.")
+  if (edit.minute !== null && (!Number.isInteger(edit.minute) || edit.minute < 1 || edit.minute > 120)) throw new Error("Хвилина має бути цілим числом від 1 до 120.")
+}
+
+function updateMockEventTotals(before: MatchGoal | MatchCard, after: MatchGoal | MatchCard) {
+  const match = mockMatches.find(match => match.id === before.match_id)
+  if (!match?.is_finished || match.is_technical_defeat) return
+  const counts = (event: MatchGoal | MatchCard) => ({
+    goals: "goal_type" in event && event.goal_type !== "own_goal" ? 1 : 0,
+    yellow_cards: "card_type" in event && event.card_type !== "red" ? 1 : 0,
+    red_cards: "card_type" in event && event.card_type !== "yellow" ? 1 : 0,
+  })
+  if (playerNameKey(before.player_name) === playerNameKey(after.player_name) && before.team_name === after.team_name) {
+    const player = ensureMockPlayer(after.player_name, after.team_name, match.championship_id)
+    const old = counts(before), next = counts(after)
+    for (const key of ["goals", "yellow_cards", "red_cards"] as const) player[key] = Math.max(0, (player[key] ?? 0) + next[key] - old[key])
+  } else { applyMockEvent(before, match, -1); applyMockEvent(after, match, 1) }
+}
+
+export async function updateMatchGoal(id: number, matchId: number, edit: GoalEdit): Promise<MatchGoal> {
+  validateEventEdit(edit)
+  if (!["regular", "penalty", "own_goal"].includes(edit.goal_type)) throw new Error("Некоректний тип голу.")
+  if (shouldUseMockData()) {
+    const event = mockMatchGoals.find(event => event.id === id && event.match_id === matchId)
+    if (!event) throw new Error("Гол уже видалено або він належить іншому матчу.")
+    const next = { ...event, ...edit, minute: edit.minute ?? undefined }
+    updateMockEventTotals(event, next); Object.assign(event, next); return event
+  }
+  const { data, error } = await supabase.from("match_goals").update(edit).eq("id", id).eq("match_id", matchId).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateMatchCard(id: number, matchId: number, edit: CardEdit): Promise<MatchCard> {
+  validateEventEdit(edit)
+  if (!["yellow", "red", "yellow_red"].includes(edit.card_type)) throw new Error("Некоректний тип картки.")
+  if (shouldUseMockData()) {
+    const event = mockMatchCards.find(event => event.id === id && event.match_id === matchId)
+    if (!event) throw new Error("Картку вже видалено або вона належить іншому матчу.")
+    const next = { ...event, ...edit, minute: edit.minute ?? undefined }
+    updateMockEventTotals(event, next); Object.assign(event, next); return event
+  }
+  const { data, error } = await supabase.from("match_cards").update(edit).eq("id", id).eq("match_id", matchId).select().single()
+  if (error) throw error
+  return data
+}
+
 export async function deleteMatchGoal(id: number): Promise<void> {
   if (shouldUseMockData()) {
     const index = mockMatchGoals.findIndex((goal) => goal.id === id)
