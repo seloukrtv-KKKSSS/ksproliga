@@ -98,6 +98,7 @@ import {
   TOURNAMENT_TIME_ZONE,
 } from "@/lib/match-utils"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
+import { MatchPlayerEvents, type QuickEventType } from "@/components/admin/match-player-events"
 import { PlayerStatisticsModule } from "@/components/admin/player-statistics-module"
 import { normalizeRoster, normalizePlayerName, playerNameKey } from "@/lib/player-stats"
 
@@ -272,6 +273,14 @@ export function AdminPanel({
   const [selectedMatchForGoals, setSelectedMatchForGoals] = useState<Match | null>(null)
   const [matchGoals, setMatchGoals] = useState<MatchGoal[]>([])
   const [matchCards, setMatchCards] = useState<MatchCard[]>([])
+  const [matchEventsLoading, setMatchEventsLoading] = useState(false)
+  const [matchEventsError, setMatchEventsError] = useState(false)
+  const matchEventsRequestRef = useRef(0)
+  useEffect(() => {
+    if (!selectedMatchForGoals) return
+    const frame = window.requestAnimationFrame(() => document.getElementById(`match-events-${selectedMatchForGoals.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [selectedMatchForGoals])
   const [goalForm, setGoalForm] = useState({
     player_name: "",
     team_name: "",
@@ -815,12 +824,12 @@ export function AdminPanel({
         penalty_winner: matchForm.finished_after_penalties ? (matchForm.penalty_winner || undefined) : undefined,
       }
 
+      const savedMatch = editingMatch ? await updateMatch(editingMatch.id, matchData) : await addMatch(matchData)
+      const newlyFinished = savedMatch.is_finished && !savedMatch.is_technical_defeat && !editingMatch?.is_finished
       if (editingMatch) {
-        await updateMatch(editingMatch.id, matchData)
         await logOrganizerAction(organizerName || "Адміністратор", "update_match", `Оновлено матч: ${matchForm.home_team} — ${matchForm.away_team} (Тур ${matchForm.round})`)
         setEditingMatch(null)
       } else {
-        await addMatch(matchData)
         await logOrganizerAction(organizerName || "Адміністратор", "create_match", `Створено матч: ${matchForm.home_team} — ${matchForm.away_team} (Тур ${matchForm.round})`)
       }
 
@@ -844,6 +853,16 @@ export function AdminPanel({
       })
       await loadData()
       onDataChange?.()
+      if (newlyFinished) {
+        setCollapsedAdminRounds(previous => ({ ...previous, [`${savedMatch.championship_id}:${savedMatch.round}`]: false }))
+        setSelectedMatchForGoals(savedMatch)
+        setSelectedMatchForVoting(null)
+        setMatchGoals([])
+        setMatchCards([])
+        setGoalForm({ player_name: "", team_name: savedMatch.home_team, minute: "", goal_type: "regular" })
+        setCardForm({ player_name: "", team_name: savedMatch.home_team, minute: "", card_type: "yellow" })
+        await loadMatchEvents(savedMatch.id)
+      }
     } catch (error) {
       console.error("Error saving match:", error)
       alert("Помилка при збереженні матчу: " + getErrorMessage(error))
@@ -866,12 +885,19 @@ export function AdminPanel({
 
   // Match events (goals and cards) handlers
   const loadMatchEvents = async (matchId: number) => {
+    const request = ++matchEventsRequestRef.current
+    setMatchEventsLoading(true)
     try {
-      const [goals, cards] = await Promise.all([getMatchGoals(matchId), getMatchCards(matchId)])
+      const [goals, cards] = await Promise.all([getMatchGoals(matchId, true), getMatchCards(matchId, true)])
+      if (request !== matchEventsRequestRef.current) return
       setMatchGoals(goals)
       setMatchCards(cards)
+      setMatchEventsError(false)
     } catch (error) {
       console.error("Error loading match events:", error)
+      if (request === matchEventsRequestRef.current) setMatchEventsError(true)
+    } finally {
+      if (request === matchEventsRequestRef.current) setMatchEventsLoading(false)
     }
   }
 
@@ -1245,19 +1271,41 @@ export function AdminPanel({
     onDataChange?.()
   }
 
-  const getEventPlayerNames = (teamName: string) => normalizeRoster([
-    ...players.filter((player) => player.team === teamName).map((player) => player.name),
-    ...(teams.find((team) => team.name === teamName)?.roster || []),
-  ]).sort((a, b) => a.localeCompare(b, "uk"))
+  const getEventPlayerNames = (teamName: string) => {
+    const roster = teams.find((team) => team.name === teamName)?.roster
+    return normalizeRoster(roster?.length ? roster : players.filter((player) => player.team === teamName).map((player) => player.name))
+      .sort((a, b) => a.localeCompare(b, "uk"))
+  }
+
+  const handleQuickMatchEvent = async (match: Match, team: string, name: string, type: QuickEventType) => {
+    if (!match.is_finished || match.is_technical_defeat) throw new Error("Спочатку завершіть матч.")
+    if (![match.home_team, match.away_team].includes(team) || !getEventPlayerNames(team).includes(name)) {
+      throw new Error("Оберіть гравця зі складу команди цього матчу.")
+    }
+    setLoading(true)
+    try {
+      if (type === "goal") await addMatchGoal({ match_id: match.id, player_name: name, team_name: team, goal_type: "regular" })
+      else await addMatchCard({ match_id: match.id, player_name: name, team_name: team, card_type: type })
+      await Promise.all([loadMatchEvents(match.id), refreshPlayerStatistics()])
+      await logOrganizerAction(organizerName || "Адміністратор", type === "goal" ? "add_goal" : "add_card",
+        `Подія матчу #${match.id}: ${name} (${team}), ${type === "goal" ? "гол" : type === "yellow" ? "жовта картка" : "червона картка"}`)
+    } finally { setLoading(false) }
+  }
 
   const resolveEventPlayerName = (teamName: string, name: string) => getEventPlayerNames(teamName)
     .find((candidate) => playerNameKey(candidate) === playerNameKey(name)) || normalizePlayerName(name)
 
   const validateEventPlayer = (event: { player_name: string; team_name: string; minute: string }) => {
+    if (matchEventsLoading || matchEventsError) throw new Error("Спочатку завантажте актуальні події матчу.")
     const name = normalizePlayerName(event.player_name)
     if (!name || name.length > 255) throw new Error("Вкажіть ім’я гравця довжиною від 1 до 255 символів.")
     if (!selectedMatchForGoals || ![selectedMatchForGoals.home_team, selectedMatchForGoals.away_team].includes(event.team_name)) {
       throw new Error("Оберіть команду, яка бере участь у цьому матчі.")
+    }
+    const currentMatch = matches.find((match) => match.id === selectedMatchForGoals.id)
+    if (!currentMatch?.is_finished || currentMatch.is_technical_defeat) throw new Error("Події можна вносити лише в завершений матч без технічної поразки.")
+    if (!getEventPlayerNames(event.team_name).some(candidate => playerNameKey(candidate) === playerNameKey(name))) {
+      throw new Error("Оберіть гравця зі списку. Якщо його немає, спочатку додайте до складу команди.")
     }
     if (event.minute && (!Number.isInteger(Number(event.minute)) || Number(event.minute) < 1 || Number(event.minute) > 120)) {
       throw new Error("Хвилина події має бути цілим числом від 1 до 120.")
@@ -2236,6 +2284,8 @@ export function AdminPanel({
                       </Button>
                       {match.is_finished && !match.is_technical_defeat && (
                         <Button
+                          type="button"
+                          disabled={loading || matchEventsLoading}
                           size="sm"
                           variant="outline"
                           onClick={() => {
@@ -2248,11 +2298,14 @@ export function AdminPanel({
                               goal_type: "regular",
                             })
                             loadMatchEvents(match.id)
+                            setMatchGoals([])
+                            setMatchCards([])
+                            setCardForm({ player_name: "", team_name: match.home_team, minute: "", card_type: "yellow" })
                           }}
                           className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex-1 sm:flex-none"
                         >
                           <Trophy className="h-4 w-4 mr-1.5 text-slate-400" />
-                          Події (Голи/Картки)
+                          Голи та картки зі складу
                         </Button>
                       )}
                       <Button
@@ -2604,7 +2657,7 @@ export function AdminPanel({
 
                   {/* Match Events (Goals & Cards) Management */}
                   {selectedMatchForGoals?.id === match.id && (
-                    <div className="mt-4 p-4 sm:p-5 bg-white rounded-xl border border-slate-200 text-slate-900 shadow-sm space-y-6">
+                    <div id={`match-events-${match.id}`} className="scroll-mt-24 mt-4 p-4 sm:p-5 bg-white rounded-xl border border-slate-200 text-slate-900 shadow-sm space-y-6">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
                           <Trophy className="h-4 w-4 text-[var(--lg-blue)]" />
@@ -2625,6 +2678,20 @@ export function AdminPanel({
                         Додавання та видалення подій автоматично оновлює статистику гравців. Обирайте імена зі складу команди, щоб зберегти єдину історію гравця.
                       </p>
                       {/* --- SECTION 1: GOALS --- */}
+                      <MatchPlayerEvents
+                        key={match.id}
+                        match={match}
+                        squads={[match.home_team, match.away_team].map(team => ({ team, names: getEventPlayerNames(team) }))}
+                        goals={matchGoals}
+                        cards={matchCards}
+                        disabled={loading || matchEventsLoading || matchEventsError}
+                        onAdd={(team, name, type) => handleQuickMatchEvent(match, team, name, type)}
+                      />
+                      {matchEventsError && <div role="alert" className="space-y-2 text-sm text-red-700">
+                        <p>Не вдалося оновити список подій. Завантажте його перед наступним внесенням, щоб уникнути повторів.</p>
+                        <Button type="button" variant="outline" disabled={loading || matchEventsLoading} onClick={() => void loadMatchEvents(match.id)}>Повторити завантаження подій</Button>
+                      </div>}
+                      <p className="text-xs font-semibold text-slate-600">Детальні події з хвилиною, пенальті та автоголами</p>
                       <div className="space-y-4">
                         <h5 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                           <Target className="h-4 w-4 text-emerald-600" />
@@ -2638,20 +2705,17 @@ export function AdminPanel({
                               <Label htmlFor="goal-player-name" className="text-slate-700 font-medium text-xs">
                                 Ім'я гравця (автор голу)
                               </Label>
-                              <Input
+                              <select
                                 id="goal-player-name"
-                                list="goal-player-options"
-                                autoComplete="off"
                                 value={goalForm.player_name}
                                 onChange={(e) => setGoalForm({ ...goalForm, player_name: e.target.value })}
                                 required
-                                placeholder="Шевченко Андрій"
-                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
-                              />
-                              <datalist id="goal-player-options">
-                                {getEventPlayerNames(goalForm.team_name).map((name) => <option key={name} value={name} />)}
-                              </datalist>
-                              <p className="mt-1 text-[11px] text-slate-500">Оберіть гравця зі складу або введіть ім’я нового.</p>
+                                className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg h-10 px-2 text-xs"
+                              >
+                                <option value="">Оберіть автора голу</option>
+                                {getEventPlayerNames(goalForm.team_name).map((name) => <option key={name} value={name}>{name}</option>)}
+                              </select>
+                              <p className="mt-1 text-[11px] text-slate-500">Якщо гравця немає, додайте його в «Команди → Склад команди».</p>
                             </div>
                             <div>
                               <Label htmlFor="goal-team-name" className="text-slate-700 font-medium text-xs">
@@ -2782,20 +2846,17 @@ export function AdminPanel({
                               <Label htmlFor="card-player-name" className="text-slate-700 font-medium text-xs">
                                 Ім'я гравця
                               </Label>
-                              <Input
+                              <select
                                 id="card-player-name"
-                                list="card-player-options"
-                                autoComplete="off"
                                 value={cardForm.player_name}
                                 onChange={(e) => setCardForm({ ...cardForm, player_name: e.target.value })}
                                 required
-                                placeholder="Ярмоленко Андрій"
-                                className="bg-white border-slate-200 text-slate-900 rounded-lg h-9 text-xs"
-                              />
-                              <datalist id="card-player-options">
-                                {getEventPlayerNames(cardForm.team_name).map((name) => <option key={name} value={name} />)}
-                              </datalist>
-                              <p className="mt-1 text-[11px] text-slate-500">Оберіть гравця зі складу або введіть ім’я нового.</p>
+                                className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg h-10 px-2 text-xs"
+                              >
+                                <option value="">Оберіть гравця</option>
+                                {getEventPlayerNames(cardForm.team_name).map((name) => <option key={name} value={name}>{name}</option>)}
+                              </select>
+                              <p className="mt-1 text-[11px] text-slate-500">Вибирайте гравця зі складу обраної команди.</p>
                             </div>
                             <div>
                               <Label htmlFor="card-team-name" className="text-slate-700 font-medium text-xs">

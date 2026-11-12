@@ -10,6 +10,7 @@
     "start": "next start",
     "test:analytics": "node --experimental-strip-types scripts/test-analytics.mjs",
     "test:match-utils": "node --experimental-strip-types scripts/test-match-utils.mjs",
+    "test:match-events": "node --experimental-strip-types scripts/test-match-event-summary.mjs",
     "test:posters": "node --experimental-strip-types scripts/test-posters.mjs",
     "test:teams": "node --experimental-strip-types scripts/test-team-updates.mjs",
     "test:players": "node --experimental-strip-types scripts/test-player-stats.mjs",
@@ -20,7 +21,7 @@
     "test:lion-voting": "node --experimental-strip-types scripts/test-lion-voting.mjs",
     "test:arcade": "node --experimental-strip-types scripts/test-arcade.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:posters && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:players:rosters && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:match-events && pnpm test:posters && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:players:rosters && pnpm test:players:documents && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -870,7 +870,7 @@ export async function deleteMatch(id: number): Promise<void> {
 // Match Goals
 const mockMatchGoals: MatchGoal[] = []
 
-export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
+export async function getMatchGoals(matchId: number, strict = false): Promise<MatchGoal[]> {
   if (shouldUseMockData()) {
     return mockMatchGoals.filter((goal) => goal.match_id === matchId)
   }
@@ -886,6 +886,7 @@ export async function getMatchGoals(matchId: number): Promise<MatchGoal[]> {
     return data || []
   } catch (error) {
     console.warn("Database error:", error)
+    if (strict) throw error
     return []
   }
 }
@@ -958,7 +959,7 @@ export async function deleteMatchGoal(id: number): Promise<void> {
 // Match Cards
 const mockMatchCards: MatchCard[] = []
 
-export async function getMatchCards(matchId: number): Promise<MatchCard[]> {
+export async function getMatchCards(matchId: number, strict = false): Promise<MatchCard[]> {
   if (shouldUseMockData()) {
     return Promise.resolve(mockMatchCards.filter((c) => c.match_id === matchId))
   }
@@ -974,6 +975,7 @@ export async function getMatchCards(matchId: number): Promise<MatchCard[]> {
     return data || []
   } catch (error) {
     console.warn("Database error (match_cards):", error)
+    if (strict) throw error
     return mockMatchCards.filter((c) => c.match_id === matchId)
   }
 }
