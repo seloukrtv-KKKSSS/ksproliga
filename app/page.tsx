@@ -1249,7 +1249,7 @@ export default function KSLigaSite() {
                 {/* Cup Tournament Tab */}
                 {currentChampionship?.tournament_type === "cup" && currentChampionshipId && (
                   <TabsContent value="cup" className="liquid-module outline-none">
-                    <CupTournament championshipId={currentChampionshipId} />
+                    <CupTournament key={currentChampionshipId} championshipId={currentChampionshipId} />
                   </TabsContent>
                 )}
 
