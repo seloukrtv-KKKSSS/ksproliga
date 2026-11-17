@@ -10,6 +10,8 @@ import {
   POSTER_TEMPLATES,
   getPosterFilename,
   getPosterPages,
+  getCupPosterFixtures,
+  getCupPosterPages,
   getPosterPageCount,
   getPosterRankingRows,
   getPosterTeams,
@@ -33,6 +35,7 @@ export interface PosterEditorProps {
   draftId?: string
   defaultTitle?: string
   defaultSponsors?: PosterData["defaultSponsors"]
+  cup?: PosterData["cup"]
   onClose: () => void
 }
 
@@ -77,7 +80,7 @@ export default function PosterEditor(props: PosterEditorProps) {
   return <PosterEditorSession key={getPosterDraftKey(props) || "unsaved"} {...props} defaultSponsors={defaults.sponsors} />
 }
 
-function PosterEditorSession({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, onClose }: PosterEditorProps) {
+function PosterEditorSession({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, cup, onClose }: PosterEditorProps) {
   const titleId = useId()
   const descriptionId = useId()
   const inputId = useId()
@@ -85,7 +88,7 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isMounted = useRef(false)
   const [goalResult, setGoalResult] = useState<{ key: string; goals: MatchGoal[]; error?: boolean } | null>(null)
-  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, goals: goalResult?.goals || [] }), [mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, goalResult])
+  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, cup, goals: goalResult?.goals || [] }), [mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, cup, goalResult])
   const { options, imageUrls, commit, reset, resetCount, status: draftStatus } = usePosterDraft(data)
   const [rendered, setRendered] = useState<{ options: PosterOptions; data: PosterData; warnings: string[]; error?: string } | null>(null)
   const [downloadError, setDownloadError] = useState("")
@@ -95,12 +98,13 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
   const pages = getPosterPages(data, options)
   const pageCount = getPosterPageCount(data, options)
   const ranking = mode === "standings" || mode === "scorers"
+  const bracket = mode === "cup"
   const visibleMatches = pages[options.page] || []
   const posterTeams = getPosterTeams(data)
   const goalKey = matches.filter((match) => match.is_finished).map((match) => match.id).sort((a,b) => a-b).join(",")
   const loadingGoals = options.showScorers && Boolean(goalKey) && goalResult?.key !== goalKey
   const isRendering = loadingGoals || rendered?.options !== options || rendered?.data !== data
-  const canDownload = !isRendering && !rendered?.error && !downloading && (ranking ? getPosterRankingRows(data).length > 0 : matches.length > 0)
+  const canDownload = !isRendering && !rendered?.error && !downloading && (bracket ? getCupPosterFixtures(data).length > 0 : ranking ? getPosterRankingRows(data).length > 0 : matches.length > 0)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -207,7 +211,7 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
           <div className="poster-editor__heading">
             <span className="poster-editor__icon"><Palette size={21} /></span>
             <div>
-              <h2 id={titleId}>{mode === "standings" ? "Афіша турнірної таблиці" : mode === "scorers" ? "Афіша бомбардирів" : mode === "match" ? "Афіша матчу" : "Афіша туру"}</h2>
+              <h2 id={titleId}>{bracket ? "Афіша кубкової сітки" : mode === "standings" ? "Афіша турнірної таблиці" : mode === "scorers" ? "Афіша бомбардирів" : mode === "match" ? "Афіша матчу" : "Афіша туру"}</h2>
               <p id={descriptionId} role="status" className={draftStatus === "unavailable" ? "poster-editor__error" : undefined}>
                 {draftStatus === "unavailable" ? "Не вдалося зберегти чернетку в цьому браузері." : draftStatus === "restored" ? "Чернетку відновлено. Зміни зберігаються в цьому браузері." : draftStatus === "saved" ? "Чернетка збережена в цьому браузері." : draftStatus === "reset" ? "Чернетку очищено. Нові зміни зберігатимуться автоматично." : "Зміни зберігаються автоматично в цьому браузері."}
               </p>
@@ -233,8 +237,8 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
 
             <label className="poster-editor__field" htmlFor={`${inputId}-format`}>
               <span>Формат зображення</span>
-              <select id={`${inputId}-format`} value={options.format} onChange={(event) => update("format", event.target.value as PosterOptions["format"])} disabled={downloading}>
-                {POSTER_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.width} × {item.height}</option>)}
+              <select id={`${inputId}-format`} aria-label="Формат зображення" value={options.format} onChange={(event) => update("format", event.target.value as PosterOptions["format"])} disabled={downloading}>
+                {POSTER_FORMATS.filter((item) => bracket || item.id !== "landscape").map((item) => <option key={item.id} value={item.id}>{item.label} · {item.width} × {item.height}</option>)}
               </select>
             </label>
 
@@ -259,12 +263,13 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
               <summary>Тексти та деталі афіші</summary>
               <div>
                 <label className="poster-editor__field" htmlFor={`${inputId}-subtitle`}><span>Підзаголовок</span><input id={`${inputId}-subtitle`} value={options.subtitle} maxLength={150} onChange={(event) => update("subtitle", event.target.value)} disabled={downloading} /></label>
-                <label className="poster-editor__field" htmlFor={`${inputId}-venue`}><span>Місце проведення</span><input id={`${inputId}-venue`} placeholder="Назва стадіону або спорткомплексу" value={options.venue} maxLength={120} onChange={(event) => update("venue", event.target.value)} disabled={downloading} /></label>
+                <label className="poster-editor__field" htmlFor={`${inputId}-venue`}><span>{bracket ? "Примітка / попередній етап" : "Місце проведення"}</span><input id={`${inputId}-venue`} placeholder="Назва стадіону або спорткомплексу" value={options.venue} maxLength={120} onChange={(event) => update("venue", event.target.value)} disabled={downloading} /></label>
                 <label className="poster-editor__field" htmlFor={`${inputId}-footer`}><span>Підпис унизу</span><input id={`${inputId}-footer`} value={options.footer} maxLength={100} onChange={(event) => update("footer", event.target.value)} disabled={downloading} /></label>
               </div>
             </details>
 
-            {!ranking && <div className="poster-editor__checks">
+            {bracket && <div className="poster-editor__checks"><label><input type="checkbox" checked={options.showScores} onChange={(event) => update("showScores", event.target.checked)} disabled={downloading} /> Показувати результати</label><label><input type="checkbox" checked={options.showTime} onChange={(event) => update("showTime", event.target.checked)} disabled={downloading} /> Дати й час наступних матчів</label><p className="poster-editor__hint">На парі — сумарний рахунок. Для великої сітки створюється кілька зображень. Горизонтальний формат найкраще підходить для всього кубка.</p></div>}
+            {!ranking && !bracket && <div className="poster-editor__checks">
               <label><input type="checkbox" checked={options.showTime} onChange={(event) => update("showTime", event.target.checked)} disabled={downloading} /> Показувати час матчів</label>
               <label><input type="checkbox" checked={options.showVenue} onChange={(event) => update("showVenue", event.target.checked)} disabled={downloading} /> Показувати місце проведення</label>
               <label><input type="checkbox" checked={options.showScores} onChange={(event) => update("showScores", event.target.checked)} disabled={downloading} /> Рахунки завершених матчів</label>
@@ -317,7 +322,7 @@ function PosterEditorSession({ mode, matches, teams, championship, players, stan
               {isRendering && <div className="poster-editor__rendering" role="status"><LoaderCircle size={22} className="animate-spin" /><span>Готуємо афішу…</span></div>}
               {!isRendering && rendered?.error && <div className="poster-editor__rendering poster-editor__error" role="alert"><AlertCircle size={24} /><span>{rendered.error}</span></div>}
             </div>
-            {pageCount > 1 && <div className="poster-editor__pagination"><button type="button" aria-label="Попередня афіша" disabled={options.page === 0 || downloading} onClick={() => changePage(-1)}><ChevronLeft size={17} /></button><span>Афіша {options.page + 1} з {pageCount}<small>{ranking ? "Статистика турніру" : `Матчів на зображенні: ${visibleMatches.length}`}</small></span><button type="button" aria-label="Наступна афіша" disabled={options.page >= pageCount - 1 || downloading} onClick={() => changePage(1)}><ChevronRight size={17} /></button></div>}
+            {pageCount > 1 && <div className="poster-editor__pagination"><button type="button" aria-label="Попередня афіша" disabled={options.page === 0 || downloading} onClick={() => changePage(-1)}><ChevronLeft size={17} /></button><span>Афіша {options.page + 1} з {pageCount}<small>{bracket ? `Пар на зображенні: ${getCupPosterPages(data, options)[options.page]?.entries.length || 0}` : ranking ? "Статистика турніру" : `Матчів на зображенні: ${visibleMatches.length}`}</small></span><button type="button" aria-label="Наступна афіша" disabled={options.page >= pageCount - 1 || downloading} onClick={() => changePage(1)}><ChevronRight size={17} /></button></div>}
             <p className="poster-editor__preview-note">PNG збережеться в повній якості. Час матчів — за Києвом.</p>
             {!isRendering && rendered && rendered.warnings.length > 0 && <div className="poster-editor__warnings" role="status"><AlertCircle size={15} /><span>{rendered.warnings.join(" ")}</span></div>}
           </section>

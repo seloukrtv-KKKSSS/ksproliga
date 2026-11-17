@@ -8,7 +8,7 @@ import type { Championship, Team } from "@/lib/supabase"
 import { buildCupGroupTable, type CupState } from "@/lib/cup"
 import { getCupState, tournamentError } from "@/lib/tournaments"
 import { CupBracket, CupMatchLink } from "@/components/cup-bracket"
-import type { PosterData } from "@/lib/posters/model"
+import { getCupPosterFixtures, type PosterData } from "@/lib/posters/model"
 
 const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
@@ -32,6 +32,7 @@ export function CupTournament({ championshipId }: { championshipId: number }) {
   const legacy = state.matches.filter((match) => !match.cup_fixture_id)
   return <div className="space-y-6">
     {poster && <PosterEditor {...poster} onClose={() => setPoster(null)} />}
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="ios-section-header">Кубковий турнір</h2><Button variant="outline" disabled={!getCupPosterFixtures({ mode: "cup", matches: state.matches, teams, championship, cup: { config, fixtures: state.fixtures } }).length} onClick={() => setPoster({ mode: "cup", matches: state.matches, teams, championship, cup: { config, fixtures: state.fixtures } })}>Афіша кубка</Button></div>
     {config && config.mode !== "knockout" && <section className="space-y-4" aria-label="Груповий етап">
       <h2 className="ios-section-header">Груповий етап</h2>
       <div className="grid items-start gap-4 lg:grid-cols-2">{config.groups.map((group) => {

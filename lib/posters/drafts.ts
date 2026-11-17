@@ -13,7 +13,7 @@ function teamKey(key: string): boolean {
 }
 
 export function getPosterDraftKey(data: PosterData): string | null {
-  if (data.mode === "standings" || data.mode === "scorers") return data.championship?.id ? `ksliga:poster-draft:v1:${data.championship.id}:${data.mode}${data.draftId ? `:${data.draftId}` : ""}` : null
+  if (data.mode === "standings" || data.mode === "scorers" || data.mode === "cup") return data.championship?.id ? `ksliga:poster-draft:v1:${data.championship.id}:${data.mode}${data.draftId ? `:${data.draftId}` : ""}` : null
   const match = data.matches[0]
   if (!match || !Number.isSafeInteger(match.championship_id) || match.championship_id < 1) return null
   const id = data.mode === "match" ? match.id : match.round
@@ -40,7 +40,7 @@ function normalizeDraft(value: unknown, defaults: PosterOptions): PosterDraft {
   const source = record(value) && record(value.options) ? value.options : {}
   const options: PosterOptions = { ...defaults, sponsors: [], teamLogos: {}, page: 0 }
   if (["stadium", "editorial", "minimal"].includes(String(source.template))) options.template = source.template as PosterOptions["template"]
-  if (["post", "story", "square"].includes(String(source.format))) options.format = source.format as PosterOptions["format"]
+  if (["post", "story", "square", ...(defaults.format === "landscape" ? ["landscape"] : [])].includes(String(source.format))) options.format = source.format as PosterOptions["format"]
   if (["sans", "condensed", "serif"].includes(String(source.font))) options.font = source.font as PosterOptions["font"]
   if (typeof source.accent === "string" && /^#[\da-f]{6}$/i.test(source.accent)) options.accent = source.accent
   for (const [key, limit] of [["title", 80], ["subtitle", 150], ["venue", 120], ["footer", 100]] as const) {

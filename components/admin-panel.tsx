@@ -1478,7 +1478,7 @@ export function AdminPanel({
         </div>
 
         <TabsContent value="sponsors">{currentChampionshipId > 0 && <TournamentSponsorsModule key={currentChampionshipId} championshipId={currentChampionshipId} onDataChange={onDataChange} />}</TabsContent>
-        <TabsContent value="cup-builder">{currentChampionship?.tournament_type === "cup" && <CupDesigner key={currentChampionshipId} championshipId={currentChampionshipId} teams={teams} onDataChange={() => { void loadData(); onDataChange?.() }} />}</TabsContent>
+        <TabsContent value="cup-builder">{currentChampionship?.tournament_type === "cup" && <CupDesigner key={currentChampionshipId} championshipId={currentChampionshipId} championship={currentChampionship} teams={teams} onDataChange={() => { void loadData(); onDataChange?.() }} />}</TabsContent>
         <TabsContent value="championships" className="space-y-4">
           <form
             onSubmit={handleChampionshipSubmit}

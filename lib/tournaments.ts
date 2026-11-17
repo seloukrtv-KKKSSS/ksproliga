@@ -94,6 +94,11 @@ export async function scheduleCupFixture(championshipId: number, fixture: CupFix
   if (error) throw error
 }
 
+export async function setCupStageLegs(championshipId: number, stage: number, legs: 1 | 2, revision: number, thirdPlace = false): Promise<void> {
+  const { error } = await supabase.rpc("set_cup_stage_legs", { p_championship: championshipId, p_stage: stage, p_legs: legs, p_revision: revision, p_third_place: thirdPlace })
+  if (error) throw error
+}
+
 export function tournamentError(error: unknown): string {
   return error && typeof error === "object" && "message" in error ? String(error.message) : "Не вдалося зберегти зміни. Спробуйте ще раз."
 }

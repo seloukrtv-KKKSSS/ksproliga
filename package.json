@@ -14,6 +14,7 @@
     "test:cup": "node --experimental-strip-types scripts/test-cup.mjs && node --experimental-strip-types scripts/test-cup-sql.mjs",
     "test:tournament-sponsors": "node --experimental-strip-types scripts/test-tournament-sponsors.mjs",
     "test:posters": "node --experimental-strip-types scripts/test-posters.mjs",
+    "test:cup-posters": "node --experimental-strip-types scripts/test-cup-posters.mjs",
     "test:teams": "node --experimental-strip-types scripts/test-team-updates.mjs",
     "test:players": "node --experimental-strip-types scripts/test-player-stats.mjs",
     "test:players:sql": "node scripts/test-player-statistics-sql.mjs",
@@ -23,7 +24,7 @@
     "test:lion-voting": "node --experimental-strip-types scripts/test-lion-voting.mjs",
     "test:arcade": "node --experimental-strip-types scripts/test-arcade.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:match-events && pnpm test:posters && pnpm test:cup && pnpm test:tournament-sponsors && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:players:rosters && pnpm test:players:documents && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test:analytics && pnpm test:match-utils && pnpm test:match-events && pnpm test:posters && pnpm test:cup-posters && pnpm test:cup && pnpm test:tournament-sponsors && pnpm test:teams && pnpm test:players && pnpm test:players:sql && pnpm test:players:dedup && pnpm test:players:rosters && pnpm test:players:documents && pnpm test:lion-voting && pnpm test:arcade && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"

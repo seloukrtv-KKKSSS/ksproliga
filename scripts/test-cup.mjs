@@ -38,3 +38,19 @@ assert.throws(() => buildCupFixtures({ ...base, teamIds: [1, 1] }, teams), /рі
 assert.throws(() => buildCupFixtures({ ...grouped, groups: [{ ...grouped.groups[0], teamIds: [1, 2] }, { ...grouped.groups[1], teamIds: [2, 3] }] }, teams), /рівно/)
 assert.throws(() => buildCupFixtures({ ...base, seeds: [{ kind: "team", teamId: 1 }, { kind: "team", teamId: 1 }] }, teams), /повторюватись/)
 console.log("Cup seeding, byes, round robin, custom groups and standings checks passed")
+
+const perStage = { ...base, teamIds: teams.slice(0,8).map((team) => team.id), stageLegs: { 1: 2, 2: 1, 3: 2, "third-place": 2 }, thirdPlace: true }
+const perStageFixtures = buildCupFixtures(perStage, teams)
+assert.ok(perStageFixtures.filter((fixture) => fixture.stage === 1).every((fixture) => fixture.legs === 2 && fixture.round === 1))
+assert.ok(perStageFixtures.filter((fixture) => fixture.stage === 2).every((fixture) => fixture.legs === 1 && fixture.round === 3))
+assert.equal(perStageFixtures.find((fixture) => fixture.id === "ko-3-1").legs,2)
+assert.equal(perStageFixtures.find((fixture) => fixture.id === "ko-3-1").round,4)
+assert.equal(perStageFixtures.find((fixture) => fixture.id === "third-place").legs,2)
+const groupedStages = buildCupFixtures({ ...grouped, stageLegs: {1:2,2:1} },teams)
+assert.ok(groupedStages.filter((fixture) => fixture.stage === 0).every((fixture) => fixture.legs === 1))
+assert.ok(groupedStages.filter((fixture) => fixture.stage === 1).every((fixture) => fixture.legs === 2))
+assert.equal(groupedStages.find((fixture) => fixture.id === "ko-2-1").legs,1)
+const legacyConfig = {...perStage}; delete legacyConfig.stageLegs
+assert.ok(buildCupFixtures(legacyConfig,teams).filter((fixture) => fixture.id.startsWith("ko-")).every((fixture) => fixture.legs === 1))
+assert.throws(()=>buildCupFixtures({...base,stageLegs:{1:3}},teams),/один або два/)
+console.log("Independent stage legs, mixed schedules, third place and older configurations passed")

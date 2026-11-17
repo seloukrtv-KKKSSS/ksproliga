@@ -20,6 +20,7 @@ export interface CupConfig {
   time: string
   seeds: CupSource[]
   stageNames: Record<string, string>
+  stageLegs?: Record<string, 1 | 2>
 }
 export interface CupFixture {
   championship_id?: number
@@ -43,7 +44,11 @@ export interface CupFormat { championship_id: number; config: CupConfig; revisio
 export interface CupState { format: CupFormat | null; fixtures: CupFixture[]; matches: Match[] }
 
 export function createCupConfig(teams: Team[]): CupConfig {
-  return { version: 1, mode: "knockout", teamIds: teams.map((team) => team.id), groups: [], groupLegs: 1, qualifiers: 2, points: { win: 3, draw: 1, loss: 0 }, tieBreak: "difference", knockoutLegs: 1, finalLegs: 1, thirdPlace: false, startDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()), intervalDays: 7, time: "12:00", seeds: [], stageNames: {} }
+  return { version: 1, mode: "knockout", teamIds: teams.map((team) => team.id), groups: [], groupLegs: 1, qualifiers: 2, points: { win: 3, draw: 1, loss: 0 }, tieBreak: "difference", knockoutLegs: 1, finalLegs: 1, thirdPlace: false, startDate: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()), intervalDays: 7, time: "12:00", seeds: [], stageNames: {}, stageLegs: {} }
+}
+
+export function getCupStageLegs(config: CupConfig, stage: number, isFinal: boolean): 1 | 2 {
+  return config.stageLegs?.[String(stage)] ?? (isFinal ? config.finalLegs : config.knockoutLegs)
 }
 
 export function distributeCupGroups(teamIds: number[], count: number): CupGroup[] {
@@ -63,6 +68,7 @@ function dateOffset(date: string, days: number): string {
 }
 
 export function validateCupConfig(config: CupConfig, teams: Team[]): void {
+  if (config.stageLegs && (typeof config.stageLegs !== "object" || Array.isArray(config.stageLegs) || Object.entries(config.stageLegs).some(([key, legs]) => !/^([1-8]|third-place)$/.test(key) || ![1, 2].includes(legs)))) throw new Error("Для кожної стадії оберіть один або два матчі.")
   if (!["knockout", "groups_knockout", "groups"].includes(config.mode) || ![1, 2].includes(config.groupLegs) || ![1, 2].includes(config.knockoutLegs) || ![1, 2].includes(config.finalLegs) || !["difference", "wins"].includes(config.tieBreak)) throw new Error("Перевірте формат і кількість матчів.")
   const validIds = new Set(teams.map((team) => team.id))
   if (config.teamIds.length < 2 || config.teamIds.length > 128 || new Set(config.teamIds).size !== config.teamIds.length || config.teamIds.some((id) => !validIds.has(id))) throw new Error("Оберіть від 2 до 128 різних команд цього турніру.")
@@ -128,14 +134,14 @@ export function buildCupFixtures(config: CupConfig, teams: Team[]): CupFixture[]
     const count = sources.length / 2
     const defaultName = count === 1 ? "Фінал" : count === 2 ? "1/2 фіналу" : `1/${count} фіналу`
     const label = config.stageNames[String(stage)]?.trim() || defaultName
-    const legs = count === 1 ? config.finalLegs : config.knockoutLegs
+    const legs = getCupStageLegs(config, stage, count === 1)
     const next: CupSource[] = []
     for (let pair = 0; pair < count; pair++) {
       const id = `ko-${stage}-${pair + 1}`
       result.push({ id, stage, position: pair, round, label, group_id: null, home_source: sources[pair * 2], away_source: sources[pair * 2 + 1], legs, scheduled_date: dateOffset(config.startDate, (round - 1) * config.intervalDays), scheduled_time: config.time || null, leg_gap_days: config.intervalDays })
       next.push({ kind: "winner", fixtureId: id })
     }
-    if (count === 1 && config.thirdPlace) result.push({ id: "third-place", stage, position: 1, round, label: "За третє місце", group_id: null, home_source: { kind: "loser", fixtureId: `ko-${stage - 1}-1` }, away_source: { kind: "loser", fixtureId: `ko-${stage - 1}-2` }, legs: 1, scheduled_date: dateOffset(config.startDate, (round - 1) * config.intervalDays), scheduled_time: config.time || null, leg_gap_days: config.intervalDays })
+    if (count === 1 && config.thirdPlace) result.push({ id: "third-place", stage, position: 1, round, label: "За третє місце", group_id: null, home_source: { kind: "loser", fixtureId: `ko-${stage - 1}-1` }, away_source: { kind: "loser", fixtureId: `ko-${stage - 1}-2` }, legs: config.stageLegs?.["third-place"] ?? 1, scheduled_date: dateOffset(config.startDate, (round - 1) * config.intervalDays), scheduled_time: config.time || null, leg_gap_days: config.intervalDays })
     sources = next
     stage++
     round += legs
