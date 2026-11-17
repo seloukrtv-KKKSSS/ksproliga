@@ -39,8 +39,17 @@ export async function getTournamentSponsors(championshipId: number): Promise<Tou
 export async function saveTournamentSponsor(sponsor: Omit<TournamentSponsor, "id"> & { id?: number }): Promise<void> {
   const name = sponsor.name.trim()
   if (!name || name.length > 80) throw new Error("Вкажіть назву спонсора до 80 символів.")
-  const values = { ...sponsor, name, logo_url: validateSponsorUrl(sponsor.logo_url), website_url: validateSponsorUrl(sponsor.website_url || "", false) }
-  const query = sponsor.id ? supabase.from("tournament_sponsors").update(values).eq("id", sponsor.id).eq("championship_id", sponsor.championship_id) : supabase.from("tournament_sponsors").insert(values)
+  const values = {
+    name,
+    logo_url: validateSponsorUrl(sponsor.logo_url),
+    website_url: validateSponsorUrl(sponsor.website_url || "", false),
+    placements: sponsor.placements,
+    sort_order: sponsor.sort_order,
+    is_active: sponsor.is_active,
+  }
+  const query = sponsor.id
+    ? supabase.from("tournament_sponsors").update(values).eq("id", sponsor.id).eq("championship_id", sponsor.championship_id)
+    : supabase.from("tournament_sponsors").insert({ ...values, championship_id: sponsor.championship_id })
   const { data, error } = await query.select("id").single()
   if (error) throw error
   if (!data) throw new Error("Налаштування не збережено. Перевірте доступ до турніру.")
