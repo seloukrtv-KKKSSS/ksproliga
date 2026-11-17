@@ -2195,7 +2195,7 @@ export function AdminPanel({
                 const isCollapsed = collapsedAdminRounds[roundStateKey] ?? true
                 const roundMatches = sortedMatches.filter((m) => m.round === round)
                 const roundTitle = currentChampionship?.tournament_type === "cup"
-                  ? sortedMatches.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                  ? (new Set(roundMatches.map((match) => match.cup_stage).filter(Boolean)).size > 1 ? `Раунд ${round}` : roundMatches[0]?.cup_stage || `Раунд ${round}`)
                   : `Тур ${round}`
 
                 return (

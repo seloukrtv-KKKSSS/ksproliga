@@ -237,3 +237,9 @@ const standingsData={...rankingData,mode:"standings",standings:rankingTeams.map(
 assert.equal(getPosterRankingRows(standingsData)[0].standing.pts,7)
 assert.equal(createPosterOptions(standingsData).title,"ТУРНІРНА ТАБЛИЦЯ")
 console.log("Standings and scorer posters, tied ranks, sponsor defaults and group draft isolation passed")
+
+const mixedGroups={...data,championship:{...data.championship,tournament_type:"cup"},matches:matches.slice(0,4).map((match,index)=>({...match,date:"2026-11-15",cup_stage:index<2?"Група A":"Група B"}))}
+assert.equal(createPosterOptions(mixedGroups).title,"РАУНД 4")
+assert.equal(getPosterRoundLayout(mixedGroups,options).minimumRowHeight(mixedGroups.matches[0]),68,"Group labels must fit in the row budget")
+assert.equal(getPosterPages(mixedGroups,{...options,sponsors:titleSponsors}).length,1)
+console.log("Mixed cup groups keep accurate round titles and room for group labels")

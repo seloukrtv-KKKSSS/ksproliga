@@ -58,14 +58,15 @@ export const POSTER_TEMPLATES: { id: PosterTemplate; label: string; description:
 export function createPosterOptions(data: PosterData): PosterOptions {
   const match = data.matches[0]
   const allFinished = data.matches.length > 0 && data.matches.every((item) => item.is_finished)
-  const roundLabel = data.championship?.tournament_type === "cup" ? match?.cup_stage || `Раунд ${match?.round || 1}` : `Тур ${match?.round || 1}`
+  const multipleStages = new Set(data.matches.map((item) => item.cup_stage).filter(Boolean)).size > 1
+  const roundLabel = data.championship?.tournament_type === "cup" ? multipleStages ? `Раунд ${match?.round || 1}` : match?.cup_stage || `Раунд ${match?.round || 1}` : `Тур ${match?.round || 1}`
   return {
     template: "stadium",
     format: "post",
     accent: "#f2bd3e",
     title: data.defaultTitle || (data.mode === "standings" ? "ТУРНІРНА ТАБЛИЦЯ" : data.mode === "scorers" ? "БОМБАРДИРИ" : data.mode === "match"
       ? (allFinished ? "РЕЗУЛЬТАТ МАТЧУ" : "МАТЧ ДНЯ")
-      : (data.championship?.tournament_type === "cup" ? match?.cup_stage || `РАУНД ${match?.round || 1}` : `ТУР ${match?.round || 1}`)),
+      : roundLabel.toLocaleUpperCase("uk-UA")),
     subtitle: [data.mode === "match" ? roundLabel : "", data.championship?.season ? `Сезон ${data.championship.season}` : "Футбол, який нас об’єднує"].filter(Boolean).join(" · "),
     venue: "",
     footer: "KSLIGA.COM",
@@ -153,8 +154,9 @@ export function getPosterRoundLayout(data: PosterData, options: LayoutOptions) {
   const bottom = height - 92 - getPosterSponsorHeight(options) - (options.showVenue && options.venue?.trim() ? 32 : 16)
   const gap = 8
   const multipleDates = new Set(data.matches.map((match) => match.date)).size > 1
+  const multipleStages = new Set(data.matches.map((match) => match.cup_stage).filter(Boolean)).size > 1
   const minimumRowHeight = (match: Match) => {
-    const detailHeight = multipleDates || (match.is_finished && (match.is_technical_defeat || (match.penalty_home != null && match.penalty_away != null))) ? 16 : 0
+    const detailHeight = multipleDates || multipleStages || (match.is_finished && (match.is_technical_defeat || (match.penalty_home != null && match.penalty_away != null))) ? 16 : 0
     const scorerRows = getPosterScorerRows(data, options, match)
     return 52 + detailHeight + (scorerRows ? scorerRows * 16 + 4 : 0)
   }

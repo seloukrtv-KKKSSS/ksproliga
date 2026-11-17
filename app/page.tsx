@@ -1268,7 +1268,7 @@ export default function KSLigaSite() {
                       const isCollapsed = collapsedCalendarRounds[round]
                       const roundMatches = calendar.filter((m) => m.round === round)
                       const roundTitle = currentChampionship?.tournament_type === "cup"
-                        ? calendar.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                        ? (new Set(roundMatches.map((match) => match.cup_stage).filter(Boolean)).size > 1 ? `Раунд ${round}` : roundMatches[0]?.cup_stage || `Раунд ${round}`)
                         : `Тур ${round}`
 
                       return (
@@ -1408,7 +1408,7 @@ export default function KSLigaSite() {
                       const isCollapsed = collapsedResultsRounds[round]
                       const roundMatches = results.filter((m) => m.round === round)
                       const roundTitle = currentChampionship?.tournament_type === "cup"
-                        ? results.find((m) => m.round === round)?.cup_stage || `Раунд ${round}`
+                        ? (new Set(roundMatches.map((match) => match.cup_stage).filter(Boolean)).size > 1 ? `Раунд ${round}` : roundMatches[0]?.cup_stage || `Раунд ${round}`)
                         : `Тур ${round}`
 
                       return (

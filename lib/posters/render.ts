@@ -302,6 +302,7 @@ function roundPoster(ctx: CanvasRenderingContext2D, matches: Match[], data: Post
   const spare = Math.max(0, layout.bottom - startY - minimumHeights.reduce((sum, height) => sum + height, 0) - Math.max(0, matches.length - 1) * layout.gap)
   let nextY = startY
   const multipleDates = new Set(matches.map((match) => match.date)).size > 1
+  const multipleStages = new Set(data.matches.map((match) => match.cup_stage).filter(Boolean)).size > 1
   const showTimezone = options.showTime && (!options.showScores || matches.some((match) => !match.is_finished))
   if (showTimezone) text(ctx, "ЧАС ЗА КИЄВОМ", 62, startY - 27, 16, p.muted, options, 300, "left", 700)
   text(ctx, getPosterDateLabel(matches).toUpperCase(), 1020, startY - 27, 21, p.muted, options, showTimezone ? 650 : 960, "right", 700)
@@ -313,7 +314,7 @@ function roundPoster(ctx: CanvasRenderingContext2D, matches: Match[], data: Post
     ctx.fillStyle = p.accent
     ctx.fillRect(60, y + 20, 4, rowHeight - 40)
     const center = options.showScores ? getPosterMatchScore(match) : null
-    const details = [multipleDates ? getPosterDateLabel([match]) : "", center && match.penalty_home != null && match.penalty_away != null ? `пен. ${match.penalty_home}:${match.penalty_away}` : "", center && match.is_technical_defeat ? "Технічний результат" : ""].filter(Boolean)
+    const details = [multipleStages ? match.cup_stage : "", multipleDates ? getPosterDateLabel([match]) : "", center && match.penalty_home != null && match.penalty_away != null ? `пен. ${match.penalty_home}:${match.penalty_away}` : "", center && match.is_technical_defeat ? "Технічний результат" : ""].filter(Boolean)
     const scorerRows = getPosterScorerRows(data, options, match)
     const detailHeight = details.length ? 16 : 0
     const scorerHeight = scorerRows ? scorerRows * 16 + 4 : 0
