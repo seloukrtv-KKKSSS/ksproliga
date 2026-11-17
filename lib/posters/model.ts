@@ -1,6 +1,7 @@
-import type { Championship, Match, Team, MatchGoal } from "../supabase"
+import type { Championship, Match, Team, MatchGoal, Player } from "../supabase"
+import type { LeagueStanding } from "../league-utils"
 
-export type PosterMode = "match" | "round"
+export type PosterMode = "match" | "round" | "standings" | "scorers"
 export type PosterFormat = "post" | "story" | "square"
 export type PosterTemplate = "stadium" | "editorial" | "minimal"
 export type PosterFont = "sans" | "condensed" | "serif"
@@ -11,6 +12,11 @@ export interface PosterData {
   teams: Team[]
   championship?: Championship | null
   goals?: MatchGoal[]
+  players?: Player[]
+  standings?: LeagueStanding[]
+  draftId?: string
+  defaultTitle?: string
+  defaultSponsors?: PosterSponsor[]
 }
 
 export interface PosterSponsor { id: string; name: string; url: string }
@@ -57,9 +63,9 @@ export function createPosterOptions(data: PosterData): PosterOptions {
     template: "stadium",
     format: "post",
     accent: "#f2bd3e",
-    title: data.mode === "match"
+    title: data.defaultTitle || (data.mode === "standings" ? "ТУРНІРНА ТАБЛИЦЯ" : data.mode === "scorers" ? "БОМБАРДИРИ" : data.mode === "match"
       ? (allFinished ? "РЕЗУЛЬТАТ МАТЧУ" : "МАТЧ ДНЯ")
-      : (data.championship?.tournament_type === "cup" ? match?.cup_stage || `РАУНД ${match?.round || 1}` : `ТУР ${match?.round || 1}`),
+      : (data.championship?.tournament_type === "cup" ? match?.cup_stage || `РАУНД ${match?.round || 1}` : `ТУР ${match?.round || 1}`)),
     subtitle: [data.mode === "match" ? roundLabel : "", data.championship?.season ? `Сезон ${data.championship.season}` : "Футбол, який нас об’єднує"].filter(Boolean).join(" · "),
     venue: "",
     footer: "KSLIGA.COM",
@@ -68,7 +74,8 @@ export function createPosterOptions(data: PosterData): PosterOptions {
     showVenue: true,
     showScores: allFinished,
     showScorers: false,
-    sponsors: [],
+    sponsors: data.defaultSponsors || [],
+    mainSponsorId: data.defaultSponsors?.[0]?.id,
     teamLogos: {},
     backgroundOpacity: 80,
     backgroundPosition: 50,
@@ -87,6 +94,7 @@ export function getPosterTeamLogo(data: PosterData, options: Pick<PosterOptions,
 
 export function getPosterTeams(data: PosterData) {
   const unique = new Map<string, { key: string; name: string; championshipId: number; logo?: string }>()
+  if (data.mode === "standings" || data.mode === "scorers") return data.teams.map((team) => ({ key: getPosterTeamKey(team.championship_id, team.name), name: team.name, championshipId: team.championship_id, logo: team.logo }))
   const matches = data.mode === "match" ? getPosterPages(data, { format: "post" })[0] : data.matches
   for (const match of matches) {
     for (const name of [match.home_team, match.away_team]) {
@@ -95,6 +103,25 @@ export function getPosterTeams(data: PosterData) {
     }
   }
   return [...unique.values()]
+}
+
+export function getPosterRankingRows(data: PosterData) {
+  if (data.mode === "scorers") {
+    const players = [...(data.players || [])].filter((player) => player.goals > 0).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "uk") || a.id - b.id)
+    return players.map((player, index) => ({ position: index && players[index - 1].goals === player.goals ? players.findIndex((item) => item.goals === player.goals) + 1 : index + 1, name: player.name, team: player.team, goals: player.goals, standing: undefined as LeagueStanding | undefined }))
+  }
+  return (data.standings || []).map((standing, index) => ({ position: index + 1, name: standing.name, team: standing.name, goals: undefined as number | undefined, standing }))
+}
+
+export function getPosterRankingPages(data: PosterData, options: LayoutOptions) {
+  const rows = getPosterRankingRows(data)
+  const layout = getPosterRoundLayout(data, options)
+  const capacity = Math.max(1, Math.floor((layout.bottom - layout.top - 44) / 64))
+  return Array.from({ length: Math.max(1, Math.ceil(rows.length / capacity)) }, (_, index) => rows.slice(index * capacity, (index + 1) * capacity))
+}
+
+export function getPosterPageCount(data: PosterData, options: LayoutOptions): number {
+  return data.mode === "standings" || data.mode === "scorers" ? getPosterRankingPages(data, options).length : getPosterPages(data, options).length
 }
 
 type LayoutOptions = Pick<PosterOptions, "format"> & Partial<Pick<PosterOptions, "showScorers" | "sponsors" | "showVenue" | "venue">>
@@ -199,7 +226,7 @@ export function getPosterMatchScore(match: Match): string | null {
 export function getPosterFilename(data: PosterData, options: PosterOptions): string {
   const pageMatches = getPosterPages(data, options)[options.page] || []
   const match = pageMatches[0] || data.matches[0]
-  const identifier = data.mode === "match" ? `match-${match?.id || "preview"}` : `round-${match?.round || "preview"}`
-  const pages = getPosterPages(data, options).length
+  const identifier = data.mode === "standings" || data.mode === "scorers" ? `${data.mode}-${data.championship?.id || "preview"}` : data.mode === "match" ? `match-${match?.id || "preview"}` : `round-${match?.round || "preview"}`
+  const pages = getPosterPageCount(data, options)
   return `ksliga-${identifier}-${options.format}${pages > 1 ? `-${options.page + 1}` : ""}.png`
 }

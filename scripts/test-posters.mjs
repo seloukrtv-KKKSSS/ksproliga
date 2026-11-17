@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { getPosterDraftKey, loadPosterDraft, savePosterDraft, removePosterDraft } from "../lib/posters/drafts.ts"
 import { getPosterLogoSource } from "../lib/posters/assets.ts"
 import nextConfig from "../next.config.mjs"
-import { getPosterTeams, getPosterTeamKey, getPosterTeamLogo, getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, POSTER_FORMATS } from "../lib/posters/model.ts"
+import { getPosterTeams, getPosterTeamKey, getPosterTeamLogo, getPosterRoundLayout, getPosterSponsorHeight, getPosterSponsors, getPosterScorers, createPosterOptions, getPosterDateLabel, getPosterFilename, getPosterMatchScore, getPosterMatchTime, getPosterPages, getPosterRankingPages, getPosterRankingRows, getPosterPageCount, POSTER_FORMATS } from "../lib/posters/model.ts"
 
 const matches = Array.from({ length: 22 }, (_, index) => ({
   id: index + 1, round: 4, date: `2026-11-${index < 11 ? "15" : "16"}`, match_time: `${String(8 + index % 11).padStart(2, "0")}:00`,
@@ -214,3 +214,26 @@ const sanitizedLogos = loadPosterDraft(draftStorage,draftKey,options).draft
 assert.deepEqual(sanitizedLogos.options.teamLogos,{})
 assert.deepEqual(sanitizedLogos.imageUrls,{[homeLogoKey]:"pending"})
 console.log("Poster team emblem overrides and draft compatibility checks passed")
+
+const rankingTeams = Array.from({length: 28}, (_, index) => ({id:index+1,championship_id:1,name:`Club ${index+1}`,logo:`https://example.com/${index}.png`}))
+const rankingData = {...data,mode:"scorers",matches:[],teams:rankingTeams,players:rankingTeams.map((team,index)=>({id:index,name:`Player ${index}`,team:team.name,championship_id:1,goals:index<2?30:28-index}))}
+const rankingOptions = createPosterOptions(rankingData)
+assert.equal(rankingOptions.title,"БОМБАРДИРИ")
+assert.deepEqual(getPosterRankingRows(rankingData).slice(0,3).map(row=>row.position),[1,1,3])
+for(const {id} of POSTER_FORMATS) {
+ const pages=getPosterRankingPages(rankingData,{...rankingOptions,format:id,sponsors:Array.from({length:8},(_,i)=>({id:String(i),url:`https://example.com/${i}.png`}))})
+ assert.equal(pages.flat().length,28,"All players survive pagination with sponsors")
+ assert.equal(new Set(pages.flat().map(row=>row.name)).size,28)
+}
+assert.ok(getPosterPageCount(rankingData,rankingOptions)>1)
+assert.equal(getPosterFilename(rankingData,rankingOptions),"ksliga-scorers-1-post-1.png")
+assert.notEqual(getPosterDraftKey(rankingData),getPosterDraftKey({...rankingData,mode:"standings"}))
+assert.notEqual(getPosterDraftKey({...rankingData,mode:"standings",draftId:"g1"}),getPosterDraftKey({...rankingData,mode:"standings",draftId:"g2"}))
+assert.equal(getPosterTeams(rankingData).length,28,"Team logo overrides are available even without matches")
+const titleSponsors=[{id:"title-1",name:"Partner",url:"https://example.com/logo.png"}]
+assert.deepEqual(createPosterOptions({...rankingData,defaultSponsors:titleSponsors}).sponsors,titleSponsors)
+assert.equal(createPosterOptions({...rankingData,defaultSponsors:titleSponsors}).mainSponsorId,"title-1")
+const standingsData={...rankingData,mode:"standings",standings:rankingTeams.map(team=>({name:team.name,games:4,wins:2,draws:1,losses:1,gf:7,ga:4,pts:7}))}
+assert.equal(getPosterRankingRows(standingsData)[0].standing.pts,7)
+assert.equal(createPosterOptions(standingsData).title,"ТУРНІРНА ТАБЛИЦЯ")
+console.log("Standings and scorer posters, tied ranks, sponsor defaults and group draft isolation passed")

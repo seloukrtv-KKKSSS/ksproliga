@@ -67,6 +67,8 @@ export interface Match {
   championship_id: number
   match_time?: string
   cup_stage?: string
+  cup_fixture_id?: string | null
+  cup_leg?: number | null
   is_technical_defeat?: boolean
   technical_winner?: string
   penalty_home?: number | null

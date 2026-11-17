@@ -108,6 +108,9 @@ const OrganizersModule = dynamic(
   { loading: () => <div className="admin-step-card text-sm text-slate-500">Завантаження модуля доступів…</div> },
 )
 
+const CupDesigner = dynamic(() => import("@/components/admin/cup-designer").then((module) => module.CupDesigner))
+const TournamentSponsorsModule = dynamic(() => import("@/components/admin/tournament-sponsors-module").then((module) => module.TournamentSponsorsModule))
+
 const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
 const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
@@ -1412,6 +1415,8 @@ export function AdminPanel({
               <Settings className="h-3.5 w-3.5" />
               <span>Турніри</span>
             </TabsTrigger>
+            <TabsTrigger value="sponsors" disabled={hasNoChampionships || !currentChampionshipId} className="ios-segment whitespace-nowrap px-3.5 py-2.5 text-xs font-extrabold">Спонсори</TabsTrigger>
+            {currentChampionship?.tournament_type === "cup" && <TabsTrigger value="cup-builder" disabled={hasNoChampionships} className="ios-segment whitespace-nowrap px-3.5 py-2.5 text-xs font-extrabold">Конструктор кубка</TabsTrigger>}
             <TabsTrigger
               value="teams"
               disabled={hasNoChampionships || !currentChampionshipId || currentChampionshipId === 0 || championships.length === 0}
@@ -1472,6 +1477,8 @@ export function AdminPanel({
           </TabsList>
         </div>
 
+        <TabsContent value="sponsors">{currentChampionshipId > 0 && <TournamentSponsorsModule key={currentChampionshipId} championshipId={currentChampionshipId} onDataChange={onDataChange} />}</TabsContent>
+        <TabsContent value="cup-builder">{currentChampionship?.tournament_type === "cup" && <CupDesigner key={currentChampionshipId} championshipId={currentChampionshipId} teams={teams} onDataChange={() => { void loadData(); onDataChange?.() }} />}</TabsContent>
         <TabsContent value="championships" className="space-y-4">
           <form
             onSubmit={handleChampionshipSubmit}
@@ -1855,7 +1862,7 @@ export function AdminPanel({
                           <SelectValue placeholder="Оберіть стадію" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-slate-200">
-                          {CUP_STAGES.map((stage) => (
+                          {[...new Set([...CUP_STAGES, ...matches.map((match) => match.cup_stage).filter((stage): stage is string => Boolean(stage))])].map((stage) => (
                             <SelectItem key={stage} value={stage} className="text-slate-900 hover:bg-slate-50">
                               {stage}
                             </SelectItem>

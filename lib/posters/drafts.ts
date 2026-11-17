@@ -13,6 +13,7 @@ function teamKey(key: string): boolean {
 }
 
 export function getPosterDraftKey(data: PosterData): string | null {
+  if (data.mode === "standings" || data.mode === "scorers") return data.championship?.id ? `ksliga:poster-draft:v1:${data.championship.id}:${data.mode}${data.draftId ? `:${data.draftId}` : ""}` : null
   const match = data.matches[0]
   if (!match || !Number.isSafeInteger(match.championship_id) || match.championship_id < 1) return null
   const id = data.mode === "match" ? match.id : match.round

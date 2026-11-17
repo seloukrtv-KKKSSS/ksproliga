@@ -1,3 +1,4 @@
+import { TournamentSponsors } from "@/components/tournament-sponsors"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -60,6 +61,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
 
   return (
     <main className="detail-page">
+      <TournamentSponsors championshipId={player.championship_id} placement="player" />
       <div className="detail-page__container">
         <Link href={backHref} className="detail-back"><ArrowLeft /> Назад</Link>
         <section className="profile-hero liquid-glass-card">

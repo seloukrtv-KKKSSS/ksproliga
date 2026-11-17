@@ -1,194 +1,52 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Clock, AlertTriangle } from "lucide-react"
-import { LocalMatchDateTime } from "@/components/local-time"
-import { SafeImage } from "@/components/safe-image"
-import { getCupMatches, getTeams } from "@/lib/database"
-import type { Match, Team } from "@/lib/supabase"
+import { useCallback, useEffect, useState } from "react"
+import dynamic from "next/dynamic"
+import { Button } from "@/components/ui/button"
+import { getTeams, getChampionships } from "@/lib/database"
+import type { Championship, Team } from "@/lib/supabase"
+import { buildCupGroupTable, type CupState } from "@/lib/cup"
+import { getCupState, tournamentError } from "@/lib/tournaments"
+import { CupBracket, CupMatchLink } from "@/components/cup-bracket"
+import type { PosterData } from "@/lib/posters/model"
 
-interface CupTournamentProps {
-  championshipId: number
-}
+const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
-const CUP_STAGES = ["1/32 фіналу", "1/16 фіналу", "1/8 фіналу", "1/4 фіналу", "1/2 фіналу", "Фінал"]
-
-export function CupTournament({ championshipId }: CupTournamentProps) {
-  const [matches, setMatches] = useState<{ [key: string]: Match[] }>({})
+export function CupTournament({ championshipId }: { championshipId: number }) {
+  const [state, setState] = useState<CupState | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const loadCupData = useCallback(async () => {
+  const [championship, setChampionship] = useState<Championship | null>(null)
+  const [poster, setPoster] = useState<PosterData | null>(null)
+  const [error, setError] = useState("")
+  const load = useCallback(async (cancelled: () => boolean = () => false) => {
     try {
-      setLoading(true)
-      const [teamsData, ...stageMatches] = await Promise.all([
-        getTeams(championshipId),
-        ...CUP_STAGES.map((stage) => getCupMatches(championshipId, stage)),
-      ])
-
-      setTeams(teamsData)
-
-      const matchesByStage: { [key: string]: Match[] } = {}
-      CUP_STAGES.forEach((stage, index) => {
-        matchesByStage[stage] = stageMatches[index]
-      })
-
-      setMatches(matchesByStage)
-    } catch (error) {
-      console.error("Error loading cup data:", error)
-    } finally {
-      setLoading(false)
-    }
+      const [next, teamData, championships] = await Promise.all([getCupState(championshipId), getTeams(championshipId), getChampionships()])
+      if (cancelled()) return
+      setState(next); setTeams(teamData); setChampionship(championships.find((item) => item.id === championshipId) || null); setError("")
+    } catch (e) { if (!cancelled()) setError(tournamentError(e)) }
   }, [championshipId])
-
-  useEffect(() => {
-    const loadId = window.setTimeout(() => void loadCupData(), 0)
-    return () => window.clearTimeout(loadId)
-  }, [loadCupData])
-
-  const getTeamLogo = (teamName: string): string => {
-    if (!teamName) return "/placeholder.svg?height=32&width=32"
-    const clean = teamName.trim().toLowerCase()
-    const team = teams.find((t) => t.name?.trim().toLowerCase() === clean)
-    return team?.logo || "/placeholder.svg?height=32&width=32"
-  }
-
-  const formatMatchResult = (match: Match) => {
-    if (match.is_technical_defeat) {
-      return match.technical_winner === match.home_team ? "+:-" : "-:+"
-    }
-    return `${match.home_score} — ${match.away_score}`
-  }
-
-  const formatPenaltyResult = (match: Match) => {
-    if (match.penalty_home !== null && match.penalty_away !== null) {
-      return ` (${match.penalty_home}-${match.penalty_away} пен.)`
-    }
-    return ""
-  }
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p className="text-xs text-slate-500">Завантаження кубкового турніру...</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      {CUP_STAGES.map((stage) => {
-        const stageMatches = matches[stage] || []
-        if (stageMatches.length === 0) return null
-
-        return (
-          <div key={stage} className="space-y-2">
-            <h3 className="ios-section-header pl-1">
-              {stage}
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {stageMatches.map((match, index) => (
-                <Card key={index} className="liquid-glass-card overflow-hidden">
-                  <CardContent className="p-3.5 sm:p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3 overflow-hidden">
-                      <div className="space-y-2.5 sm:space-y-3 flex-1 min-w-0">
-                        {/* Home Team */}
-                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                            <SafeImage
-                              src={getTeamLogo(match.home_team)}
-                              alt="Home Team"
-                              width={28}
-                              height={28}
-                              className="w-full h-full object-contain"
-                              loading="lazy"
-                            />
-                          </div>
-                          <span
-                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
-                            title={match.home_team}
-                          >
-                            {match.home_team}
-                          </span>
-                        </div>
-                        {/* Away Team */}
-                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 p-0.5">
-                            <SafeImage
-                              src={getTeamLogo(match.away_team)}
-                              alt="Away Team"
-                              width={28}
-                              height={28}
-                              className="w-full h-full object-contain"
-                              loading="lazy"
-                            />
-                          </div>
-                          <span
-                            className="text-xs sm:text-sm font-bold text-slate-900 truncate flex-1 min-w-0"
-                            title={match.away_team}
-                          >
-                            {match.away_team}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Score or VS */}
-                      <div className="text-right pl-2.5 sm:pl-4 shrink-0 flex flex-col justify-center items-end min-w-[65px] sm:min-w-[80px]">
-                        {match.is_finished ? (
-                          <div className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
-                            {formatMatchResult(match)}
-                            <span className="text-[10px] text-slate-550 block font-semibold mt-0.5">
-                              {formatPenaltyResult(match)}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="text-[10px] font-bold text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded bg-indigo-50/50">
-                            VS
-                          </div>
-                        )}
-                        <div className="text-[9px] text-slate-400 font-semibold mt-1">
-                          <LocalMatchDateTime match={match} mode="date" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status & Info badges */}
-                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-                      <div className="flex items-center gap-2">
-                        {match.match_time && (
-                          <span className="flex items-center gap-1 font-medium text-slate-450">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                            <LocalMatchDateTime match={match} mode="time" />
-                          </span>
-                        )}
-                        {match.is_technical_defeat && (
-                          <span className="flex items-center gap-1 text-red-650 font-bold">
-                            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
-                            Тех. поразка
-                          </span>
-                        )}
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded-lg ${
-                          match.is_finished
-                            ? "bg-slate-50 border-slate-200 text-slate-650"
-                            : "bg-indigo-50 border-indigo-100/50 text-indigo-750"
-                        }`}
-                      >
-                        {match.is_finished ? "Завершено" : "Заплановано"}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
+  useEffect(() => { let cancelled = false; const timer = window.setTimeout(() => void load(() => cancelled), 0); return () => { cancelled = true; window.clearTimeout(timer) } }, [load])
+  if (error) return <div role="alert" className="space-y-3 rounded-2xl border p-5 text-sm"><p>{error}</p><Button variant="outline" onClick={() => void load()}>Спробувати ще раз</Button></div>
+  if (!state) return <p className="py-12 text-center text-sm text-slate-500">Завантаження кубкового турніру…</p>
+  const config = state.format?.config
+  const legacy = state.matches.filter((match) => !match.cup_fixture_id)
+  return <div className="space-y-6">
+    {poster && <PosterEditor {...poster} onClose={() => setPoster(null)} />}
+    {config && config.mode !== "knockout" && <section className="space-y-4" aria-label="Груповий етап">
+      <h2 className="ios-section-header">Груповий етап</h2>
+      <div className="grid items-start gap-4 lg:grid-cols-2">{config.groups.map((group) => {
+        const rows = buildCupGroupTable(config, group, state.fixtures, state.matches, teams)
+        const groupIds = new Set(state.fixtures.filter((fixture) => fixture.group_id === group.id).map((fixture) => fixture.id))
+        const matches = state.matches.filter((match) => groupIds.has(match.cup_fixture_id || ""))
+        return <article key={group.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-2 p-4"><h3 className="font-extrabold">{group.name}</h3><Button size="sm" variant="outline" onClick={() => setPoster({ mode: "standings", championship, matches, teams: teams.filter((team) => group.teamIds.includes(team.id)), standings: rows, draftId: group.id, defaultTitle: group.name.toLocaleUpperCase("uk") })}>Афіша таблиці</Button></div>
+          <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-3 text-left">Команда</th><th className="px-2">І</th><th className="px-2">В/Н/П</th><th className="px-2">З:П</th><th className="px-3">О</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.teamId} className={`border-t border-slate-100 ${config.mode === "groups_knockout" && index < config.qualifiers ? "bg-emerald-50/60" : ""}`}><td className="p-3 font-semibold"><span className="mr-2 text-slate-400">{index + 1}</span>{row.name}</td><td className="px-2 text-center">{row.games}</td><td className="px-2 text-center">{row.wins}/{row.draws}/{row.losses}</td><td className="px-2 text-center">{row.gf}:{row.ga}</td><td className="px-3 text-center font-extrabold">{row.pts}</td></tr>)}</tbody></table></div>
+          <details className="border-t p-4"><summary className="cursor-pointer text-xs font-bold text-slate-600">Матчі групи ({matches.length})</summary><div className="mt-3 space-y-2">{matches.map((match) => <CupMatchLink key={match.id} match={match} />)}</div></details>
+        </article>
+      })}</div><p className="text-xs text-slate-500">Очки: перемога {config.points.win}, нічия {config.points.draw}, поразка {config.points.loss}. За рівності: {config.tieBreak === "wins" ? "перемоги, різниця голів" : "різниця голів, перемоги"}, забиті голи, порядок посіву. {config.mode === "groups_knockout" ? `У плейоф виходять по ${config.qualifiers} з групи (або учасники ручного посіву).` : ""}</p>
+    </section>}
+    {config && config.mode !== "groups" && <CupBracket config={config} fixtures={state.fixtures} matches={state.matches} teams={teams} />}
+    {legacy.length > 0 && <section className="space-y-4">{config && <h2 className="ios-section-header">Інші матчі кубка</h2>}{[...new Set(legacy.map((match) => match.cup_stage || `Раунд ${match.round}`))].map((stage) => <div key={stage} className="space-y-2"><h3 className="font-bold text-slate-700">{stage}</h3><div className="grid gap-2 sm:grid-cols-2">{legacy.filter((match) => (match.cup_stage || `Раунд ${match.round}`) === stage).map((match) => <CupMatchLink key={match.id} match={match} />)}</div></div>)}</section>}
+    {!config && !legacy.length && <div className="rounded-2xl border border-dashed p-12 text-center text-sm text-slate-500">Кубок ще не налаштовано. Організатор може створити групи та сітку в адмінпанелі.</div>}
+  </div>
 }

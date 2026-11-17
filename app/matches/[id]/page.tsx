@@ -1,3 +1,4 @@
+import { TournamentSponsors } from "@/components/tournament-sponsors"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -72,6 +73,7 @@ export default async function MatchPage({ params, searchParams }: MatchPageProps
 
   return (
     <main className="detail-page">
+      <TournamentSponsors championshipId={match.championship_id} placement="match" />
       <div className="detail-page__container">
         <Link href={backHref} className="detail-back"><ArrowLeft /> Назад</Link>
 

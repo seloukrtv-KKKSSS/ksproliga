@@ -55,6 +55,8 @@ import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { withReturnTo } from "@/lib/detail-navigation"
 import { parseStoredUtcDateTime } from "@/lib/match-utils"
 import { LocalDateTime, LocalMatchDateTime, ViewerTimeZoneNote } from "@/components/local-time"
+import { TournamentSponsors } from "@/components/tournament-sponsors"
+import type { SponsorPlacement } from "@/lib/tournaments"
 import type { PosterData } from "@/lib/posters/model"
 
 const loadDatabase = () => import("@/lib/database")
@@ -1002,6 +1004,7 @@ export default function KSLigaSite() {
               </div>
             ) : (
               <>
+              {currentChampionshipId && activeTab !== "admin" && <TournamentSponsors championshipId={currentChampionshipId} placement={activeTab as SponsorPlacement} />}
               <ViewerTimeZoneNote className="text-center text-xs text-slate-500" />
               <Tabs
                 value={activeTab}
@@ -1103,7 +1106,7 @@ export default function KSLigaSite() {
                 {/* League Table Tab */}
                 {currentChampionship?.tournament_type === "league" && (
                   <TabsContent value="table" className="liquid-module outline-none space-y-3">
-                    <div className="ios-section-header">Турнірна таблиця</div>
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div className="ios-section-header">Турнірна таблиця</div><Button variant="outline" size="sm" className="gap-1.5" disabled={!teams.length || currentChampionship?.id !== currentChampionshipId} onClick={() => setPosterData({ mode: "standings", matches: allMatches, teams, championship: currentChampionship, standings: table })}><ImagePlus size={15} /> Афіша таблиці</Button></div>
 
                     {table.length === 0 ? (
                       <Card className="liquid-glass-card overflow-hidden">
@@ -1692,7 +1695,7 @@ export default function KSLigaSite() {
             </TabsContent>
 
                 {/* Player statistics */}
-                <TabsContent value="scorers" className="liquid-module outline-none space-y-2">
+                <TabsContent value="scorers" className="liquid-module outline-none space-y-2"><div className="flex justify-end"><Button variant="outline" size="sm" className="gap-1.5" disabled={playerStatsLoadFailed || !scorers.some((player) => player.goals > 0) || currentChampionship?.id !== currentChampionshipId} onClick={() => setPosterData({ mode: "scorers", matches: allMatches, teams, championship: currentChampionship, players: scorers })}><ImagePlus size={15} /> Афіша бомбардирів</Button></div>
                   {playerStatsLoadFailed ? (
                     <div role="alert" className="liquid-glass-card space-y-3 p-6 text-center">
                       <p className="text-sm text-slate-700">Не вдалося завантажити статистику гравців.</p>

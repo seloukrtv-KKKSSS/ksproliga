@@ -3,26 +3,36 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { AlertCircle, Check, ChevronLeft, ChevronRight, Download, LoaderCircle, Palette, RotateCcw, SlidersHorizontal, X } from "lucide-react"
-import type { Championship, Match, Team, MatchGoal } from "@/lib/supabase"
+import type { Championship, Match, Team, MatchGoal, Player } from "@/lib/supabase"
+import type { LeagueStanding } from "@/lib/league-utils"
 import {
   POSTER_FORMATS,
   POSTER_TEMPLATES,
   getPosterFilename,
   getPosterPages,
+  getPosterPageCount,
+  getPosterRankingRows,
   getPosterTeams,
   type PosterData,
+  type PosterMode,
   type PosterOptions,
 } from "@/lib/posters/model"
 import { renderPoster } from "@/lib/posters/render"
 import { getPosterDraftKey } from "@/lib/posters/drafts"
 import { usePosterDraft } from "./use-poster-draft"
+import { getTournamentSponsors } from "@/lib/tournaments"
 import "./poster-editor.css"
 
 export interface PosterEditorProps {
-  mode: "match" | "round"
+  mode: PosterMode
   matches: Match[]
   teams: Team[]
   championship?: Championship | null
+  players?: Player[]
+  standings?: LeagueStanding[]
+  draftId?: string
+  defaultTitle?: string
+  defaultSponsors?: PosterData["defaultSponsors"]
   onClose: () => void
 }
 
@@ -55,10 +65,19 @@ function saveBlob(blob: Blob, filename: string) {
 }
 
 export default function PosterEditor(props: PosterEditorProps) {
-  return <PosterEditorSession key={getPosterDraftKey(props) || "unsaved"} {...props} />
+  const championshipId = props.championship?.id || props.matches[0]?.championship_id
+  const [defaults, setDefaults] = useState<{ id?: number; sponsors: NonNullable<PosterData["defaultSponsors"]> } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const request = championshipId ? getTournamentSponsors(championshipId) : Promise.resolve([])
+    void request.then((sponsors) => { if (!cancelled) setDefaults({ id: championshipId, sponsors: sponsors.filter((sponsor) => sponsor.is_active && sponsor.placements.includes("posters")).slice(0, 8).map((sponsor) => ({ id: `title-${sponsor.id}`, name: sponsor.name, url: sponsor.logo_url })) }) }).catch(() => { if (!cancelled) setDefaults({ id: championshipId, sponsors: [] }) })
+    return () => { cancelled = true }
+  }, [championshipId])
+  if (defaults?.id !== championshipId || !defaults) return createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50"><div className="rounded-2xl bg-white p-6 text-center"><p role="status">Готуємо редактор афіш…</p><button type="button" className="mt-3 text-sm text-slate-500" onClick={props.onClose}>Закрити</button></div></div>, document.body)
+  return <PosterEditorSession key={getPosterDraftKey(props) || "unsaved"} {...props} defaultSponsors={defaults.sponsors} />
 }
 
-function PosterEditorSession({ mode, matches, teams, championship, onClose }: PosterEditorProps) {
+function PosterEditorSession({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, onClose }: PosterEditorProps) {
   const titleId = useId()
   const descriptionId = useId()
   const inputId = useId()
@@ -66,7 +85,7 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isMounted = useRef(false)
   const [goalResult, setGoalResult] = useState<{ key: string; goals: MatchGoal[]; error?: boolean } | null>(null)
-  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship, goals: goalResult?.goals || [] }), [mode, matches, teams, championship, goalResult])
+  const data = useMemo<PosterData>(() => ({ mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, goals: goalResult?.goals || [] }), [mode, matches, teams, championship, players, standings, draftId, defaultTitle, defaultSponsors, goalResult])
   const { options, imageUrls, commit, reset, resetCount, status: draftStatus } = usePosterDraft(data)
   const [rendered, setRendered] = useState<{ options: PosterOptions; data: PosterData; warnings: string[]; error?: string } | null>(null)
   const [downloadError, setDownloadError] = useState("")
@@ -74,12 +93,14 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
   const [downloaded, setDownloaded] = useState(false)
   const format = POSTER_FORMATS.find((item) => item.id === options.format) || POSTER_FORMATS[0]
   const pages = getPosterPages(data, options)
+  const pageCount = getPosterPageCount(data, options)
+  const ranking = mode === "standings" || mode === "scorers"
   const visibleMatches = pages[options.page] || []
   const posterTeams = getPosterTeams(data)
   const goalKey = matches.filter((match) => match.is_finished).map((match) => match.id).sort((a,b) => a-b).join(",")
   const loadingGoals = options.showScorers && Boolean(goalKey) && goalResult?.key !== goalKey
   const isRendering = loadingGoals || rendered?.options !== options || rendered?.data !== data
-  const canDownload = !isRendering && !rendered?.error && !downloading && matches.length > 0
+  const canDownload = !isRendering && !rendered?.error && !downloading && (ranking ? getPosterRankingRows(data).length > 0 : matches.length > 0)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -134,7 +155,7 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
   }
 
   function changePage(direction: number) {
-    commit((previous) => ({ ...previous, options: { ...previous.options, page: Math.max(0, Math.min(getPosterPages(data, previous.options).length - 1, previous.options.page + direction)) } }))
+    commit((previous) => ({ ...previous, options: { ...previous.options, page: Math.max(0, Math.min(getPosterPageCount(data, previous.options) - 1, previous.options.page + direction)) } }))
     setDownloaded(false)
     setDownloadError("")
   }
@@ -186,7 +207,7 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
           <div className="poster-editor__heading">
             <span className="poster-editor__icon"><Palette size={21} /></span>
             <div>
-              <h2 id={titleId}>{mode === "match" ? "Афіша матчу" : "Афіша туру"}</h2>
+              <h2 id={titleId}>{mode === "standings" ? "Афіша турнірної таблиці" : mode === "scorers" ? "Афіша бомбардирів" : mode === "match" ? "Афіша матчу" : "Афіша туру"}</h2>
               <p id={descriptionId} role="status" className={draftStatus === "unavailable" ? "poster-editor__error" : undefined}>
                 {draftStatus === "unavailable" ? "Не вдалося зберегти чернетку в цьому браузері." : draftStatus === "restored" ? "Чернетку відновлено. Зміни зберігаються в цьому браузері." : draftStatus === "saved" ? "Чернетка збережена в цьому браузері." : draftStatus === "reset" ? "Чернетку очищено. Нові зміни зберігатимуться автоматично." : "Зміни зберігаються автоматично в цьому браузері."}
               </p>
@@ -243,13 +264,13 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
               </div>
             </details>
 
-            <div className="poster-editor__checks">
+            {!ranking && <div className="poster-editor__checks">
               <label><input type="checkbox" checked={options.showTime} onChange={(event) => update("showTime", event.target.checked)} disabled={downloading} /> Показувати час матчів</label>
               <label><input type="checkbox" checked={options.showVenue} onChange={(event) => update("showVenue", event.target.checked)} disabled={downloading} /> Показувати місце проведення</label>
               <label><input type="checkbox" checked={options.showScores} onChange={(event) => update("showScores", event.target.checked)} disabled={downloading} /> Рахунки завершених матчів</label>
               <label><input type="checkbox" checked={options.showScorers} onChange={(event) => update("showScorers", event.target.checked)} disabled={downloading} /> Показувати авторів голів</label>
               {options.showScorers && !loadingGoals && <p className="poster-editor__hint">{goalResult?.error ? "Не вдалося завантажити протоколи. Відкрийте редактор ще раз." : data.goals?.length ? "Автори голів із протоколів матчів." : "У протоколах поки немає записаних голів."}</p>}
-            </div>
+            </div>}
 
             <details className="poster-editor__details">
               <summary>Емблеми команд ({posterTeams.length})</summary><div>
@@ -272,6 +293,10 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
             <details className="poster-editor__details">
               <summary>Спонсори ({options.sponsors.length}/8)</summary><div>
                 <p className="poster-editor__hint">Головний спонсор — у нижній смузі, менші логотипи — над нею.</p>
+                {Boolean(defaultSponsors?.length) && <button type="button" className="poster-editor__upload" disabled={downloading || options.sponsors.length >= 8} onClick={() => {
+                  const added = (defaultSponsors || []).filter((sponsor) => !options.sponsors.some((item) => item.id === sponsor.id || item.url === sponsor.url))
+                  update("sponsors", [...options.sponsors, ...added].slice(0, 8))
+                }}>Додати титульних партнерів турніру</button>}
                 {options.sponsors.map((sponsor, index) => <div key={sponsor.id} className="poster-editor__sponsor">
                   <label className="poster-editor__field"><span>Назва спонсора {index + 1}</span><input maxLength={60} value={sponsor.name} disabled={downloading} onChange={(event) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, name: event.target.value } : item))} /></label>
                   <ImageUrlField key={sponsor.url} label={`URL логотипа ${index + 1}`} value={imageUrls[`sponsor:${sponsor.id}`] ?? sponsor.url} onChange={(value) => updateImageUrl(`sponsor:${sponsor.id}`, value)} disabled={downloading} onApply={(url) => update("sponsors", options.sponsors.map((item) => item.id === sponsor.id ? { ...item, url } : item))} />
@@ -292,15 +317,15 @@ function PosterEditorSession({ mode, matches, teams, championship, onClose }: Po
               {isRendering && <div className="poster-editor__rendering" role="status"><LoaderCircle size={22} className="animate-spin" /><span>Готуємо афішу…</span></div>}
               {!isRendering && rendered?.error && <div className="poster-editor__rendering poster-editor__error" role="alert"><AlertCircle size={24} /><span>{rendered.error}</span></div>}
             </div>
-            {pages.length > 1 && <div className="poster-editor__pagination"><button type="button" aria-label="Попередня афіша" disabled={options.page === 0 || downloading} onClick={() => changePage(-1)}><ChevronLeft size={17} /></button><span>Афіша {options.page + 1} з {pages.length}<small>Матчів на зображенні: {visibleMatches.length}</small></span><button type="button" aria-label="Наступна афіша" disabled={options.page >= pages.length - 1 || downloading} onClick={() => changePage(1)}><ChevronRight size={17} /></button></div>}
-            <p className="poster-editor__preview-note">Час матчів — за Києвом. PNG збережеться в повній якості.</p>
+            {pageCount > 1 && <div className="poster-editor__pagination"><button type="button" aria-label="Попередня афіша" disabled={options.page === 0 || downloading} onClick={() => changePage(-1)}><ChevronLeft size={17} /></button><span>Афіша {options.page + 1} з {pageCount}<small>{ranking ? "Статистика турніру" : `Матчів на зображенні: ${visibleMatches.length}`}</small></span><button type="button" aria-label="Наступна афіша" disabled={options.page >= pageCount - 1 || downloading} onClick={() => changePage(1)}><ChevronRight size={17} /></button></div>}
+            <p className="poster-editor__preview-note">PNG збережеться в повній якості. Час матчів — за Києвом.</p>
             {!isRendering && rendered && rendered.warnings.length > 0 && <div className="poster-editor__warnings" role="status"><AlertCircle size={15} /><span>{rendered.warnings.join(" ")}</span></div>}
           </section>
         </div>
 
         <footer className="poster-editor__footer">
-          <p>{pages.length > 1 ? `Афіш у цьому турі: ${pages.length}. Перемикайте та завантажуйте кожну.` : "Логотипи, команди та розклад — із вашого турніру."}</p>
-          <div>{downloadError && <span className="poster-editor__error" role="alert">{downloadError}</span>}<button type="button" className="poster-editor__download" disabled={!canDownload} onClick={() => void download()}>{downloading || isRendering ? <LoaderCircle size={18} className="animate-spin" /> : downloaded ? <Check size={18} /> : <Download size={18} />}{downloading ? "Зберігаємо…" : downloaded ? "Завантажити ще раз" : pages.length > 1 ? `Завантажити PNG · ${options.page + 1}/${pages.length}` : "Завантажити PNG"}</button></div>
+          <p>{pageCount > 1 ? `Зображень: ${pageCount}. Перемикайте та завантажуйте кожну.` : "Логотипи, команди та розклад — із вашого турніру."}</p>
+          <div>{downloadError && <span className="poster-editor__error" role="alert">{downloadError}</span>}<button type="button" className="poster-editor__download" disabled={!canDownload} onClick={() => void download()}>{downloading || isRendering ? <LoaderCircle size={18} className="animate-spin" /> : downloaded ? <Check size={18} /> : <Download size={18} />}{downloading ? "Зберігаємо…" : downloaded ? "Завантажити ще раз" : pageCount > 1 ? `Завантажити PNG · ${options.page + 1}/${pageCount}` : "Завантажити PNG"}</button></div>
         </footer>
       </div>
     </dialog>, document.body,

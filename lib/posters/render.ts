@@ -7,6 +7,8 @@ import {
   getPosterMatchScore,
   getPosterMatchTime,
   getPosterPages,
+  getPosterPageCount,
+  getPosterRankingPages,
   getPosterRoundLayout,
   getPosterSponsorHeight,
   getPosterSponsors,
@@ -205,13 +207,13 @@ function background(ctx: CanvasRenderingContext2D, width: number, height: number
 }
 
 function header(ctx: CanvasRenderingContext2D, data: PosterData, options: PosterOptions, assets: Assets, p: Palette, height: number) {
-  const compact = data.mode === "round"
+  const compact = data.mode !== "match"
   const brand = assets.get("/images/ks-logo.png")
   if (brand) contain(ctx, brand, 103, compact ? 80 : 100, compact ? 70 : 90)
   else text(ctx, "KS", 58, 127, 72, p.accentText, options, 120)
   text(ctx, "KS LIGA", 170, compact ? 85 : 105, compact ? 36 : 43, p.text, options, 490, "left", 900)
   text(ctx, "СПОРТИВНІ ПОДІЇ ОНЛАЙН!", 172, compact ? 112 : 135, 16, p.muted, options, 490, "left", 700)
-  const label = options.showScores ? data.mode === "match" ? "РЕЗУЛЬТАТ" : "РЕЗУЛЬТАТИ" : "АНОНС МАТЧІВ"
+  const label = data.mode === "standings" || data.mode === "scorers" ? "СТАТИСТИКА" : options.showScores ? data.mode === "match" ? "РЕЗУЛЬТАТ" : "РЕЗУЛЬТАТИ" : "АНОНС МАТЧІВ"
   box(ctx, 758, compact ? 58 : 74, 264, compact ? 40 : 48, 24, p.accent)
   text(ctx, label, 890, compact ? 85 : 106, 22, p.onAccent, options, 225, "center", 800)
   const square = height === 1080
@@ -231,8 +233,7 @@ function footer(ctx: CanvasRenderingContext2D, height: number, data: PosterData,
   if (main) {
     text(ctx, "ГОЛОВНИЙ ПАРТНЕР", 60, top + 28, 13, p.onAccent, options, 260, "left", 800)
     text(ctx, options.footer, 60, top + 58, 26, p.onAccent, options, 260, "left", 800)
-    drawSponsor(ctx, main, 540, top + 42, 360, 64, assets, options)
-    if (main.name) text(ctx, main.name, 540, top + 88, 13, p.onAccent, options, 360, "center", 700)
+    drawSponsor(ctx, main, 550, top + 46, 420, 80, assets, options)
   } else {
     text(ctx, options.footer, 60, height - 37, 26, p.onAccent, options, 570, "left", 800)
   }
@@ -244,7 +245,7 @@ function drawSponsor(ctx: CanvasRenderingContext2D, sponsor: PosterOptions["spon
   box(ctx, x - width / 2, y - size / 2, width, size, 10, "#ffffff")
   const img = assets.get(sponsor.url)
   if (img) {
-    const ratio = Math.min((width - 20) / img.naturalWidth, (size - 12) / img.naturalHeight)
+    const ratio = Math.min((width - 12) / img.naturalWidth, (size - 6) / img.naturalHeight)
     ctx.drawImage(img, x - img.naturalWidth * ratio / 2, y - img.naturalHeight * ratio / 2, img.naturalWidth * ratio, img.naturalHeight * ratio)
   } else text(ctx, sponsor.name || "Партнер", x, y + 6, 18, "#10203a", options, width - 18, "center")
 }
@@ -259,9 +260,8 @@ function sponsorStrip(ctx: CanvasRenderingContext2D, options: PosterOptions, ass
     const countInRow = Math.min(columns, partners.length - row * columns)
     const columnWidth = 960 / columns
     const x = 540 + ((index % columns) - (countInRow - 1) / 2) * columnWidth
-    const y = top + 34 + row * 68
-    drawSponsor(ctx, sponsor, x, y, Math.min(200, columnWidth - 16), 42, assets, options)
-    if (sponsor.name) text(ctx, sponsor.name, x, y + 34, 13, p.muted, options, Math.min(220, columnWidth - 10), "center")
+    const y = top + 40 + row * 68
+    drawSponsor(ctx, sponsor, x, y, Math.min(224, columnWidth - 12), 62, assets, options)
   })
 }
 
@@ -344,15 +344,40 @@ function roundPoster(ctx: CanvasRenderingContext2D, matches: Match[], data: Post
   if (options.showVenue && options.venue.trim()) text(ctx, options.venue, 540, height - 104 - getPosterSponsorHeight(options), 18, p.muted, options, 950, "center", 600)
 }
 
+function rankingPoster(ctx: CanvasRenderingContext2D, data: PosterData, options: PosterOptions, assets: Assets, p: Palette) {
+  const rows = getPosterRankingPages(data, options)[options.page] || []
+  const layout = getPosterRoundLayout(data, options)
+  const standings = data.mode === "standings"
+  text(ctx, standings ? "КОМАНДА" : "ГРАВЕЦЬ / КОМАНДА", 162, layout.top + 26, 18, p.muted, options, 430)
+  if (standings) for (const [label, x] of [["І", 640], ["В / Н / П", 748], ["З : П", 868], ["О", 978]] as const) text(ctx, label, x, layout.top + 26, 18, p.muted, options, 112, "center")
+  else text(ctx, "ГОЛИ", 960, layout.top + 26, 18, p.muted, options, 100, "center")
+  if (!rows.length) text(ctx, standings ? "Команд ще немає" : "Забитих голів ще немає", 540, layout.top + 140, 34, p.muted, options, 940, "center")
+  const rowHeight = Math.min(88, (layout.bottom - layout.top - 44) / Math.max(1, rows.length))
+  rows.forEach((row, index) => {
+    const y = layout.top + 44 + index * rowHeight
+    box(ctx, 60, y, 960, rowHeight - 6, 12, p.card, p.line)
+    text(ctx, String(row.position).padStart(2, "0"), 88, y + rowHeight / 2 + 7, 23, row.position <= 3 ? p.accentText : p.muted, options, 50)
+    logo(ctx, getPosterTeamLogo(data, options, data.championship?.id || data.teams[0]?.championship_id, row.team), row.team, 167, y + (rowHeight - 6) / 2, 42, assets, p, options)
+    if (standings && row.standing) {
+      text(ctx, row.name, 204, y + rowHeight / 2 + 6, 24, p.text, options, 370)
+      for (const [value, x, width] of [[row.standing.games, 640, 60], [`${row.standing.wins}/${row.standing.draws}/${row.standing.losses}`, 748, 112], [`${row.standing.gf}:${row.standing.ga}`, 868, 104], [row.standing.pts, 978, 65]] as const) text(ctx, String(value), x, y + rowHeight / 2 + 6, 23, x === 978 ? p.accentText : p.text, options, width, "center", x === 978 ? 900 : 600)
+    } else {
+      text(ctx, row.name, 204, y + rowHeight / 2 - 4, 27, p.text, options, 650)
+      text(ctx, row.team, 205, y + rowHeight / 2 + 19, 17, p.muted, options, 650, "left", 600)
+      text(ctx, String(row.goals), 960, y + rowHeight / 2 + 9, 34, p.accentText, options, 90, "center", 900)
+    }
+  })
+}
+
 export async function renderPoster(canvas: HTMLCanvasElement, data: PosterData, options: PosterOptions): Promise<{ warnings: string[] }> {
   const format = POSTER_FORMATS.find((item) => item.id === options.format) || POSTER_FORMATS[0]
   const pages = getPosterPages(data, options)
   const matches = pages[Math.max(0, Math.min(options.page, pages.length - 1))] || []
-  const badges = matches.flatMap((match) => [match.home_team, match.away_team].map((name) => ({ name, url: getPosterTeamLogo(data, options, match.championship_id, name) })))
+  const badges = data.mode === "standings" || data.mode === "scorers" ? (getPosterRankingPages(data, options)[options.page] || []).map((row) => ({ name: row.team, url: getPosterTeamLogo(data, options, data.championship?.id || data.teams[0]?.championship_id, row.team) })) : matches.flatMap((match) => [match.home_team, match.away_team].map((name) => ({ name, url: getPosterTeamLogo(data, options, match.championship_id, name) })))
   const logoUrls = [...new Set(badges.map((badge) => badge.url).filter((url): url is string => Boolean(url)))]
   const sponsorUrls = options.sponsors.map((sponsor) => sponsor.url).filter(Boolean)
   const urls = ["/images/ks-logo.png", ...logoUrls, ...sponsorUrls, ...(options.backgroundUrl ? [options.backgroundUrl] : [])]
-  const assets: Assets = new Map(await Promise.all(urls.map(async (url) => [url, await loadImage(url, getPosterLogoSource(url, url === options.backgroundUrl ? 1920 : 256))] as const)))
+  const assets: Assets = new Map(await Promise.all(urls.map(async (url) => [url, await loadImage(url, getPosterLogoSource(url, url === options.backgroundUrl ? 1920 : sponsorUrls.includes(url) ? 828 : 256))] as const)))
   const warnings: string[] = []
   const failedTeams = [...new Set(badges.filter((badge) => badge.url && !assets.get(badge.url)).map((badge) => badge.name))]
   if (failedTeams.length) warnings.push(`Недоступні емблеми: ${failedTeams.slice(0, 5).join(", ")}${failedTeams.length > 5 ? ` та ще ${failedTeams.length - 5}` : ""}. Замініть посилання у «Емблеми команд». Поки використано ініціали.`)
@@ -366,10 +391,11 @@ export async function renderPoster(canvas: HTMLCanvasElement, data: PosterData, 
   const p = palette(options)
   background(ctx, format.width, format.height, p, options, assets)
   header(ctx, data, options, assets, p, format.height)
-  if (!matches.length) text(ctx, "Матчів ще немає", 540, format.height / 2, 48, p.muted, options, 940, "center")
+  if (data.mode === "standings" || data.mode === "scorers") rankingPoster(ctx, data, options, assets, p)
+  else if (!matches.length) text(ctx, "Матчів ще немає", 540, format.height / 2, 48, p.muted, options, 940, "center")
   else if (data.mode === "match") matchPoster(ctx, matches[0], data, options, assets, p, format.height)
   else roundPoster(ctx, matches, data, options, assets, p, format.height)
   sponsorStrip(ctx, options, assets, p, format.height)
-  footer(ctx, format.height, data, options, assets, p, pages.length)
+  footer(ctx, format.height, data, options, assets, p, getPosterPageCount(data, options))
   return { warnings }
 }
