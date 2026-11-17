@@ -480,7 +480,8 @@ function cupPoster(ctx: CanvasRenderingContext2D, data: PosterData, options: Pos
     const date = next?.date || entry.fixture.scheduled_date
     const time = next?.match_time || entry.fixture.scheduled_time
     const dateText = options.showTime && date ? `${date.slice(8, 10)}.${date.slice(5, 7)}${time ? ` · ${time.slice(0, 5)}` : ""}` : ""
-    const detail = options.showScores && entry.detail ? entry.detail : [entry.fixture.legs === 2 ? "2 матчі" : "", dateText].filter(Boolean).join(" · ")
+    const cancelled = entry.fixture.excluded_legs?.length || 0
+    const detail = options.showScores && entry.detail ? entry.detail : cancelled ? cancelled === entry.fixture.legs ? "Пару скасовано" : `Матчів: ${entry.fixture.legs - cancelled} · скасовано ${cancelled}` : [entry.fixture.legs === 2 ? "2 матчі" : "", dateText].filter(Boolean).join(" · ")
     if (detail) text(ctx, detail, x + columnWidth / 2, y + cardHeight / 2 - 3, 14, p.muted, options, columnWidth - 8, "center", 600)
   }
   let noteY = layout.bottom + 23

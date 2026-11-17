@@ -99,6 +99,8 @@ import {
 } from "@/lib/match-utils"
 import { YouTubeExternalLink } from "@/components/youtube-external-link"
 import { MatchPlayerEvents, type QuickEventType } from "@/components/admin/match-player-events"
+import { DeleteMatchDialog } from "@/components/admin/delete-match-dialog"
+import type { MatchDeletionPlan } from "@/lib/database"
 import { MatchEventEditor, type EditableMatchEvent } from "@/components/admin/match-event-editor"
 import { PlayerStatisticsModule } from "@/components/admin/player-statistics-module"
 import { normalizeRoster, normalizePlayerName, playerNameKey } from "@/lib/player-stats"
@@ -183,6 +185,7 @@ export function AdminPanel({
   const [championships, setChampionships] = useState<Championship[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [matches, setMatches] = useState<Match[]>([])
+  const [matchToDelete, setMatchToDelete] = useState<Match | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [playerStatsLoadFailed, setPlayerStatsLoadFailed] = useState(false)
   const [organizers, setOrganizers] = useState<Organizer[]>([])
@@ -223,6 +226,7 @@ export function AdminPanel({
   )
 
   const [activeAdminTab, setActiveAdminTab] = useState<string>("championships")
+  const adminTabRef = useRef(activeAdminTab)
   const visibleAdminTab = hasNoChampionships ? "shop" : activeAdminTab
   const [editingOrganizer, setEditingOrganizer] = useState<Organizer | null>(null)
   const [organizerNotice, setOrganizerNotice] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -403,6 +407,17 @@ export function AdminPanel({
     return () => window.clearTimeout(loadId)
   }, [isMainAdmin, loadAnalytics, visibleAdminTab])
 
+  const loadAuxiliaryData = useCallback(async (tab: string) => {
+    if (tab === "organizers" && isMainAdmin) setOrganizers(await getOrganizers())
+    if (tab === "shop") setProducts(await getProducts())
+    if (tab === "logs" && isMainAdmin) setOrganizerLogs(await getOrganizerLogs())
+  }, [isMainAdmin])
+  useEffect(() => {
+    adminTabRef.current = visibleAdminTab
+    const timer = window.setTimeout(() => void loadAuxiliaryData(visibleAdminTab).catch((error) => console.error("Error loading admin module", error)), 0)
+    return () => window.clearTimeout(timer)
+  }, [visibleAdminTab, loadAuxiliaryData])
+
   const loadData = useCallback(async () => {
     try {
       const championshipsData = await getChampionships()
@@ -412,17 +427,6 @@ export function AdminPanel({
 
       setChampionships(filteredChampionships)
 
-      const [organizersData, productsData, logsData] = await Promise.all([
-        isMainAdmin ? getOrganizers() : Promise.resolve([]),
-        getProducts(),
-        getOrganizerLogs(),
-      ])
-
-      if (isMainAdmin) {
-        setOrganizers(organizersData)
-      }
-      setProducts(productsData)
-      setOrganizerLogs(logsData)
 
       if (currentChampionshipId && currentChampionshipId > 0) {
         const [teamsData, matchesData, playersResult, votingsData] = await Promise.all([
@@ -448,10 +452,11 @@ export function AdminPanel({
         setPlayerStatsLoadFailed(false)
         setChampionshipVotings([])
       }
+      await loadAuxiliaryData(adminTabRef.current)
     } catch (error) {
       console.error("Error loading data:", error)
     }
-  }, [allowedChampionshipIds, currentChampionshipId, isMainAdmin])
+  }, [allowedChampionshipIds, currentChampionshipId, isMainAdmin, loadAuxiliaryData])
 
   useEffect(() => {
     const loadId = window.setTimeout(() => void loadData(), 0)
@@ -875,17 +880,13 @@ export function AdminPanel({
     setLoading(false)
   }
 
-  const handleDeleteMatch = async (id: number) => {
-    if (confirm("Ви впевнені, що хочете видалити цей матч?")) {
-      try {
-        await deleteMatch(id)
-        await logOrganizerAction(organizerName || "Адміністратор", "delete_match", `Видалено матч ID #${id}`)
-        await loadData()
-        onDataChange?.()
-      } catch (error) {
-        console.error("Error deleting match:", error)
-      }
-    }
+  const handleDeleteMatch = async (plan: MatchDeletionPlan, includeDependents: boolean) => {
+    await deleteMatch(plan.match.id, { token: plan.token, includeDependents })
+    const ids = new Set([plan.match.id, ...(includeDependents ? plan.dependents.map((match) => match.id) : [])])
+    setMatches((previous) => previous.filter((match) => !ids.has(match.id)))
+    await logOrganizerAction(organizerName || "Адміністратор", "delete_match", `Видалено матч ID #${plan.match.id}${includeDependents ? ` і залежні матчі: ${plan.dependents.map((match) => match.id).join(", ")}` : ""}`).catch((error) => console.warn("Match deleted; audit refresh failed", error))
+    await loadData()
+    onDataChange?.()
   }
 
   // Match events (goals and cards) handlers
@@ -1319,6 +1320,7 @@ export function AdminPanel({
 
   return (
     <div className="ks-admin-scope space-y-4 sm:space-y-6">
+      {matchToDelete && <DeleteMatchDialog key={matchToDelete.id} match={matchToDelete} onDelete={handleDeleteMatch} onClose={() => setMatchToDelete(null)} />}
       {editingEvent && matches.find(match => match.id === editingEvent.event.match_id) && <MatchEventEditor
         key={`${editingEvent.kind}-${editingEvent.event.id}`}
         item={editingEvent}
@@ -2378,7 +2380,8 @@ export function AdminPanel({
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleDeleteMatch(match.id)}
+                        onClick={() => setMatchToDelete(match)}
+                        aria-label={`Видалити матч: ${match.home_team} — ${match.away_team}`}
                         className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-lg flex-1 sm:flex-none"
                       >
                         <Trash2 className="h-4 w-4" />

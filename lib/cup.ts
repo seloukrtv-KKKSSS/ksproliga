@@ -39,6 +39,7 @@ export interface CupFixture {
   resolved?: boolean
   winner_team_id?: number | null
   loser_team_id?: number | null
+  excluded_legs?: number[]
 }
 export interface CupFormat { championship_id: number; config: CupConfig; revision: number }
 export interface CupState { format: CupFormat | null; fixtures: CupFixture[]; matches: Match[] }

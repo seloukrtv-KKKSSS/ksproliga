@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Championship, Team } from "@/lib/supabase"
 import { getCupStageLegs, buildCupFixtures, createCupConfig, cupSourceLabel, distributeCupGroups, getCupSeeds, type CupConfig, type CupFixture, type CupSource, type CupState } from "@/lib/cup"
-import { getCupState, publishCupFormat, setCupStageLegs, scheduleCupFixture, tournamentError } from "@/lib/tournaments"
+import { getCupState, restoreCupMatch, resetCupFormat, publishCupFormat, setCupStageLegs, scheduleCupFixture, tournamentError } from "@/lib/tournaments"
 
+import { MutationDialog } from "./mutation-dialog"
 import { getCupPosterFixtures, type PosterData } from "@/lib/posters/model"
 
 const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
@@ -16,6 +17,7 @@ function encodeSource(source: CupSource) { return source.kind === "team" ? `team
 function decodeSource(value: string): CupSource { const [kind, id, rank] = value.split(":"); return kind === "team" ? { kind: "team", teamId: Number(id) } : kind === "group" ? { kind: "group", groupId: id, rank: Number(rank) } : { kind: "bye" } }
 
 export function CupDesigner({ championshipId, teams, championship, onDataChange }: { championshipId: number; teams: Team[]; championship?: Championship; onDataChange?: () => void }) {
+  const [resetOpen, setResetOpen] = useState(false)
   const [poster, setPoster] = useState<PosterData | null>(null)
   const [state, setState] = useState<CupState | null>(null)
   const [config, setConfig] = useState<CupConfig>(() => createCupConfig(teams))
@@ -59,6 +61,13 @@ export function CupDesigner({ championshipId, teams, championship, onDataChange 
     catch (e) { setError(tournamentError(e)) }
     finally { setBusy(false) }
   }
+  async function restore(fixture: CupFixture, leg: number) {
+    if (!state?.format) return
+    setBusy(true); setError("")
+    try { await restoreCupMatch(championshipId, fixture.id, leg, state.format.revision); await refresh(); setMessage("Матч відновлено у сітці. Він з’явиться в календарі після визначення учасників.") }
+    catch (e) { setError(tournamentError(e)) }
+    finally { setBusy(false) }
+  }
   async function saveSchedule() {
     if (!schedule || !state?.format) return
     setBusy(true); setError("")
@@ -67,6 +76,10 @@ export function CupDesigner({ championshipId, teams, championship, onDataChange 
     finally { setBusy(false) }
   }
   return <section className="space-y-4">
+    {resetOpen && state?.format && <MutationDialog title="Очистити кубкову сітку?" confirmLabel="Очистити сітку" onClose={() => setResetOpen(false)} onConfirm={async () => {
+      await resetCupFormat(championshipId, state.format!.revision, state.matches)
+      await refresh(); setConfig(createCupConfig(teams)); setPreviewOpen(false); setSchedule(null); setMessage("Сітку та її матчі очищено. Можна налаштувати кубок заново.")
+    }}><p>Буде видалено {state.matches.filter((match) => match.cup_fixture_id).length} матчів конструктора, їхні голи, картки, голосування та налаштування груп і плейоф. Статистика перерахується.</p><p>Команди можна буде використати для нової сітки.</p></MutationDialog>}
     {poster && <PosterEditor {...poster} onClose={() => setPoster(null)} />}
     {state && <div className="flex justify-end"><Button variant="outline" disabled={!getCupPosterFixtures({ mode: "cup", matches: state.matches, teams, championship, cup: { config: state.format?.config, fixtures: state.fixtures } }).length} onClick={() => setPoster({ mode: "cup", matches: state.matches, teams, championship, cup: { config: state.format?.config, fixtures: state.fixtures } })}>Афіша кубка</Button></div>}
     <div className="admin-step-card space-y-2"><h3 className="text-lg font-bold">Конструктор кубка</h3><p className="text-sm text-slate-500">Налаштуйте формат, перевірте сітку й опублікуйте календар. Рахунки, пенальті та протоколи вносьте у вкладці «Матчі». За рівної суми двох матчів переможця визначають пенальті другого матчу; правило виїзного гола не застосовується.</p>{started && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Кубок уже розпочався. Структура захищена від перебудови; розклад кожної пари можна змінити нижче.</p>}</div>
@@ -95,7 +108,8 @@ export function CupDesigner({ championshipId, teams, championship, onDataChange 
     </fieldset>
     {previewOpen && !plan.error && !started && <div className="admin-step-card space-y-4"><h4 className="font-bold">Перегляд перед публікацією</h4><p className="text-sm text-slate-500">Пар: {plan.fixtures.length}. Попередні матчі, створені вручну, залишаться окремо. Перебудова замінює лише ще не розпочаті матчі конструктора.</p><div className="max-h-96 space-y-2 overflow-y-auto">{plan.fixtures.map((fixture) => <div key={fixture.id} className="rounded-xl border p-3 text-sm"><div className="mb-1 text-xs font-bold text-slate-500">{fixture.label} · {fixture.scheduled_date} · {fixture.legs === 2 ? "2 матчі" : "1 матч"}</div>{cupSourceLabel(fixture.home_source, config, teams, plan.fixtures)} — {cupSourceLabel(fixture.away_source, config, teams, plan.fixtures)}</div>)}</div><Button disabled={busy || !state} onClick={() => void publish()}>{busy ? "Створюємо…" : state?.format ? "Опублікувати оновлену структуру" : "Створити кубок і календар"}</Button></div>}
     {state?.format && state.fixtures.some((fixture) => fixture.stage > 0) && <div className="admin-step-card space-y-3"><h4 className="font-bold">Кількість матчів опублікованих стадій</h4><p className="text-sm text-slate-500">Зміни застосовуються одразу. Доступні стадії без рахунків, протоколів, голосувань і трансляцій; наступні стадії також мають бути ще не розпочаті.</p>{[...new Map(state.fixtures.filter((fixture) => fixture.stage > 0).map((fixture) => [fixture.id === "third-place" ? "third-place" : String(fixture.stage), fixture])).values()].map((fixture) => <label key={fixture.id} className="flex flex-wrap items-center gap-3 text-sm"><span className="min-w-40 flex-1 font-semibold">{fixture.label}</span><select aria-label={`Опублікована стадія: ${fixture.label}`} className={`${selectClass} sm:max-w-64`} value={fixture.legs} disabled={busy} onChange={(event) => void changePublishedStage(fixture.stage, Number(event.target.value) as 1 | 2, fixture.id === "third-place")}><option value={1}>1 матч</option><option value={2}>2 матчі · вдома / у гостях</option></select></label>)}</div>}
-    {state?.fixtures.length ? <div className="admin-step-card space-y-3"><h4 className="font-bold">Опубліковані пари та розклад</h4><p className="text-sm text-slate-500">Учасники майбутніх стадій визначаться автоматично. Редагування дати тут оновлює обидва матчі пари.</p><div className="max-h-[36rem] space-y-2 overflow-y-auto">{state.fixtures.map((fixture) => <div key={fixture.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-3"><div className="min-w-0 flex-1 text-sm"><div className="mb-1 text-xs font-bold text-slate-500">{fixture.label} · {fixture.scheduled_date}</div>{cupSourceLabel(fixture.home_source, state.format!.config, teams, state.fixtures)} — {cupSourceLabel(fixture.away_source, state.format!.config, teams, state.fixtures)}</div><Button variant="outline" size="sm" disabled={busy} onClick={() => setSchedule({ ...fixture, scheduled_time: fixture.scheduled_time?.slice(0, 5) || null })}>Розклад</Button></div>)}</div></div> : null}
+    {state?.fixtures.length ? <div className="admin-step-card space-y-3"><h4 className="font-bold">Опубліковані пари та розклад</h4><p className="text-sm text-slate-500">Учасники майбутніх стадій визначаться автоматично. Редагування дати тут оновлює обидва матчі пари.</p><div className="max-h-[36rem] space-y-2 overflow-y-auto">{state.fixtures.map((fixture) => <div key={fixture.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-3"><div className="min-w-0 flex-1 text-sm"><div className="mb-1 text-xs font-bold text-slate-500">{fixture.label} · {fixture.scheduled_date}</div>{cupSourceLabel(fixture.home_source, state.format!.config, teams, state.fixtures)} — {cupSourceLabel(fixture.away_source, state.format!.config, teams, state.fixtures)}</div>{Boolean(fixture.excluded_legs?.length) && <div className="space-y-1"><p className="text-xs text-amber-700">Скасовано матчів: {fixture.excluded_legs!.length}</p>{fixture.excluded_legs!.map((leg) => <Button key={leg} variant="outline" size="sm" disabled={busy} onClick={() => void restore(fixture, leg)}>Створити матч {leg} знову</Button>)}</div>}<Button variant="outline" size="sm" disabled={busy} onClick={() => setSchedule({ ...fixture, scheduled_time: fixture.scheduled_time?.slice(0, 5) || null })}>Розклад</Button></div>)}</div></div> : null}
+    {state?.format && <div className="admin-step-card"><Button type="button" variant="destructive" disabled={busy} onClick={() => setResetOpen(true)}>Очистити кубкову сітку та її матчі</Button></div>}
     {schedule && <form onSubmit={(event) => { event.preventDefault(); void saveSchedule() }} className="admin-step-card space-y-4"><h4 className="font-bold">Розклад пари · {schedule.label}</h4><fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Назва стадії<Input required maxLength={80} value={schedule.label} onChange={(event) => setSchedule({ ...schedule, label: event.target.value })} /></label><label className="text-sm">Дата першого матчу<Input required type="date" value={schedule.scheduled_date} onChange={(event) => setSchedule({ ...schedule, scheduled_date: event.target.value })} /></label><label className="text-sm">Час за Києвом<Input type="time" value={schedule.scheduled_time || ""} onChange={(event) => setSchedule({ ...schedule, scheduled_time: event.target.value || null })} /></label>{schedule.legs === 2 && <label className="text-sm">Днів до другого матчу<Input required type="number" min={0} max={60} value={schedule.leg_gap_days} onChange={(event) => setSchedule({ ...schedule, leg_gap_days: Number(event.target.value) })} /></label>}</fieldset><div className="flex gap-2"><Button disabled={busy} type="submit">Зберегти розклад</Button><Button disabled={busy} variant="outline" type="button" onClick={() => setSchedule(null)}>Скасувати</Button></div></form>}
   </section>
 }

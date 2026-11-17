@@ -61,15 +61,25 @@ export async function deleteTournamentSponsor(id: number, championshipId: number
   if (!data) throw new Error("Спонсора не видалено.")
 }
 
-export async function getCupState(championshipId: number): Promise<CupState> {
+export async function getCupState(championshipId: number, providedMatches?: Match[]): Promise<CupState> {
   if (!isSupabaseConfigured) return { format: null, fixtures: [], matches: [] }
   const [format, fixtures, matches] = await Promise.all([
     supabase.from("cup_formats").select("*").eq("championship_id", championshipId).maybeSingle(),
     readCupRows<CupFixture>("cup_fixtures", championshipId),
-    readCupRows<Match>("matches", championshipId),
+    providedMatches ? Promise.resolve(providedMatches.filter((match) => match.championship_id === championshipId)) : readCupRows<Match>("matches", championshipId),
   ])
   if (format.error) throw format.error
   return { format: format.data, fixtures, matches }
+}
+
+export async function restoreCupMatch(championshipId: number, fixture: string, leg: number, revision: number): Promise<void> {
+  const { error } = await supabase.rpc("restore_cup_match", { p_championship: championshipId, p_fixture: fixture, p_leg: leg, p_revision: revision })
+  if (error) throw error
+}
+
+export async function resetCupFormat(championshipId: number, revision: number, matches: Match[]): Promise<void> {
+  const { error } = await supabase.rpc("reset_cup_format", { p_championship: championshipId, p_revision: revision, p_match_ids: matches.filter((match) => match.championship_id === championshipId && match.cup_fixture_id).map((match) => match.id).sort((a, b) => a - b) })
+  if (error) throw error
 }
 
 async function readCupRows<T>(table: "cup_fixtures" | "matches", championshipId: number): Promise<T[]> {

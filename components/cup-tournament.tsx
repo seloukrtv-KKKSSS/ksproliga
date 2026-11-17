@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { getTeams, getChampionships } from "@/lib/database"
-import type { Championship, Team } from "@/lib/supabase"
+import type { Championship, Match, Team } from "@/lib/supabase"
 import { buildCupGroupTable, type CupState } from "@/lib/cup"
 import { getCupState, tournamentError } from "@/lib/tournaments"
 import { CupBracket, CupMatchLink } from "@/components/cup-bracket"
@@ -12,19 +12,20 @@ import { getCupPosterFixtures, type PosterData } from "@/lib/posters/model"
 
 const PosterEditor = dynamic(() => import("@/components/posters/poster-editor"), { ssr: false })
 
-export function CupTournament({ championshipId }: { championshipId: number }) {
+export function CupTournament({ championshipId, matches: providedMatches, teams: providedTeams, championship: providedChampionship }: { championshipId: number; matches?: Match[]; teams?: Team[]; championship?: Championship | null }) {
   const [state, setState] = useState<CupState | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [championship, setChampionship] = useState<Championship | null>(null)
   const [poster, setPoster] = useState<PosterData | null>(null)
   const [error, setError] = useState("")
   const load = useCallback(async (cancelled: () => boolean = () => false) => {
+    if (providedChampionship && providedChampionship.id !== championshipId) return
     try {
-      const [next, teamData, championships] = await Promise.all([getCupState(championshipId), getTeams(championshipId), getChampionships()])
+      const [next, teamData, championships] = await Promise.all([getCupState(championshipId, providedMatches), providedTeams ? Promise.resolve(providedTeams) : getTeams(championshipId), providedChampionship ? Promise.resolve([providedChampionship]) : getChampionships()])
       if (cancelled()) return
       setState(next); setTeams(teamData); setChampionship(championships.find((item) => item.id === championshipId) || null); setError("")
     } catch (e) { if (!cancelled()) setError(tournamentError(e)) }
-  }, [championshipId])
+  }, [championshipId, providedMatches, providedTeams, providedChampionship])
   useEffect(() => { let cancelled = false; const timer = window.setTimeout(() => void load(() => cancelled), 0); return () => { cancelled = true; window.clearTimeout(timer) } }, [load])
   if (error) return <div role="alert" className="space-y-3 rounded-2xl border p-5 text-sm"><p>{error}</p><Button variant="outline" onClick={() => void load()}>Спробувати ще раз</Button></div>
   if (!state) return <p className="py-12 text-center text-sm text-slate-500">Завантаження кубкового турніру…</p>

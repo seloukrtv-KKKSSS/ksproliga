@@ -26,15 +26,17 @@ export function CupBracket({ config, fixtures, matches, teams }: { config: CupCo
           const awayId = fixture.away_source.kind === "team" ? fixture.away_source.teamId : undefined
           const names = games.length ? [games[0].home_team, games[0].away_team] : [homeId ? byId.get(homeId)?.name || "Команду видалено" : cupSourceLabel(fixture.home_source, config, teams, fixtures), awayId ? byId.get(awayId)?.name || "Команду видалено" : cupSourceLabel(fixture.away_source, config, teams, fixtures)]
           const winner = fixture.winner_team_id ? byId.get(fixture.winner_team_id)?.name : null
-          const drawPending = !fixture.resolved && games.length === fixture.legs && games.every((match) => match.is_finished)
+          const activeLegs = fixture.legs - (fixture.excluded_legs?.length || 0)
+          const drawPending = !fixture.resolved && activeLegs > 0 && games.length === activeLegs && games.every((match) => match.is_finished)
           return <article key={fixture.id} className="relative rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="mb-2 flex justify-between text-[10px] font-bold text-slate-400"><span>{fixture.id === "third-place" ? "За третє місце" : `Пара ${fixture.position + 1}`}</span><span>{fixture.legs === 2 ? "Два матчі" : "Один матч"}</span></div>
+            <div className="mb-2 flex justify-between text-[10px] font-bold text-slate-400"><span>{fixture.id === "third-place" ? "За третє місце" : `Пара ${fixture.position + 1}`}</span><span>{activeLegs === 0 ? "Пару скасовано" : activeLegs === 2 ? "Два матчі" : "Один матч"}</span></div>
             {names.map((name, index) => {
               const team = teams.find((item) => item.name === name)
-              const score = games.length === fixture.legs && games.every((match) => match.is_finished) ? games.reduce((sum, match) => sum + (match.is_technical_defeat ? match.technical_winner === name ? 3 : 0 : (match.home_team === name ? match.home_score : match.away_score) || 0), 0) : null
+              const score = activeLegs > 0 && games.length === activeLegs && games.every((match) => match.is_finished) ? games.reduce((sum, match) => sum + (match.is_technical_defeat ? match.technical_winner === name ? 3 : 0 : (match.home_team === name ? match.home_score : match.away_score) || 0), 0) : null
               return <div key={index} className={`flex items-center gap-2 rounded-lg px-1 py-2 text-xs ${winner === name ? "bg-emerald-50 font-extrabold text-emerald-800" : "text-slate-700"}`}>{team && <SafeImage src={team.logo || "/placeholder.svg"} alt="" width={28} height={28} className="h-7 w-7 shrink-0 object-contain" />}<span className="min-w-0 flex-1">{name}</span><strong className="text-sm">{score ?? "—"}</strong></div>
             })}
             {fixture.resolved && !games.length && winner && <p className="mt-2 text-[10px] text-emerald-700">{winner} проходить без гри</p>}
+            {Boolean(fixture.excluded_legs?.length) && <p className="mt-2 text-[10px] text-amber-700">Скасовано матчів: {fixture.excluded_legs!.length}</p>}
             {drawPending && <p className="mt-2 text-[10px] text-amber-800">Очікуємо результат серії пенальті</p>}
             <div className="mt-2 space-y-1">{games.map((match) => <CupMatchLink key={match.id} match={match} />)}</div>
           </article>

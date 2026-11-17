@@ -46,6 +46,19 @@ const partial=structuredClone(data);partial.matches.find(match=>match.cup_fixtur
 partial.cup.fixtures[0].resolved=false;partial.cup.fixtures[0].winner_team_id=null
 assert.match(getCupPosterEntries(partial)[0].detail,/зіграно 1/)
 assert.equal(getCupPosterEntries(partial)[0].winner,undefined)
+const cancelledLeg=structuredClone(data)
+cancelledLeg.cup.fixtures[0].excluded_legs=[1]
+cancelledLeg.matches=cancelledLeg.matches.filter(match=>match.cup_fixture_id!==first.fixture.id||match.cup_leg===2)
+const remainingLeg=getCupPosterEntries(cancelledLeg)[0]
+assert.equal(remainingLeg.complete,true,"A cancelled leg is excluded from the required match count")
+assert.equal(remainingLeg.winner,first.home.name,"The remaining away leg determines the winner with correct orientation")
+assert.match(remainingLeg.detail,/скасовано 1/)
+cancelledLeg.cup.fixtures[0].excluded_legs=[1,2]
+cancelledLeg.matches=cancelledLeg.matches.filter(match=>match.cup_fixture_id!==first.fixture.id)
+const cancelledTie=getCupPosterEntries(cancelledLeg)[0]
+assert.equal(cancelledTie.complete,false)
+assert.equal(cancelledTie.winner,undefined,"A cancelled tie cannot advance its former stored winner")
+assert.match(cancelledTie.detail,/Пару скасовано/)
 const upcoming={...data,matches:[],cup:{...data.cup,fixtures:data.cup.fixtures.map(fixture=>({...fixture,resolved:false,winner_team_id:null,loser_team_id:null}))}}
 assert.ok(getCupPosterEntries(upcoming).find(entry=>entry.fixture.stage===2).home.pending)
 const technical=structuredClone(cup(4));technical.matches[0].is_technical_defeat=true;technical.matches[0].technical_winner=technical.matches[0].away_team

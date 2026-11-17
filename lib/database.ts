@@ -852,7 +852,21 @@ export async function updateMatch(id: number, updates: Partial<Match>): Promise<
   return data
 }
 
-export async function deleteMatch(id: number): Promise<void> {
+export interface MatchDeletionPlan { match: Match; dependents: Match[]; token: string }
+
+export async function getMatchDeletionPlan(id: number): Promise<MatchDeletionPlan> {
+  if (shouldUseMockData()) {
+    const match = mockMatches.find((item) => item.id === id)
+    if (!match) throw new Error("Матч не знайдено.")
+    return { match, dependents: [], token: `mock-${id}` }
+  }
+  const { data, error } = await supabase.rpc("get_match_deletion_plan", { p_match: id })
+  if (error) throw error
+  if (!data?.token) throw new Error("Не вдалося перевірити зв’язки матчу.")
+  return data as MatchDeletionPlan
+}
+
+export async function deleteMatch(id: number, options?: { token: string; includeDependents: boolean }): Promise<void> {
   if (shouldUseMockData()) {
     const index = mockMatches.findIndex((m) => m.id === id)
     if (index !== -1) {
@@ -868,8 +882,10 @@ export async function deleteMatch(id: number): Promise<void> {
     return Promise.resolve()
   }
 
-  const { error } = await supabase.from("matches").delete().eq("id", id)
+  const token = options?.token || (await getMatchDeletionPlan(id)).token
+  const { data, error } = await supabase.rpc("delete_tournament_match", { p_match: id, p_token: token, p_include_dependents: options?.includeDependents || false })
   if (error) throw error
+  if (data !== id) throw new Error("Матч не видалено. Оновіть сторінку й перевірте доступ до турніру.")
 }
 
 // Match Goals

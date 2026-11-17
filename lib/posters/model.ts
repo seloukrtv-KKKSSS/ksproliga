@@ -303,17 +303,18 @@ export function getCupPosterEntries(data: PosterData): CupPosterEntry[] {
       const forward = cupTeamKey(match.home_team) === cupTeamKey(home.name)
       homeTotal += forward ? h : a; awayTotal += forward ? a : h; played++
     }
-    const complete = played === fixture.legs
+    const activeLegs = fixture.legs - (fixture.excluded_legs?.length || 0)
+    const complete = activeLegs > 0 && played === activeLegs
     const last = games.at(-1)
     let winner = complete && homeTotal !== awayTotal ? homeTotal > awayTotal ? home.name : away.name : undefined
     if (complete && !winner && last?.penalty_home != null && last.penalty_away != null && last.penalty_home !== last.penalty_away) winner = last.penalty_home > last.penalty_away ? last.home_team : last.away_team
-    if (!winner && fixture.resolved && fixture.winner_team_id) winner = teams.get(fixture.winner_team_id)?.name
+    if (!winner && activeLegs > 0 && fixture.resolved && fixture.winner_team_id) winner = teams.get(fixture.winner_team_id)?.name
     const loser = winner ? cupTeamKey(winner) === cupTeamKey(home.name) ? away.bye ? undefined : away.name : home.bye ? undefined : home.name : undefined
-    const technical = fixture.legs === 1 && games[0]?.is_finished && games[0].is_technical_defeat && winner
+    const technical = activeLegs === 1 && games[0]?.is_finished && games[0].is_technical_defeat && winner
     const homeScore = technical && winner ? cupTeamKey(winner) === cupTeamKey(home.name) ? "+" : "−" : played ? String(homeTotal) : "—"
     const awayScore = technical && winner ? cupTeamKey(winner) === cupTeamKey(away.name) ? "+" : "−" : played ? String(awayTotal) : "—"
     const penalties = complete && last?.penalty_home != null && last.penalty_away != null ? `пен. ${last.penalty_home}:${last.penalty_away}` : ""
-    const detail = [fixture.legs === 2 ? played < 2 ? `2 матчі · зіграно ${played}` : games.map((match, index) => `${index + 1}-й: ${getPosterMatchScore(match) || "—"}`).join(" · ") : "", penalties, technical ? "Технічний результат" : "", !games.length && winner ? "Прохід без гри" : ""].filter(Boolean).join(" · ")
+    const detail = [activeLegs === 0 ? "Пару скасовано" : fixture.excluded_legs?.length ? `Матчів: ${activeLegs} · скасовано ${fixture.excluded_legs.length}` : fixture.legs === 2 ? played < 2 ? `2 матчі · зіграно ${played}` : games.map((match, index) => `${index + 1}-й: ${getPosterMatchScore(match) || "—"}`).join(" · ") : "", penalties, technical ? "Технічний результат" : "", !games.length && winner ? "Прохід без гри" : ""].filter(Boolean).join(" · ")
     if (raw.matchIds) {
       // Connect older, manually entered rounds by their actual participants.
       for (const side of ["home", "away"] as const) {
